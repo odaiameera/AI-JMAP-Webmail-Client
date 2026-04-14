@@ -1,0 +1,10 @@
+services:
+  webmail:
+    build: .
+    container_name: webmail
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      - JMAP_URL=https://mx.odaiameera.com
