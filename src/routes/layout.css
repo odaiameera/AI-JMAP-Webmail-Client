@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/cairo';
+
+@theme {
+	--color-bg: #09090B;
+	--color-surface: #18181B;
+	--color-surface-hover: #27272A;
+	--color-border: #27272A;
+	--color-text: #FAFAFA;
+	--color-text-secondary: #A1A1AA;
+	--color-text-tertiary: #71717A;
+	--color-accent: #6366F1;
+	--color-accent-hover: #818CF8;
+	--color-unread: #3B82F6;
+	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
+}
+
+html {
+	background-color: var(--color-bg);
+	color: var(--color-text);
+}
+
+body {
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
