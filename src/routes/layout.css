@@ -40,42 +40,82 @@ body {
 }
 
 .fc-btn {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 28px;
-	height: 26px;
-	padding: 0 4px;
+	min-width: 26px;
+	height: 24px;
+	padding: 0 3px;
 	border-radius: 4px;
 	font-size: 13px;
 	color: var(--color-text-secondary);
 	cursor: pointer;
-	transition: background 0.1s, color 0.1s;
 	border: none;
 	background: transparent;
+	transition: background 0.1s, color 0.1s;
 	white-space: nowrap;
+	flex-shrink: 0;
 }
 .fc-btn:hover:not(:disabled) {
 	background: var(--color-surface-hover);
 	color: var(--color-text);
 }
-.fc-btn.active {
+.fc-active {
 	background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 	color: var(--color-accent);
+}
+.fc-active-red {
+	background: color-mix(in srgb, #f87171 15%, transparent);
+	color: #f87171;
+}
+.fc-active-blue {
+	background: color-mix(in srgb, #60a5fa 15%, transparent);
+	color: #60a5fa;
 }
 .fc-select {
 	height: 24px;
 	font-size: 12px;
+	padding: 0 6px;
 	background: var(--color-surface-hover);
 	border: 1px solid var(--color-border);
 	border-radius: 4px;
 	color: var(--color-text);
-	padding: 0 4px;
 	cursor: pointer;
+	flex-shrink: 0;
 }
 .fc-select:focus {
 	outline: none;
 	border-color: var(--color-accent);
+}
+.fc-sep {
+	width: 1px;
+	height: 16px;
+	background: var(--color-border);
+	margin: 0 3px;
+	flex-shrink: 0;
+}
+
+.full-composer-editor :global(.ProseMirror) {
+	outline: none; min-height: 100%;
+	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+	font-size: 14px; line-height: 1.6; color: var(--color-text);
+}
+.full-composer-editor :global(.ProseMirror p) { margin: 0 0 0.5em; }
+.full-composer-editor :global(.ProseMirror ul) { list-style: disc; padding-left: 1.5em; margin: 0.25em 0; }
+.full-composer-editor :global(.ProseMirror ol) { list-style: decimal; padding-left: 1.5em; margin: 0.25em 0; }
+.full-composer-editor :global(.ProseMirror h1) { font-size: 1.5em; font-weight: 700; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror h2) { font-size: 1.25em; font-weight: 600; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror h3) { font-size: 1.1em; font-weight: 600; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror a) { color: var(--color-accent); text-decoration: underline; }
+.full-composer-editor :global(.ProseMirror blockquote) {
+	border-left: 3px solid var(--color-border); padding-left: 1em; margin-left: 0; color: var(--color-text-secondary);
+}
+.full-composer-editor :global(.ProseMirror table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror td),
+.full-composer-editor :global(.ProseMirror th) { border: 1px solid var(--color-border); padding: 6px 10px; min-width: 60px; }
+.full-composer-editor :global(.ProseMirror th) { background: var(--color-surface-hover); font-weight: 600; }
+.full-composer-editor :global(.ProseMirror .is-editor-empty:first-child::before) {
+	content: attr(data-placeholder); color: var(--color-text-tertiary); pointer-events: none; float: left; height: 0;
 }
 
 @media print {

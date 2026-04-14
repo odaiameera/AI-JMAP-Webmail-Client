@@ -87,7 +87,7 @@
 			{@render children()}
 		</main>
 		{#if $fullComposeOpen}
-			<div class="w-[600px] border-l border-border flex flex-col shrink-0">
+			<div class="w-[680px] shrink-0 border-l border-border flex flex-col bg-bg">
 				<FullComposer />
 			</div>
 		{/if}
