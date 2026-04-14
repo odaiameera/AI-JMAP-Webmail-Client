@@ -42,12 +42,12 @@
 	href="/email/{email.id}"
 	onclick={handleRowClick}
 	class="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
-		{selected ? 'bg-accent/5' : ''} {active ? 'bg-surface-hover' : ''}"
+		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >
 	<input
 		type="checkbox"
 		checked={selected}
-		class="w-3.5 h-3.5 accent-accent cursor-pointer shrink-0"
+		class="w-3.5 h-3.5 accent-accent cursor-pointer shrink-0 {selected ? 'outline outline-1 outline-accent' : ''}"
 		onclick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect?.(email.id, !selected); }}
 	/>
 
