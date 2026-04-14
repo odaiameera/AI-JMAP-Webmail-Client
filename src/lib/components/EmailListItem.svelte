@@ -44,12 +44,20 @@
 	class="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
 		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >
-	<input
-		type="checkbox"
-		checked={selected}
-		class="w-3.5 h-3.5 accent-accent cursor-pointer shrink-0 {selected ? 'outline outline-1 outline-accent' : ''}"
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center cursor-pointer transition-colors
+			{selected ? 'bg-accent border-accent' : 'border-text-tertiary hover:border-text-secondary'}"
 		onclick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect?.(email.id, !selected); }}
-	/>
+		onkeydown={(e) => { if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect?.(email.id, !selected); } }}
+		role="checkbox"
+		aria-checked={selected}
+		tabindex={0}
+	>
+		{#if selected}
+			<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+		{/if}
+	</div>
 
 	{#if !isRead}
 		<span class="w-2 h-2 rounded-full bg-unread shrink-0"></span>

@@ -93,7 +93,20 @@
 		<header class="ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="shrink-0">
-					<input type="checkbox" checked={allSelected} onchange={toggleAll} class="w-3.5 h-3.5 accent-accent cursor-pointer" />
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class="w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-colors
+								{allSelected ? 'bg-accent border-accent' : 'border-text-tertiary hover:border-text-secondary'}"
+							onclick={toggleAll}
+							onkeydown={(e) => e.key === ' ' && toggleAll()}
+							role="checkbox"
+							aria-checked={allSelected}
+							tabindex={0}
+						>
+							{#if allSelected}
+								<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+							{/if}
+						</div>
 				</div>
 				<span class="text-sm text-text-secondary">{selectedIds.size} selected</span>
 				<div class="flex items-center gap-1 ml-2">
@@ -119,7 +132,15 @@
 				</button>
 			{:else}
 				<div class="shrink-0">
-					<input type="checkbox" checked={false} onchange={toggleAll} class="w-3.5 h-3.5 accent-accent cursor-pointer" />
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class="w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-colors border-text-tertiary hover:border-text-secondary"
+							onclick={toggleAll}
+							onkeydown={(e) => e.key === ' ' && toggleAll()}
+							role="checkbox"
+							aria-checked={false}
+							tabindex={0}
+						></div>
 				</div>
 				<span class="text-sm font-medium text-text">{title}</span>
 				<span class="text-xs text-text-tertiary">{total} messages</span>
