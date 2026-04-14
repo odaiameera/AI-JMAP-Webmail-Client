@@ -2,6 +2,8 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import ComposeModal from '$lib/components/ComposeModal.svelte';
+	import FullComposer from '$lib/components/FullComposer.svelte';
+	import { fullComposeOpen } from '$lib/stores/compose';
 	import { goto } from '$app/navigation';
 	import { onMount, setContext } from 'svelte';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
@@ -84,6 +86,11 @@
 		<main class="flex-1 overflow-hidden min-w-0">
 			{@render children()}
 		</main>
+		{#if $fullComposeOpen}
+			<div class="w-[600px] border-l border-border flex flex-col shrink-0">
+				<FullComposer />
+			</div>
+		{/if}
 	</div>
 </div>
 

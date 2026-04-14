@@ -23,3 +23,17 @@ export function closeCompose() {
 	composeOpen.set(false);
 	composeData.set(null);
 }
+
+// Full composer (reading pane slot)
+export const fullComposeOpen = writable(false);
+export const fullComposeData = writable<ComposeData | null>(null);
+
+export function openFullCompose(data?: ComposeData) {
+	fullComposeData.set(data ?? null);
+	fullComposeOpen.set(true);
+}
+
+export function closeFullCompose() {
+	fullComposeOpen.set(false);
+	fullComposeData.set(null);
+}

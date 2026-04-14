@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { composeOpen, composeData, closeCompose } from '$lib/stores/compose';
+	import { composeOpen, composeData, closeCompose, openFullCompose } from '$lib/stores/compose';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 
 	let to = $state('');
@@ -228,14 +228,23 @@
 					{savingDraft ? 'Saving...' : 'Save Draft'}
 				</button>
 			</div>
-			<button
-				onclick={handleDiscard}
-				disabled={sending || savingDraft || discarding}
-				class="text-text-tertiary hover:text-red-400 text-sm px-3 py-1.5 rounded-lg
-					hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
-			>
-				{discarding ? 'Discarding...' : 'Discard'}
-			</button>
+			<div class="flex items-center gap-1">
+				<button
+					onclick={() => { openFullCompose({ to, cc, subject, body, inReplyTo, references, draftId }); closeCompose(); }}
+					title="Open full composer"
+					class="text-text-tertiary hover:text-text text-sm p-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
+				>
+					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+				</button>
+				<button
+					onclick={handleDiscard}
+					disabled={sending || savingDraft || discarding}
+					class="text-text-tertiary hover:text-red-400 text-sm px-3 py-1.5 rounded-lg
+						hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
+				>
+					{discarding ? 'Discarding...' : 'Discard'}
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
-	import { openCompose } from '$lib/stores/compose';
+	import { openCompose, fullComposeOpen } from '$lib/stores/compose';
 	import { invalidateAll } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Email } from '$lib/jmap/types';
@@ -175,7 +175,7 @@
 		</div>
 	</div>
 
-	{#if paneOpen}
+	{#if paneOpen && !$fullComposeOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
