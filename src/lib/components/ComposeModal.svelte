@@ -104,7 +104,12 @@
 	></div>
 
 	<!-- Modal -->
-	<div class="fixed inset-4 md:inset-auto md:bottom-4 md:right-4 md:w-[600px] md:h-[520px] bg-surface border border-border rounded-xl shadow-2xl z-50 flex flex-col">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-4 md:inset-auto md:bottom-4 md:right-4 md:w-[600px] md:h-[520px] bg-surface border border-border rounded-xl shadow-2xl z-50 flex flex-col"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => e.stopPropagation()}
+	>
 		<!-- Header -->
 		<div class="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
 			<h2 class="text-sm font-semibold text-text">
