@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
-import { sendEmail } from '$lib/jmap/email';
+import { sendEmail, destroyEmail } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { EmailAddress } from '$lib/jmap/types';
 
@@ -55,6 +55,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		if (!result.success) {
 			return json({ error: result.error ?? 'Failed to send' }, { status: 500 });
+		}
+
+		if (body.draftId) {
+			try {
+				await destroyEmail(client, locals.auth.accountId, body.draftId);
+			} catch {
+				// non-fatal — email sent, draft cleanup failed
+			}
 		}
 
 		return json({ success: true });

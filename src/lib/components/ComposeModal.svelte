@@ -7,9 +7,11 @@
 	let body = $state('');
 	let inReplyTo = $state('');
 	let references = $state('');
+	let draftId = $state<string | undefined>(undefined);
 	let showCc = $state(false);
 	let sending = $state(false);
 	let savingDraft = $state(false);
+	let discarding = $state(false);
 	let error = $state('');
 
 	// Sync from store when compose opens
@@ -22,6 +24,7 @@
 			body = data?.body ?? '';
 			inReplyTo = data?.inReplyTo ?? '';
 			references = data?.references ?? '';
+			draftId = data?.draftId;
 			showCc = !!data?.cc;
 			error = '';
 		}
@@ -33,17 +36,17 @@
 		}
 	}
 
-	async function postApi(endpoint: string): Promise<{ ok: boolean; error?: string }> {
+	async function postApi(endpoint: string): Promise<{ ok: boolean; error?: string; draftId?: string }> {
 		const res = await fetch(endpoint, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ to, cc, subject, body, inReplyTo, references })
+			body: JSON.stringify({ to, cc, subject, body, inReplyTo, references, draftId })
 		});
 
 		const result = await res.json();
 
 		if (result.success) {
-			return { ok: true };
+			return { ok: true, draftId: result.draftId };
 		}
 
 		return { ok: false, error: result.error ?? `Server error (${res.status})` };
@@ -79,6 +82,7 @@
 		try {
 			const result = await postApi('/api/draft');
 			if (result.ok) {
+				draftId = result.draftId;
 				closeCompose();
 			} else {
 				error = result.error ?? 'Failed to save draft';
@@ -88,6 +92,24 @@
 		} finally {
 			savingDraft = false;
 		}
+	}
+
+	async function handleDiscard() {
+		if (draftId) {
+			discarding = true;
+			try {
+				await fetch('/api/discard', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ draftId })
+				});
+			} catch {
+				// best effort
+			} finally {
+				discarding = false;
+			}
+		}
+		closeCompose();
 	}
 </script>
 
@@ -207,11 +229,12 @@
 				</button>
 			</div>
 			<button
-				onclick={closeCompose}
+				onclick={handleDiscard}
+				disabled={sending || savingDraft || discarding}
 				class="text-text-tertiary hover:text-red-400 text-sm px-3 py-1.5 rounded-lg
-					hover:bg-surface-hover transition-colors cursor-pointer"
+					hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
 			>
-				Discard
+				{discarding ? 'Discarding...' : 'Discard'}
 			</button>
 		</div>
 	</div>

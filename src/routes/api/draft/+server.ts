@@ -50,7 +50,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: result.error ?? 'Failed to save draft' }, { status: 500 });
 		}
 
-		return json({ success: true });
+		return json({ success: true, draftId: result.id });
 	} catch (err) {
 		return json({ error: err instanceof Error ? err.message : 'Failed to save draft' }, { status: 500 });
 	}

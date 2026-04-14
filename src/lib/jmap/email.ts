@@ -118,7 +118,7 @@ export async function sendEmail(
 	// Step 1: Create the email in Sent + get identity
 	const emailCreate = buildEmailCreate(compose);
 	emailCreate.mailboxIds = { [sentMailboxId]: true };
-	delete emailCreate.keywords;
+	emailCreate.keywords = { '$seen': true };
 
 	const createResponse = await client.request([
 		[
@@ -231,4 +231,14 @@ export async function saveDraft(
 
 	const created = result.created?.draft1;
 	return { success: true, id: created?.id };
+}
+
+export async function destroyEmail(
+	client: JMAPClient,
+	accountId: string,
+	id: string
+): Promise<void> {
+	await client.request([
+		['Email/set', { accountId, destroy: [id] }, '0']
+	]);
 }

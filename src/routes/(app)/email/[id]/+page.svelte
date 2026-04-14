@@ -17,7 +17,8 @@
 				to: email.to?.map((a) => a.email).join(', ') ?? '',
 				cc: email.cc?.map((a) => a.email).join(', ') ?? '',
 				subject: email.subject ?? '',
-				body: getPlainTextBody()
+				body: getPlainTextBody(),
+				draftId: email.id
 			});
 		}
 	});
