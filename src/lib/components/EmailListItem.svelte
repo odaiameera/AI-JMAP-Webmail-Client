@@ -1,13 +1,16 @@
 <script lang="ts">
 	import type { Email } from '$lib/jmap/types';
 
-	let { email }: { email: Email } = $props();
+	let { email, selected = false, onSelect }: {
+		email: Email;
+		selected?: boolean;
+		onSelect?: (id: string, checked: boolean) => void;
+	} = $props();
 
 	const isRead = $derived('$seen' in email.keywords);
 	const senderName = $derived(
 		email.from?.[0]?.name || email.from?.[0]?.email || 'Unknown'
 	);
-	const senderEmail = $derived(email.from?.[0]?.email || '');
 
 	function formatDate(dateStr: string): string {
 		const date = new Date(dateStr);
@@ -24,16 +27,34 @@
 
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
+
+	function handleCheckbox(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		onSelect?.(email.id, !selected);
+	}
 </script>
 
 <a
 	href="/email/{email.id}"
-	class="flex items-start gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline"
+	class="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
+		{selected ? 'bg-accent/5' : ''}"
 >
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="shrink-0" onclick={handleCheckbox} onkeydown={(e) => e.key === 'Enter' && handleCheckbox(e)}>
+		<input
+			type="checkbox"
+			checked={selected}
+			tabindex={-1}
+			class="w-3.5 h-3.5 accent-accent cursor-pointer"
+			onclick={handleCheckbox}
+		/>
+	</div>
+
 	{#if !isRead}
-		<span class="mt-2 w-2 h-2 rounded-full bg-unread shrink-0"></span>
+		<span class="w-2 h-2 rounded-full bg-unread shrink-0"></span>
 	{:else}
-		<span class="mt-2 w-2 h-2 shrink-0"></span>
+		<span class="w-2 h-2 shrink-0"></span>
 	{/if}
 
 	<div class="flex-1 min-w-0">
@@ -58,6 +79,6 @@
 	</div>
 
 	{#if email.hasAttachment}
-		<span class="mt-1 text-text-tertiary text-sm shrink-0">📎</span>
+		<span class="text-text-tertiary text-sm shrink-0">📎</span>
 	{/if}
 </a>

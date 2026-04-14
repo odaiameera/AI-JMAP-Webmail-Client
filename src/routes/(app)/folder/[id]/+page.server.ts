@@ -21,6 +21,7 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	return {
 		emails: result.emails,
 		total: result.total,
-		mailboxName: mailbox.name
+		mailboxName: mailbox.name,
+		mailboxId: mailbox.id
 	};
 };

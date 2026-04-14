@@ -14,13 +14,14 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 
 	const inbox = mailboxes.find((m) => m.role === 'inbox');
 	if (!inbox) {
-		return { emails: [], total: 0 };
+		return { emails: [], total: 0, mailboxId: '' };
 	}
 
 	const result = await queryAndFetchEmails(client, locals.auth.accountId, inbox.id, { limit: 50 });
 
 	return {
 		emails: result.emails,
-		total: result.total
+		total: result.total,
+		mailboxId: inbox.id
 	};
 };

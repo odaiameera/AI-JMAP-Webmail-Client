@@ -24,6 +24,29 @@ export async function getMailboxes(client: JMAPClient, accountId: string): Promi
 	});
 }
 
+export async function ensureArchiveMailbox(client: JMAPClient, accountId: string): Promise<string> {
+	const mailboxes = await getMailboxes(client, accountId);
+	const archive = mailboxes.find((m) => m.role === 'archive');
+	if (archive) return archive.id;
+
+	const response = await client.request([
+		[
+			'Mailbox/set',
+			{
+				accountId,
+				create: { arch1: { name: 'Archive', role: 'archive' } }
+			},
+			'0'
+		]
+	]);
+
+	const result = response.methodResponses[0][1] as {
+		created?: Record<string, { id: string }>;
+	};
+
+	return result.created?.arch1?.id ?? '';
+}
+
 function getRoleOrder(role: string | null): number {
 	const order: Record<string, number> = {
 		inbox: 0,

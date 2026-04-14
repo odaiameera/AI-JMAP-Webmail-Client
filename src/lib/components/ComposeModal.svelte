@@ -12,6 +12,7 @@
 	let sending = $state(false);
 	let savingDraft = $state(false);
 	let discarding = $state(false);
+	let isForward = $state(false);
 	let error = $state('');
 
 	// Sync from store when compose opens
@@ -25,6 +26,7 @@
 			inReplyTo = data?.inReplyTo ?? '';
 			references = data?.references ?? '';
 			draftId = data?.draftId;
+			isForward = !!data?.isForward;
 			showCc = !!data?.cc;
 			error = '';
 		}
@@ -135,7 +137,7 @@
 		<!-- Header -->
 		<div class="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
 			<h2 class="text-sm font-semibold text-text">
-				{inReplyTo ? 'Reply' : 'New Message'}
+				{inReplyTo ? 'Reply' : isForward ? 'Forward' : draftId ? 'Draft' : 'New Message'}
 			</h2>
 			<button
 				onclick={closeCompose}

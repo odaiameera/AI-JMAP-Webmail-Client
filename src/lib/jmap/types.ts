@@ -53,6 +53,7 @@ export interface Email {
 	bodyValues?: Record<string, { value: string; isEncodingProblem: boolean; isTruncated: boolean }>;
 	htmlBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
 	textBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
+	'header:list-unsubscribe:asText'?: string | null;
 }
 
 export interface EmailQueryResult {

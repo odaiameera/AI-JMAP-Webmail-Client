@@ -8,6 +8,7 @@ export interface ComposeData {
 	inReplyTo?: string;
 	references?: string;
 	draftId?: string;
+	isForward?: boolean;
 }
 
 export const composeOpen = writable(false);

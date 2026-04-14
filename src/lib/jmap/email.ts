@@ -61,7 +61,8 @@ export async function getEmailDetail(
 				ids: [id],
 				properties: [
 					...LIST_PROPERTIES,
-					'htmlBody', 'textBody', 'bodyValues'
+					'htmlBody', 'textBody', 'bodyValues',
+					'header:list-unsubscribe:asText'
 				],
 				fetchAllBodyValues: true
 			},
@@ -241,4 +242,102 @@ export async function destroyEmail(
 	await client.request([
 		['Email/set', { accountId, destroy: [id] }, '0']
 	]);
+}
+
+export async function markEmail(
+	client: JMAPClient,
+	accountId: string,
+	id: string,
+	read: boolean
+): Promise<void> {
+	await client.request([
+		[
+			'Email/set',
+			{
+				accountId,
+				update: {
+					[id]: {
+						'keywords/$seen': read ? true : null
+					}
+				}
+			},
+			'0'
+		]
+	]);
+}
+
+export async function moveEmail(
+	client: JMAPClient,
+	accountId: string,
+	id: string,
+	targetMailboxId: string,
+	sourceMailboxId?: string
+): Promise<void> {
+	const patch: Record<string, unknown> = {
+		[`mailboxIds/${targetMailboxId}`]: true
+	};
+	if (sourceMailboxId) {
+		patch[`mailboxIds/${sourceMailboxId}`] = null;
+	}
+
+	await client.request([
+		['Email/set', { accountId, update: { [id]: patch } }, '0']
+	]);
+}
+
+export const trashEmail = (
+	client: JMAPClient, accountId: string, id: string,
+	currentMailboxId: string, trashMailboxId: string
+) => moveEmail(client, accountId, id, trashMailboxId, currentMailboxId);
+
+export const archiveEmail = (
+	client: JMAPClient, accountId: string, id: string,
+	currentMailboxId: string, archiveMailboxId: string
+) => moveEmail(client, accountId, id, archiveMailboxId, currentMailboxId);
+
+export const spamEmail = (
+	client: JMAPClient, accountId: string, id: string,
+	currentMailboxId: string, junkMailboxId: string
+) => moveEmail(client, accountId, id, junkMailboxId, currentMailboxId);
+
+export const forwardEmail = sendEmail;
+
+export async function searchEmails(
+	client: JMAPClient,
+	accountId: string,
+	filter: Record<string, unknown>,
+	options: { position?: number; limit?: number } = {}
+): Promise<EmailQueryResult> {
+	const { position = 0, limit = 50 } = options;
+
+	const response = await client.request([
+		[
+			'Email/query',
+			{
+				accountId,
+				filter,
+				sort: [{ property: 'receivedAt', isAscending: false }],
+				position,
+				limit
+			},
+			'q'
+		],
+		[
+			'Email/get',
+			{
+				accountId,
+				'#ids': { resultOf: 'q', name: 'Email/query', path: '/ids' },
+				properties: LIST_PROPERTIES
+			},
+			'g'
+		]
+	]);
+
+	const queryResult = response.methodResponses[0][1] as { total: number };
+	const getResult = response.methodResponses[1][1] as { list: Email[] };
+
+	return {
+		emails: getResult.list,
+		total: queryResult.total
+	};
 }

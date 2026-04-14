@@ -25,3 +25,14 @@ body {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
+
+@media print {
+	aside,
+	header,
+	.ribbon,
+	.compose-modal { display: none !important; }
+	.email-body {
+		color: black !important;
+		background: white !important;
+	}
+}
