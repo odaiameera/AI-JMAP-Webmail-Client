@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import AppRail from '$lib/components/AppRail.svelte';
 	import ComposeModal from '$lib/components/ComposeModal.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, setContext } from 'svelte';
@@ -8,8 +9,8 @@
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
-	// eslint-disable-next-line -- intentionally capturing initial value from server cookie
-	let { readingPaneDefault } = data;
+	// eslint-disable-next-line -- intentionally capturing initial values from server cookies
+	let { readingPaneDefault, theme: initialTheme } = data;
 	const readingPane = createReadingPaneStore(readingPaneDefault);
 	setContext('readingPane', readingPane);
 
@@ -78,8 +79,9 @@
 	</div>
 
 	<div class="flex flex-1 overflow-hidden">
+		<AppRail initialTheme={initialTheme} />
 		<Sidebar mailboxes={data.mailboxes} />
-		<main class="flex-1 overflow-y-auto">
+		<main class="flex-1 overflow-hidden min-w-0">
 			{@render children()}
 		</main>
 	</div>

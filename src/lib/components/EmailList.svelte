@@ -25,6 +25,7 @@
 	let previewEmail = $state<Email | null>(null);
 	let listWidth = $state(420);
 	let dragging = $state(false);
+	let loadingPreview = $state(false);
 
 	function startDrag(e: MouseEvent) {
 		e.preventDefault();
@@ -33,16 +34,13 @@
 		const startWidth = listWidth;
 
 		function onMove(ev: MouseEvent) {
-			const newWidth = startWidth + (ev.clientX - startX);
-			listWidth = Math.max(280, Math.min(newWidth, 800));
+			listWidth = Math.max(280, Math.min(startWidth + (ev.clientX - startX), 800));
 		}
-
 		function onUp() {
 			dragging = false;
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
 		}
-
 		window.addEventListener('mousemove', onMove);
 		window.addEventListener('mouseup', onUp);
 	}
@@ -51,22 +49,15 @@
 
 	function toggleSelect(id: string, checked: boolean) {
 		const next = new Set(selectedIds);
-		if (checked) next.add(id);
-		else next.delete(id);
+		if (checked) next.add(id); else next.delete(id);
 		selectedIds = next;
 	}
 
 	function toggleAll() {
-		if (allSelected) {
-			selectedIds = new Set();
-		} else {
-			selectedIds = new Set(emails.map((e) => e.id));
-		}
+		selectedIds = allSelected ? new Set() : new Set(emails.map((e) => e.id));
 	}
 
-	function clearSelection() {
-		selectedIds = new Set();
-	}
+	function clearSelection() { selectedIds = new Set(); }
 
 	async function bulkAction(action: string) {
 		if (selectedIds.size === 0) return;
@@ -75,39 +66,30 @@
 			await fetch('/api/email/bulk', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					ids: [...selectedIds],
-					action,
-					sourceMailboxId: mailboxId
-				})
+				body: JSON.stringify({ ids: [...selectedIds], action, sourceMailboxId: mailboxId })
 			});
 			selectedIds = new Set();
 			await invalidateAll();
-		} finally {
-			bulkLoading = '';
-		}
+		} finally { bulkLoading = ''; }
 	}
 
-	async function refresh() {
-		await invalidateAll();
-	}
+	async function refresh() { await invalidateAll(); }
 
-	async function handleEmailClick(email: Email) {
-		if (!paneOpen) return; // let default <a> navigation happen
-		// Fetch full email detail for reading pane
-		const res = await fetch(`/api/email/${email.id}/detail`);
-		if (res.ok) {
-			previewEmail = await res.json();
-		} else {
-			// Fallback: use list data (no body)
-			previewEmail = email;
-		}
+	async function handlePaneClick(email: Email) {
+		loadingPreview = true;
+		try {
+			const res = await fetch(`/api/email/${email.id}/detail`);
+			if (res.ok) {
+				previewEmail = await res.json();
+			}
+		} finally { loadingPreview = false; }
 	}
 </script>
 
-<div class="h-full flex">
+<div class="h-full flex overflow-hidden">
 	<!-- Email list column -->
-	<div class="flex flex-col shrink-0" style="{paneOpen ? `width: ${listWidth}px` : 'flex: 1'}">
+	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
+		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
 		<header class="ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="shrink-0">
@@ -132,8 +114,7 @@
 					</button>
 				</div>
 				<div class="flex-1"></div>
-				<button onclick={clearSelection}
-					class="text-text-secondary hover:text-text text-sm px-3 py-1 rounded-md hover:bg-surface-hover transition-colors cursor-pointer">
+				<button onclick={clearSelection} class="text-text-secondary hover:text-text text-sm px-3 py-1 rounded-md hover:bg-surface-hover transition-colors cursor-pointer">
 					Cancel
 				</button>
 			{:else}
@@ -158,52 +139,33 @@
 
 		<div class="flex-1 overflow-y-auto">
 			{#if emails.length === 0}
-				<div class="flex items-center justify-center h-full text-text-tertiary">
-					<p>No messages</p>
-				</div>
+				<div class="flex items-center justify-center h-full text-text-tertiary"><p>No messages</p></div>
 			{:else}
 				{#each emails as email (email.id)}
-					{#if paneOpen}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div onclick={() => handleEmailClick(email)} onkeydown={(e) => e.key === 'Enter' && handleEmailClick(email)}>
-							<EmailListItem
-								{email}
-								selected={selectedIds.has(email.id)}
-								onSelect={toggleSelect}
-								href={undefined}
-								active={previewEmail?.id === email.id}
-							/>
-						</div>
-					{:else}
-						<EmailListItem
-							{email}
-							selected={selectedIds.has(email.id)}
-							onSelect={toggleSelect}
-						/>
-					{/if}
+					<EmailListItem
+						{email}
+						selected={selectedIds.has(email.id)}
+						onSelect={toggleSelect}
+						onClick={paneOpen ? handlePaneClick : undefined}
+						active={paneOpen && previewEmail?.id === email.id}
+					/>
 				{/each}
 			{/if}
 		</div>
 	</div>
 
-	<!-- Drag handle -->
 	{#if paneOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
-			onmousedown={startDrag}
-		></div>
-	{/if}
+		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
+			onmousedown={startDrag}></div>
 
-	<!-- Reading pane -->
-	{#if paneOpen}
-		<div class="flex-1 overflow-y-auto min-w-0">
-			{#if previewEmail?.bodyValues}
+		<div class="flex-1 overflow-hidden min-w-0">
+			{#if loadingPreview}
+				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading...</div>
+			{:else if previewEmail?.bodyValues}
 				<EmailDetail email={previewEmail} compact />
 			{:else}
-				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">
-					Select an email to read
-				</div>
+				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Select an email to read</div>
 			{/if}
 		</div>
 	{/if}

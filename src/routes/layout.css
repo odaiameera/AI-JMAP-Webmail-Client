@@ -20,6 +20,19 @@ html {
 	color: var(--color-text);
 }
 
+html.light {
+	--color-bg: #F4F4F5;
+	--color-surface: #FFFFFF;
+	--color-surface-hover: #F4F4F5;
+	--color-border: #E4E4E7;
+	--color-text: #09090B;
+	--color-text-secondary: #52525B;
+	--color-text-tertiary: #A1A1AA;
+	--color-accent: #6366F1;
+	--color-accent-hover: #818CF8;
+	--color-unread: #3B82F6;
+}
+
 body {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
