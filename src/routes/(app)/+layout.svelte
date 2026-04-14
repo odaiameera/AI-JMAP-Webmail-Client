@@ -2,13 +2,26 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import ComposeModal from '$lib/components/ComposeModal.svelte';
 	import { goto } from '$app/navigation';
+	import { onMount, setContext } from 'svelte';
+	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
+	// eslint-disable-next-line -- intentionally capturing initial value from server cookie
+	let { readingPaneDefault } = data;
+	const readingPane = createReadingPaneStore(readingPaneDefault);
+	setContext('readingPane', readingPane);
+
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
 	let activeFilters = $state(new Set(['from', 'to', 'subject', 'body']));
+
+	onMount(() => {
+		const handler = () => readingPane.setFromViewport(window.innerWidth);
+		window.addEventListener('resize', handler);
+		return () => window.removeEventListener('resize', handler);
+	});
 
 	function toggleFilter(f: string) {
 		const next = new Set(activeFilters);

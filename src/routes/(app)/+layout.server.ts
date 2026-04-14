@@ -14,9 +14,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const client = createClient(locals.auth);
 		const mailboxes = await getMailboxes(client, locals.auth.accountId);
 
+		const readingPane = cookies.get('reading_pane') ?? 'on';
+
 		return {
 			mailboxes,
-			accountId: locals.auth.accountId
+			accountId: locals.auth.accountId,
+			readingPaneDefault: readingPane === 'on'
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {
