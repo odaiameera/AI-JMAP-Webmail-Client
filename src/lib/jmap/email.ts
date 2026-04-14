@@ -94,11 +94,7 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 		emailCreate.cc = compose.cc;
 	}
 
-	if (compose.isHtml) {
-		emailCreate.htmlBody = [{ partId: 'body', type: 'text/html' }];
-	} else {
-		emailCreate.textBody = [{ partId: 'body', type: 'text/plain' }];
-	}
+	emailCreate.htmlBody = [{ partId: 'body', type: 'text/html' }];
 
 	if (compose.inReplyTo) {
 		emailCreate.inReplyTo = [compose.inReplyTo];

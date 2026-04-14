@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { composeOpen, composeData, closeCompose } from '$lib/stores/compose';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 
 	let to = $state('');
 	let cc = $state('');
@@ -194,13 +195,10 @@
 		</div>
 
 		<!-- Body -->
-		<div class="flex-1 px-4 py-2 min-h-0">
-			<textarea
-				bind:value={body}
-				class="w-full h-full bg-transparent text-sm text-text outline-none resize-none placeholder-text-tertiary"
-				style="font-family: Calibri, 'Segoe UI', Arial, sans-serif;"
-				placeholder="Write your message..."
-			></textarea>
+		<div class="flex-1 flex flex-col min-h-0">
+			{#key $composeOpen}
+				<RichTextEditor bind:value={body} placeholder="Write your message..." />
+			{/key}
 		</div>
 
 		<!-- Error -->

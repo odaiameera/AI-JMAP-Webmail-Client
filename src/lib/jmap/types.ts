@@ -67,7 +67,6 @@ export interface ComposeEmail {
 	cc: EmailAddress[];
 	subject: string;
 	body: string;
-	isHtml?: boolean;
 	inReplyTo?: string;
 	references?: string;
 }
