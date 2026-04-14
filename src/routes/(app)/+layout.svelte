@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import ComposeModal from '$lib/components/ComposeModal.svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -11,3 +12,5 @@
 		{@render children()}
 	</main>
 </div>
+
+<ComposeModal />

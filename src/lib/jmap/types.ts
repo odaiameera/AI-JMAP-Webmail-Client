@@ -60,6 +60,17 @@ export interface EmailQueryResult {
 	total: number;
 }
 
+export interface ComposeEmail {
+	from: EmailAddress;
+	to: EmailAddress[];
+	cc: EmailAddress[];
+	subject: string;
+	body: string;
+	isHtml?: boolean;
+	inReplyTo?: string;
+	references?: string;
+}
+
 export interface AuthState {
 	authHeader: string;
 	accountId: string;

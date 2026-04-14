@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { openCompose } from '$lib/stores/compose';
+	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
 	const email = $derived(data.email);
@@ -7,6 +9,18 @@
 	const from = $derived(email.from?.[0]);
 	const toList = $derived(email.to ?? []);
 	const ccList = $derived(email.cc ?? []);
+	const isDraft = $derived('$draft' in email.keywords);
+
+	onMount(() => {
+		if (isDraft) {
+			openCompose({
+				to: email.to?.map((a) => a.email).join(', ') ?? '',
+				cc: email.cc?.map((a) => a.email).join(', ') ?? '',
+				subject: email.subject ?? '',
+				body: getPlainTextBody()
+			});
+		}
+	});
 
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleString('en-US', {
@@ -16,6 +30,49 @@
 			day: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit'
+		});
+	}
+
+	function getPlainTextBody(): string {
+		if (!email.bodyValues) return '';
+
+		if (email.textBody?.length) {
+			const partId = email.textBody[0].partId;
+			const body = email.bodyValues[partId];
+			if (body) return body.value;
+		}
+
+		if (email.htmlBody?.length) {
+			const partId = email.htmlBody[0].partId;
+			const body = email.bodyValues[partId];
+			if (body) return body.value.replace(/<[^>]+>/g, '');
+		}
+
+		return '';
+	}
+
+	function handleReply() {
+		const sender = email.from?.[0];
+		if (!sender) return;
+
+		const originalSubject = email.subject ?? '';
+		const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
+
+		const quotedBody = getPlainTextBody()
+			.split('\n')
+			.map((line) => `> ${line}`)
+			.join('\n');
+
+		const dateStr = formatDate(email.receivedAt);
+		const fromStr = sender.name ? `${sender.name} <${sender.email}>` : sender.email;
+
+		openCompose({
+			to: sender.email,
+			cc: '',
+			subject: replySubject,
+			body: `\n\nOn ${dateStr}, ${fromStr} wrote:\n${quotedBody}`,
+			inReplyTo: email.id,
+			references: email.id
 		});
 	}
 
@@ -54,13 +111,20 @@
 
 <div class="h-full flex flex-col">
 	<header class="px-6 py-4 border-b border-border shrink-0">
-		<div class="flex items-center gap-3 mb-3">
+		<div class="flex items-center justify-between mb-3">
 			<a
 				href="/inbox"
 				class="text-text-tertiary hover:text-text transition-colors text-sm"
 			>
 				&larr; Back
 			</a>
+			<button
+				onclick={handleReply}
+				class="bg-accent/10 hover:bg-accent/20 text-accent text-sm font-medium rounded-lg
+					px-3 py-1.5 transition-colors cursor-pointer"
+			>
+				Reply
+			</button>
 		</div>
 
 		<h1 class="text-xl font-semibold text-text mb-3">

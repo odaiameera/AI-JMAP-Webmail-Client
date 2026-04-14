@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Mailbox } from '$lib/jmap/types';
 	import { page } from '$app/state';
+	import { openCompose } from '$lib/stores/compose';
 
 	let { mailboxes }: { mailboxes: Mailbox[] } = $props();
 
@@ -16,14 +17,14 @@
 		}
 	}
 
-	function getMailboxHref(role: string | null): string {
-		if (role === 'inbox') return '/inbox';
-		return '/inbox'; // Only inbox is routable in Phase 1
+	function getMailboxHref(mailbox: import('$lib/jmap/types').Mailbox): string {
+		if (mailbox.role === 'inbox') return '/inbox';
+		return `/folder/${mailbox.id}`;
 	}
 
-	function isActive(role: string | null): boolean {
-		if (role === 'inbox') return page.url.pathname.startsWith('/inbox');
-		return false;
+	function isActive(mailbox: import('$lib/jmap/types').Mailbox): boolean {
+		if (mailbox.role === 'inbox') return page.url.pathname.startsWith('/inbox');
+		return page.url.pathname === `/folder/${mailbox.id}`;
 	}
 </script>
 
@@ -32,12 +33,22 @@
 		<h1 class="text-lg font-bold text-text">Webmail</h1>
 	</div>
 
+	<div class="px-2 pt-3 pb-1">
+		<button
+			onclick={() => openCompose()}
+			class="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg
+				px-4 py-2 transition-colors cursor-pointer"
+		>
+			Compose
+		</button>
+	</div>
+
 	<nav class="flex-1 overflow-y-auto py-2 px-2">
 		{#each mailboxes as mailbox}
 			<a
-				href={getMailboxHref(mailbox.role)}
+				href={getMailboxHref(mailbox)}
 				class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
-					{isActive(mailbox.role)
+					{isActive(mailbox)
 						? 'bg-accent/10 text-accent'
 						: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 			>
