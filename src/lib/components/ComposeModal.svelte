@@ -121,7 +121,7 @@
 {#if $composeOpen}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 bg-black/60 z-40"
+		class="fixed inset-0 bg-black/60 z-40 animate-compose-backdrop-in"
 		role="button"
 		tabindex="-1"
 		onclick={closeCompose}
@@ -131,7 +131,7 @@
 	<!-- Modal -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-4 md:inset-auto md:bottom-4 md:right-4 md:w-[600px] md:h-[520px] bg-surface border border-border rounded-xl shadow-2xl z-50 flex flex-col"
+		class="fixed inset-4 md:inset-auto md:bottom-4 md:right-4 md:w-[600px] md:h-[520px] bg-surface border border-border rounded-xl shadow-2xl z-50 flex flex-col animate-compose-modal-in"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>

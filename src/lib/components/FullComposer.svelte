@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fullComposeData, closeFullCompose } from '$lib/stores/compose';
+	import { fullComposeData, closeFullCompose, minimizeFullCompose } from '$lib/stores/compose';
 	import { onMount, onDestroy } from 'svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
@@ -124,7 +124,7 @@
 	}
 </script>
 
-<div class="h-full flex flex-col bg-bg">
+<div class="h-full flex flex-col bg-bg animate-compose-expand">
 	<!-- Header -->
 	<div class="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
 		<div class="flex items-center gap-2">
@@ -151,9 +151,9 @@
 				{discarding ? 'Discarding...' : 'Discard'}
 			</button>
 			<div class="w-px h-4 bg-border mx-1"></div>
-			<button onclick={closeFullCompose}
+			<button onclick={minimizeFullCompose} title="Compact mode"
 				class="text-text-tertiary hover:text-text transition-colors cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-hover">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
 			</button>
 		</div>
 	</div>
@@ -178,9 +178,9 @@
 	</div>
 
 	<!-- Ribbon -->
-	<div class="shrink-0 border-b border-border bg-surface px-3 pt-2 pb-1">
+	<div class="shrink-0 border-b border-border bg-surface px-4 pt-3 pb-3 flex flex-col gap-2">
 		<!-- Row 1: Text formatting -->
-		<div class="flex items-center gap-1 mb-1">
+		<div class="flex items-center gap-1 flex-wrap">
 			<select onchange={(e) => editor?.chain().focus().setFontFamily((e.target as HTMLSelectElement).value).run()} class="fc-select w-[110px]">
 				<option value="Calibri, 'Segoe UI', Arial, sans-serif">Calibri</option>
 				<option value="Arial, sans-serif">Arial</option>

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
+	import FullComposer from './FullComposer.svelte';
 	import { openCompose, fullComposeOpen } from '$lib/stores/compose';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Email } from '$lib/jmap/types';
 
@@ -26,6 +27,23 @@
 	let listWidth = $state(420);
 	let dragging = $state(false);
 	let loadingPreview = $state(false);
+	let searchQuery = $state('');
+	let searchFocused = $state(false);
+	let activeFilters = $state(new Set(['from', 'to', 'subject', 'body']));
+
+	function toggleFilter(f: string) {
+		const next = new Set(activeFilters);
+		if (next.has(f)) { if (next.size > 1) next.delete(f); } else { next.add(f); }
+		activeFilters = next;
+	}
+
+	function handleSearch(e?: Event) {
+		e?.preventDefault();
+		if (!searchQuery.trim()) return;
+		const params = new URLSearchParams({ q: searchQuery.trim(), in: [...activeFilters].join(',') });
+		goto(`/search?${params}`);
+		searchFocused = false;
+	}
 
 	function startDrag(e: MouseEvent) {
 		e.preventDefault();
@@ -89,7 +107,38 @@
 <div class="h-full flex overflow-hidden">
 	<!-- Email list column -->
 	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
-		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
+		style={(paneOpen || $fullComposeOpen) ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
+		<!-- Search -->
+		<div class="shrink-0 px-3 pt-2.5 pb-2">
+			<form onsubmit={handleSearch} class="relative">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					onfocus={() => searchFocused = true}
+					onblur={() => setTimeout(() => searchFocused = false, 200)}
+					placeholder="Search"
+					class="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text placeholder-text-tertiary
+						focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-colors"
+				/>
+				{#if searchFocused || searchQuery}
+					<div class="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg p-2 flex items-center gap-1.5 z-10">
+						{#each ['from', 'to', 'subject', 'body'] as filter}
+							<button
+								type="button"
+								onmousedown={(e) => { e.preventDefault(); toggleFilter(filter); }}
+								class="px-2 py-0.5 rounded text-xs transition-colors cursor-pointer
+									{activeFilters.has(filter)
+										? 'bg-accent/15 text-accent'
+										: 'text-text-tertiary hover:text-text-secondary'}"
+							>
+								{filter.charAt(0).toUpperCase() + filter.slice(1)}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</form>
+		</div>
+
 		<header class="ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="shrink-0">
@@ -175,13 +224,15 @@
 		</div>
 	</div>
 
-	{#if paneOpen && !$fullComposeOpen}
+	{#if paneOpen || $fullComposeOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
 
-		<div class="flex-1 overflow-hidden min-w-0">
-			{#if loadingPreview}
+		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
+			{#if $fullComposeOpen}
+				<FullComposer />
+			{:else if loadingPreview}
 				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading...</div>
 			{:else if previewEmail?.bodyValues}
 				<EmailDetail email={previewEmail} compact />

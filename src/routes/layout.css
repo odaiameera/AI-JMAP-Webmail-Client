@@ -43,9 +43,9 @@ body {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 26px;
-	height: 24px;
-	padding: 0 3px;
+	min-width: 28px;
+	height: 26px;
+	padding: 0 4px;
 	border-radius: 4px;
 	font-size: 13px;
 	color: var(--color-text-secondary);
@@ -73,7 +73,7 @@ body {
 	color: #60a5fa;
 }
 .fc-select {
-	height: 24px;
+	height: 26px;
 	font-size: 12px;
 	padding: 0 6px;
 	background: var(--color-surface-hover);
@@ -118,6 +118,29 @@ body {
 .full-composer-editor :global(.ProseMirror th) { background: var(--color-surface-hover); font-weight: 600; }
 .full-composer-editor :global(.ProseMirror .is-editor-empty:first-child::before) {
 	content: attr(data-placeholder); color: var(--color-text-tertiary); pointer-events: none; float: left; height: 0;
+}
+
+/* Compose animations */
+@keyframes compose-modal-in {
+	from { opacity: 0; transform: translateY(20px) scale(0.95); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes compose-backdrop-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes compose-expand {
+	from { opacity: 0; transform: scale(0.97); }
+	to { opacity: 1; transform: scale(1); }
+}
+.animate-compose-modal-in {
+	animation: compose-modal-in 0.2s ease-out both;
+}
+.animate-compose-backdrop-in {
+	animation: compose-backdrop-in 0.15s ease-out both;
+}
+.animate-compose-expand {
+	animation: compose-expand 0.2s ease-out both;
 }
 
 @media print {

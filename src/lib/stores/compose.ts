@@ -37,3 +37,12 @@ export function closeFullCompose() {
 	fullComposeOpen.set(false);
 	fullComposeData.set(null);
 }
+
+export function minimizeFullCompose() {
+	let data: ComposeData | null = null;
+	fullComposeData.subscribe((v) => { data = v; })();
+	fullComposeOpen.set(false);
+	fullComposeData.set(null);
+	composeData.set(data);
+	composeOpen.set(true);
+}
