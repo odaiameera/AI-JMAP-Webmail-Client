@@ -1,8 +1,11 @@
 <script lang="ts">
 	import type { Email } from '$lib/jmap/types';
+	import type { Label } from '$lib/types/labels';
 	import { openCompose } from '$lib/stores/compose';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, getContext } from 'svelte';
+
+	const allLabels = getContext<Label[]>('labels') ?? [];
 
 	let { email, compact = false }: { email: Email; compact?: boolean } = $props();
 
@@ -17,6 +20,25 @@
 	let actionLoading = $state('');
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let iframeHeight = $state(400);
+	let showLabelMenu = $state(false);
+
+	const appliedLabels = $derived(allLabels.filter(l => email.keywords[l.id] === true));
+
+	async function toggleLabel(labelId: string) {
+		const isApplied = email.keywords[labelId] === true;
+		const action = isApplied ? 'remove' : 'apply';
+		await fetch(`/api/email/${email.id}/label`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ labelId, action })
+		});
+		if (isApplied) {
+			delete email.keywords[labelId];
+		} else {
+			email.keywords[labelId] = true;
+		}
+		showLabelMenu = false;
+	}
 
 	const iframeContent = $derived(`<!DOCTYPE html><html><head>
 		<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -169,9 +191,42 @@
 			</div>
 		{/if}
 
-		<h1 class="{compact ? 'text-base' : 'text-xl'} font-semibold text-text mb-2">
+		<h1 class="{compact ? 'text-base' : 'text-xl'} font-semibold text-text mb-1">
 			{email.subject || '(no subject)'}
 		</h1>
+
+		<!-- Labels -->
+		<div class="flex items-center gap-1.5 flex-wrap mb-2 relative">
+			{#each appliedLabels as label}
+				<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+					style="background-color: {label.color}25; color: {label.color};">
+					<span class="w-1.5 h-1.5 rounded-full" style="background-color: {label.color}"></span>
+					{label.name}
+					<button onclick={() => toggleLabel(label.id)} class="ml-0.5 opacity-60 hover:opacity-100 cursor-pointer">&times;</button>
+				</span>
+			{/each}
+			<button onclick={() => showLabelMenu = !showLabelMenu}
+				class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs text-text-tertiary border border-border hover:border-text-tertiary transition-colors cursor-pointer">
+				+ Label
+			</button>
+			{#if showLabelMenu}
+				<div class="absolute z-20 top-full left-0 mt-1 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+					{#each allLabels as label}
+						<button onclick={() => toggleLabel(label.id)}
+							class="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors cursor-pointer">
+							<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {label.color}"></span>
+							<span class="flex-1 text-left text-text">{label.name}</span>
+							{#if appliedLabels.find(l => l.id === label.id)}
+								<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+							{/if}
+						</button>
+					{/each}
+					{#if allLabels.length === 0}
+						<p class="px-3 py-2 text-xs text-text-tertiary">No labels yet. Create one in Settings.</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
 
 		<div class="flex items-start justify-between gap-4">
 			<div class="min-w-0">

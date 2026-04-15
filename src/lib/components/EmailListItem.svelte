@@ -1,5 +1,9 @@
 <script lang="ts">
 	import type { Email } from '$lib/jmap/types';
+	import type { Label } from '$lib/types/labels';
+	import { getContext } from 'svelte';
+
+	const allLabels = getContext<Label[]>('labels') ?? [];
 
 	let { email, selected = false, onSelect, onClick, active = false }: {
 		email: Email;
@@ -16,6 +20,18 @@
 	const preview = $derived(
 		!email.preview || /^[A-Z_]+$/.test(email.preview.trim()) ? '' : email.preview
 	);
+	const appliedLabels = $derived(
+		allLabels.filter(l => email.keywords[l.id] === true)
+	);
+
+	function textColorForBg(hex: string): string {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		// Relative luminance (sRGB)
+		const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+		return luminance > 0.55 ? '#000000' : '#ffffff';
+	}
 
 	function formatDate(dateStr: string): string {
 		const date = new Date(dateStr);
@@ -79,13 +95,25 @@
 		</div>
 		<div class="truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5">
 			{email.subject || '(no subject)'}
+			{#if email.hasAttachment}
+				<span class="text-text-tertiary">📎</span>
+			{/if}
 		</div>
-		<div class="truncate text-xs text-text-tertiary mt-0.5">
-			{preview}
+		<div class="flex items-center justify-between gap-2 mt-0.5">
+			<span class="truncate text-xs text-text-tertiary">
+				{preview}
+			</span>
+			{#if appliedLabels.length > 0}
+				<div class="flex items-center gap-1 shrink-0">
+					{#each appliedLabels.slice(0, 2) as label}
+						<span class="rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none"
+							style="background-color: {label.color}; color: {textColorForBg(label.color)}">{label.name}</span>
+					{/each}
+					{#if appliedLabels.length > 2}
+						<span class="text-[10px] text-text-tertiary font-medium">+{appliedLabels.length - 2}</span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
-
-	{#if email.hasAttachment}
-		<span class="text-text-tertiary text-sm shrink-0">📎</span>
-	{/if}
 </a>

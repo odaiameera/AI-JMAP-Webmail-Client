@@ -20,13 +20,21 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const rawSignature = cookies.get('signature');
 		const signature = rawSignature ? decodeURIComponent(rawSignature) : '';
 
+		const rawLabels = cookies.get('mail_labels');
+		const labels = rawLabels ? JSON.parse(decodeURIComponent(rawLabels)) : [];
+
+		const rawRules = cookies.get('mail_rules');
+		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];
+
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
 			readingPaneDefault: readingPane === 'on',
 			theme,
 			displayName,
-			signature
+			signature,
+			labels,
+			rules
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

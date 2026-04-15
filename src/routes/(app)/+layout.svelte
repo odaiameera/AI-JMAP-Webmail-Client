@@ -15,6 +15,8 @@
 	const readingPane = createReadingPaneStore(readingPaneDefault);
 	setContext('readingPane', readingPane);
 	setContext('userSignature', data.signature ?? '');
+	setContext('labels', data.labels ?? []);
+	setContext('rules', data.rules ?? []);
 
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
@@ -125,6 +127,9 @@
 			initialTheme={initialTheme}
 			displayName={data.displayName}
 			signature={data.signature}
+			labels={data.labels ?? []}
+			rules={data.rules ?? []}
+			mailboxes={data.mailboxes}
 		/>
 	</div>
 {/if}
