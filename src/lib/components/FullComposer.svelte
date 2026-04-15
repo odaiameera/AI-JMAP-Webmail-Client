@@ -181,7 +181,6 @@
 	<div class="shrink-0 border-b border-border bg-surface px-3 pt-2 pb-1">
 		<!-- Row 1: Text formatting -->
 		<div class="flex items-center gap-1 mb-1">
-			<span class="text-[10px] text-text-tertiary uppercase tracking-wide mr-1 select-none w-6 shrink-0">Text</span>
 			<select onchange={(e) => editor?.chain().focus().setFontFamily((e.target as HTMLSelectElement).value).run()} class="fc-select w-[110px]">
 				<option value="Calibri, 'Segoe UI', Arial, sans-serif">Calibri</option>
 				<option value="Arial, sans-serif">Arial</option>
@@ -220,7 +219,6 @@
 
 		<!-- Row 2: Paragraph + Insert -->
 		<div class="flex items-center gap-1">
-			<span class="text-[10px] text-text-tertiary uppercase tracking-wide mr-1 select-none w-6 shrink-0">Para</span>
 			<button type="button" onclick={() => editor?.chain().focus().toggleBulletList().run()} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bullet list">
 				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
 			</button>
@@ -233,6 +231,7 @@
 			<button type="button" onclick={() => editor?.chain().focus().liftListItem('listItem').run()} class="fc-btn" title="Outdent">
 				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="7 9 3 12 7 15"/></svg>
 			</button>
+			<div class="fc-sep"></div>
 			<button type="button" onclick={() => editor?.chain().focus().setTextAlign('left').run()} class="fc-btn {isActive('', {textAlign:'left'}) ? 'fc-active' : ''}" title="Align left">
 				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
 			</button>
@@ -246,7 +245,6 @@
 				<option value="p">Normal</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option>
 			</select>
 			<div class="fc-sep"></div>
-			<span class="text-[10px] text-text-tertiary uppercase tracking-wide mx-1 select-none shrink-0">Insert</span>
 			<button type="button" onclick={setLink} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
 				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
 			</button>
@@ -269,7 +267,6 @@
 			</button>
 			{#if isActive('table')}
 				<div class="fc-sep"></div>
-				<span class="text-[10px] text-text-tertiary uppercase tracking-wide mx-1 select-none shrink-0">Table</span>
 				<button type="button" onclick={() => editor?.chain().focus().addRowAfter().run()} class="fc-btn" title="Add row">+Row</button>
 				<button type="button" onclick={() => editor?.chain().focus().deleteRow().run()} class="fc-btn" title="Delete row">−Row</button>
 				<button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()} class="fc-btn" title="Add column">+Col</button>
@@ -286,6 +283,6 @@
 
 	<!-- Editor -->
 	<div class="flex-1 overflow-y-auto px-5 py-4">
-		<div bind:this={editorEl} class="h-full outline-none full-composer-editor"></div>
+		<div bind:this={editorEl} class="min-h-full full-composer-editor"></div>
 	</div>
 </div>

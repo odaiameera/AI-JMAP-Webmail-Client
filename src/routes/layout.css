@@ -96,7 +96,9 @@ body {
 }
 
 .full-composer-editor :global(.ProseMirror) {
-	outline: none; min-height: 100%;
+	outline: none;
+	min-height: 300px;
+	height: auto;
 	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
 	font-size: 14px; line-height: 1.6; color: var(--color-text);
 }
