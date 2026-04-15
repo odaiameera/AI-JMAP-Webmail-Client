@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { openCompose } from '$lib/stores/compose';
 
-	let { mailboxes }: { mailboxes: Mailbox[] } = $props();
+	let { mailboxes, hideHeader = false }: { mailboxes: Mailbox[]; hideHeader?: boolean } = $props();
 
 	function getMailboxIcon(role: string | null): string {
 		switch (role) {
@@ -29,11 +29,13 @@
 	}
 </script>
 
-<aside class="w-56 bg-surface border-r border-border flex flex-col h-full shrink-0">
-	<div class="px-4 py-3">
-		<h1 class="text-lg font-bold text-text tracking-tight leading-none">ameera.</h1>
-	</div>
-	<div class="px-2 pb-1">
+<aside class="w-56 bg-surface flex flex-col overflow-hidden shrink-0 pr-1">
+	{#if !hideHeader}
+		<div class="px-4 py-3">
+			<h1 class="text-lg font-bold text-text tracking-tight leading-none">ameera.</h1>
+		</div>
+	{/if}
+	<div class="px-3 {hideHeader ? 'pt-2' : ''} pb-1 mb-2">
 		<button
 			onclick={() => openCompose()}
 			class="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg
@@ -44,7 +46,7 @@
 	</div>
 
 	<nav class="flex-1 overflow-y-auto py-2 px-2">
-		{#each mailboxes as mailbox}
+		{#each mailboxes.filter(m => m.name !== 'Sent Messages') as mailbox}
 			<a
 				href={getMailboxHref(mailbox)}
 				class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors

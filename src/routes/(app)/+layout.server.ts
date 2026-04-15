@@ -16,12 +16,17 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 
 		const readingPane = cookies.get('reading_pane') ?? 'on';
 		const theme = cookies.get('theme') ?? 'dark';
+		const displayName = cookies.get('display_name') ?? 'Odai Ameera';
+		const rawSignature = cookies.get('signature');
+		const signature = rawSignature ? decodeURIComponent(rawSignature) : '';
 
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
 			readingPaneDefault: readingPane === 'on',
-			theme
+			theme,
+			displayName,
+			signature
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { fullComposeData, closeFullCompose, minimizeFullCompose } from '$lib/stores/compose';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, getContext } from 'svelte';
+
+	const userSignature = getContext<string>('userSignature');
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import Underline from '@tiptap/extension-underline';
@@ -23,7 +25,11 @@
 	let to = $state(data?.to ?? '');
 	let cc = $state(data?.cc ?? '');
 	let subject = $state(data?.subject ?? '');
-	let body = $state(data?.body ?? '');
+	let body = $state(
+		!data?.inReplyTo && !data?.draftId && !data?.body && userSignature
+			? `<br><br><div style="border-top: 1px solid var(--color-border); padding-top: 8px; margin-top: 16px; color: var(--color-text-tertiary);">${userSignature.replace(/\n/g, '<br>')}</div>`
+			: (data?.body ?? '')
+	);
 	let inReplyTo = $state(data?.inReplyTo ?? '');
 	let references = $state(data?.references ?? '');
 	let draftId = $state<string | undefined>(data?.draftId);
@@ -153,7 +159,7 @@
 			<div class="w-px h-4 bg-border mx-1"></div>
 			<button onclick={minimizeFullCompose} title="Compact mode"
 				class="text-text-tertiary hover:text-text transition-colors cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-hover">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
 			</button>
 		</div>
 	</div>
@@ -199,58 +205,58 @@
 			<button type="button" onclick={() => editor?.chain().focus().toggleStrike().run()} class="fc-btn {isActive('strike') ? 'fc-active' : ''}" title="Strikethrough"><s>S</s></button>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => editor?.chain().focus().toggleHighlight().run()} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
 			</button>
 			<label class="fc-btn cursor-pointer" title="Font color">
 				<input type="color" class="sr-only" oninput={(e) => editor?.chain().focus().setColor((e.target as HTMLInputElement).value).run()} />
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M8 16L12 4l4 12M9.5 12h5"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 20h16M8 16L12 4l4 12M9.5 12h5"/></svg>
 			</label>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => editor?.chain().focus().toggleSubscript().run()} class="fc-btn {isActive('subscript') ? 'fc-active' : ''}" title="Subscript">x<sub>2</sub></button>
 			<button type="button" onclick={() => editor?.chain().focus().toggleSuperscript().run()} class="fc-btn {isActive('superscript') ? 'fc-active' : ''}" title="Superscript">x<sup>2</sup></button>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => importance = importance === 'high' ? 'normal' : 'high'} class="fc-btn {importance === 'high' ? 'fc-active-red' : ''}" title="High importance">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
 			</button>
 			<button type="button" onclick={() => importance = importance === 'low' ? 'normal' : 'low'} class="fc-btn {importance === 'low' ? 'fc-active-blue' : ''}" title="Low importance">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
 			</button>
 		</div>
 
 		<!-- Row 2: Paragraph + Insert -->
 		<div class="flex items-center gap-1">
 			<button type="button" onclick={() => editor?.chain().focus().toggleBulletList().run()} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bullet list">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
 			</button>
 			<button type="button" onclick={() => editor?.chain().focus().toggleOrderedList().run()} class="fc-btn {isActive('orderedList') ? 'fc-active' : ''}" title="Numbered list">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/></svg>
 			</button>
 			<button type="button" onclick={() => editor?.chain().focus().sinkListItem('listItem').run()} class="fc-btn" title="Indent">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="3 9 7 12 3 15"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="3 9 7 12 3 15"/></svg>
 			</button>
 			<button type="button" onclick={() => editor?.chain().focus().liftListItem('listItem').run()} class="fc-btn" title="Outdent">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="7 9 3 12 7 15"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="7 9 3 12 7 15"/></svg>
 			</button>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => editor?.chain().focus().setTextAlign('left').run()} class="fc-btn {isActive('', {textAlign:'left'}) ? 'fc-active' : ''}" title="Align left">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
 			</button>
 			<button type="button" onclick={() => editor?.chain().focus().setTextAlign('center').run()} class="fc-btn {isActive('', {textAlign:'center'}) ? 'fc-active' : ''}" title="Align center">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
 			</button>
 			<button type="button" onclick={() => editor?.chain().focus().setTextAlign('right').run()} class="fc-btn {isActive('', {textAlign:'right'}) ? 'fc-active' : ''}" title="Align right">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
 			</button>
 			<select onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v === 'p') editor?.chain().focus().setParagraph().run(); else editor?.chain().focus().setHeading({ level: parseInt(v) as 1|2|3 }).run(); }} class="fc-select w-[100px] ml-1">
 				<option value="p">Normal</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option>
 			</select>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={setLink} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
 			</button>
 			<div class="relative">
 				<button type="button" onclick={() => showEmojiPicker = !showEmojiPicker} class="fc-btn {showEmojiPicker ? 'fc-active' : ''}" title="Insert emoji">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
 				</button>
 				{#if showEmojiPicker}
 					<div class="absolute bottom-8 left-0 z-50 bg-surface border border-border rounded-lg p-2 grid grid-cols-5 gap-1 shadow-lg">
@@ -259,11 +265,11 @@
 				{/if}
 			</div>
 			<button type="button" onclick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} class="fc-btn" title="Insert 3x3 table">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
 			</button>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()} class="fc-btn" title="Clear formatting">
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 5H9l-7 7 7 7h11a2 2 0 002-2V7a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 5H9l-7 7 7 7h11a2 2 0 002-2V7a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
 			</button>
 			{#if isActive('table')}
 				<div class="fc-sep"></div>

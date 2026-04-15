@@ -13,6 +13,9 @@
 	const senderName = $derived(
 		email.from?.[0]?.name || email.from?.[0]?.email || 'Unknown'
 	);
+	const preview = $derived(
+		!email.preview || /^[A-Z_]+$/.test(email.preview.trim()) ? '' : email.preview
+	);
 
 	function formatDate(dateStr: string): string {
 		const date = new Date(dateStr);
@@ -78,7 +81,7 @@
 			{email.subject || '(no subject)'}
 		</div>
 		<div class="truncate text-xs text-text-tertiary mt-0.5">
-			{email.preview}
+			{preview}
 		</div>
 	</div>
 

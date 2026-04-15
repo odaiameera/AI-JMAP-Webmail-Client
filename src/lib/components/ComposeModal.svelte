@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { composeOpen, composeData, closeCompose, openFullCompose } from '$lib/stores/compose';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import { getContext } from 'svelte';
+
+	const userSignature = getContext<string>('userSignature');
 
 	let to = $state('');
 	let cc = $state('');
@@ -30,6 +33,11 @@
 			isForward = !!data?.isForward;
 			showCc = !!data?.cc;
 			error = '';
+
+			// Inject signature for new messages only
+			if (!data?.inReplyTo && !data?.isForward && !data?.draftId && !data?.body && userSignature) {
+				body = `<br><br><div style="border-top: 1px solid var(--color-border); padding-top: 8px; margin-top: 16px; color: var(--color-text-tertiary);">${userSignature.replace(/\n/g, '<br>')}</div>`;
+			}
 		}
 	});
 
@@ -234,7 +242,7 @@
 					title="Open full composer"
 					class="text-text-tertiary hover:text-text text-sm p-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
 				>
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
 				</button>
 				<button
 					onclick={handleDiscard}
