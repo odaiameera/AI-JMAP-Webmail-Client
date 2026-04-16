@@ -62,7 +62,8 @@ export async function getEmailDetail(
 				properties: [
 					...LIST_PROPERTIES,
 					'htmlBody', 'textBody', 'bodyValues',
-					'header:list-unsubscribe:asText'
+					'header:list-unsubscribe:asText',
+					'header:list-unsubscribe-post:asText'
 				],
 				fetchAllBodyValues: true
 			},

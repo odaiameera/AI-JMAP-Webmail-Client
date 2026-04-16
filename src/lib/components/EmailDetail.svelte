@@ -18,7 +18,40 @@
 	const ccList = $derived(email.cc ?? []);
 	const isDraft = $derived('$draft' in email.keywords);
 	const isRead = $derived('$seen' in email.keywords);
-	const unsubscribeHeader = $derived(email['header:list-unsubscribe:asText'] ?? null);
+	const isUnsubscribed = $derived('$unsubscribed' in email.keywords);
+
+	/**
+	 * Classify the email's `List-Unsubscribe` support:
+	 *  - `one-click`: RFC 8058 — both List-Unsubscribe-Post: One-Click AND
+	 *    an HTTPS URL. We POST to it server-side.
+	 *  - `mailto`: only a mailto URI — we send an empty message.
+	 *  - `url`: only an HTTP(S) URL without the POST header — open in a
+	 *    new tab (human interaction required on the sender's site).
+	 *  - `none`: no unsubscribe support at all.
+	 */
+	type UnsubMode = 'one-click' | 'mailto' | 'url' | 'none';
+	interface UnsubInfo {
+		mode: UnsubMode;
+		url?: string;
+		mailto?: string;
+	}
+
+	const unsubInfo = $derived.by<UnsubInfo>(() => {
+		const header = email['header:list-unsubscribe:asText'];
+		const postHeader = email['header:list-unsubscribe-post:asText'];
+		if (!header) return { mode: 'none' };
+
+		const httpsMatch = header.match(/<(https:\/\/[^>]+)>/i);
+		const anyUrlMatch = header.match(/<(https?:\/\/[^>]+)>/i);
+		const mailtoMatch = header.match(/<(mailto:[^>]+)>/i);
+
+		if (postHeader?.toLowerCase().includes('one-click') && httpsMatch) {
+			return { mode: 'one-click', url: httpsMatch[1] };
+		}
+		if (mailtoMatch) return { mode: 'mailto', mailto: mailtoMatch[1] };
+		if (anyUrlMatch) return { mode: 'url', url: anyUrlMatch[1] };
+		return { mode: 'none' };
+	});
 	// Label ids are also mailbox ids now; skip them when picking a source
 	// mailbox for move-style actions (archive/trash/spam) so we don't
 	// accidentally treat a label as the email's home folder.
@@ -214,19 +247,63 @@
 		} finally { actionLoading = ''; }
 	}
 
-	function handleUnsubscribe() {
-		if (!unsubscribeHeader) return;
-		const mailtoMatch = unsubscribeHeader.match(/mailto:([^>,\s]+)/i);
-		if (mailtoMatch) {
-			openCompose({ to: mailtoMatch[1], cc: '', subject: 'Unsubscribe', body: 'Unsubscribe' });
+	// --- Unsubscribe flow ---
+
+	let unsubLoading = $state(false);
+	let unsubToast = $state<{ kind: 'success' | 'error'; message: string } | null>(null);
+	let unsubToastTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function showUnsubToast(kind: 'success' | 'error', message: string, ms = 3500) {
+		unsubToast = { kind, message };
+		if (unsubToastTimer) clearTimeout(unsubToastTimer);
+		unsubToastTimer = setTimeout(() => { unsubToast = null; }, ms);
+	}
+
+	async function handleUnsubscribe() {
+		if (unsubInfo.mode === 'none' || isUnsubscribed) return;
+
+		// URL-only (no one-click POST header) still just opens the sender's
+		// page — required because a real human click-through is needed there.
+		if (unsubInfo.mode === 'url') {
+			if (unsubInfo.url) window.open(unsubInfo.url, '_blank', 'noopener,noreferrer');
 			return;
 		}
-		const urlMatch = unsubscribeHeader.match(/https?:\/\/[^>,\s]+/i);
-		if (urlMatch) window.open(urlMatch[0], '_blank');
+
+		// Mailto sends from the user's account. Confirm once — this is a
+		// silent send, not a draft, and senders key on the sender address.
+		if (unsubInfo.mode === 'mailto') {
+			const ok = confirm('Send an unsubscribe email to this sender from your account?');
+			if (!ok) return;
+		}
+
+		unsubLoading = true;
+		try {
+			const res = await fetch(`/api/email/${email.id}/unsubscribe`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					mode: unsubInfo.mode,
+					url: unsubInfo.url,
+					mailto: unsubInfo.mailto
+				})
+			});
+			const data = await res.json().catch(() => ({}));
+			if (res.ok && data?.success) {
+				// Optimistic local flag — server also persisted the keyword.
+				email.keywords['$unsubscribed'] = true;
+				showUnsubToast('success', 'Unsubscribe request sent.');
+			} else {
+				showUnsubToast('error', data?.error ?? `Failed (HTTP ${res.status})`);
+			}
+		} catch (err) {
+			showUnsubToast('error', err instanceof Error ? err.message : 'Network error');
+		} finally {
+			unsubLoading = false;
+		}
 	}
 </script>
 
-<div class="h-full flex flex-col">
+<div class="h-full flex flex-col relative">
 	<header class="{compact ? 'px-4 py-3' : 'px-6 py-4'} border-b border-border shrink-0">
 		{#if !compact}
 			<div class="flex items-center justify-between mb-3">
@@ -350,9 +427,32 @@
 			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
 			</button>
-			{#if unsubscribeHeader}
+			{#if unsubInfo.mode !== 'none'}
 				<div class="w-px h-4 bg-border mx-0.5"></div>
-				<button onclick={handleUnsubscribe} title="Unsubscribe" class="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer">Unsubscribe</button>
+				{#if isUnsubscribed}
+					<span class="inline-flex items-center gap-1 px-2 py-1 text-xs text-green-400" title="Unsubscribed">
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+						Unsubscribed
+					</span>
+				{:else}
+					<button
+						onclick={handleUnsubscribe}
+						disabled={unsubLoading}
+						title={unsubInfo.mode === 'one-click'
+							? 'Unsubscribe (one click)'
+							: unsubInfo.mode === 'mailto'
+								? 'Send unsubscribe email'
+								: 'Open sender\'s unsubscribe page'}
+						class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+					>
+						{#if unsubLoading}
+							<span class="w-3 h-3 rounded-full border-2 border-red-400/40 border-t-red-400 animate-spin"></span>
+							Unsubscribing…
+						{:else}
+							Unsubscribe
+						{/if}
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</div>
@@ -369,4 +469,19 @@
 			onload={handleIframeLoad}
 		></iframe>
 	</div>
+
+	<!-- Unsubscribe toast — fixed relative to the detail surface so it
+	     floats over the ribbon without affecting its layout. -->
+	{#if unsubToast}
+		<div
+			role="status"
+			aria-live="polite"
+			class="absolute top-16 right-6 z-20 px-3 py-2 rounded-lg border text-xs shadow-lg animate-compose-modal-in
+				{unsubToast.kind === 'success'
+					? 'bg-green-500/10 border-green-500/30 text-green-400'
+					: 'bg-red-500/10 border-red-500/30 text-red-400'}"
+		>
+			{unsubToast.message}
+		</div>
+	{/if}
 </div>

@@ -54,6 +54,7 @@ export interface Email {
 	htmlBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
 	textBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
 	'header:list-unsubscribe:asText'?: string | null;
+	'header:list-unsubscribe-post:asText'?: string | null;
 }
 
 export interface EmailQueryResult {
