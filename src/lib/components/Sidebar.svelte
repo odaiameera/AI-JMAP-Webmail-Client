@@ -575,12 +575,24 @@
 
 {#snippet folderTree(nodes: FolderNode[], depth: number)}
 	{#each nodes as node (node.id)}
-		<div class="group flex items-stretch" style="padding-left: {depth * 12}px">
+		<!--
+			Row owns hover/active background so the pill spans chevron + name
+			+ actions as one unit (matches the active-state geometry).
+			Actions are always in layout via opacity so hovering reveals them
+			without shifting the name.
+		-->
+		<div
+			class="group flex items-center gap-1 pr-1 py-1.5 rounded-lg text-sm transition-colors
+				{isMailboxActive(node)
+					? 'bg-accent/10 text-accent'
+					: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+			style="padding-left: {depth * 12}px"
+		>
 			{#if node.children.length > 0}
 				<button
 					onclick={() => expanded.toggle(node.id)}
 					title={isExpanded(node.id) ? 'Collapse' : 'Expand'}
-					class="flex items-center justify-center w-5 shrink-0 text-text-tertiary hover:text-text cursor-pointer"
+					class="shrink-0 w-5 h-5 flex items-center justify-center text-current opacity-70 hover:opacity-100 cursor-pointer"
 				>
 					<span class="chevron {isExpanded(node.id) ? 'expanded' : ''}">
 						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -591,36 +603,32 @@
 			{/if}
 
 			{#if renamingFolderId === node.id}
-				<div class="flex-1 flex items-center gap-1 pr-1">
-					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-text-tertiary">{@html folderIcon}</span>
-					<!-- svelte-ignore a11y_autofocus -->
-					<input
-						bind:value={renameFolderName}
-						autofocus
-						disabled={savingRename}
-						onblur={() => commitRename(node.id)}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') commitRename(node.id);
-							if (e.key === 'Escape') { renamingFolderId = null; }
-						}}
-						class="flex-1 bg-surface-hover border border-accent rounded px-1.5 py-0.5 text-sm text-text outline-none"
-					/>
-				</div>
+				<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html folderIcon}</span>
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					bind:value={renameFolderName}
+					autofocus
+					disabled={savingRename}
+					onblur={() => commitRename(node.id)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') commitRename(node.id);
+						if (e.key === 'Escape') { renamingFolderId = null; }
+					}}
+					class="flex-1 min-w-0 ml-2 bg-surface-hover border border-accent rounded px-1.5 py-0.5 text-sm text-text outline-none"
+				/>
 			{:else}
 				<a
 					href={getMailboxHref(node)}
-					class="flex-1 flex items-center gap-2 pr-1 py-1.5 rounded-lg text-sm transition-colors
-						{isMailboxActive(node)
-							? 'bg-accent/10 text-accent'
-							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+					class="flex-1 min-w-0 flex items-center gap-2 text-inherit no-underline"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html folderIcon}</span>
 					<span class="flex-1 truncate">{node.name}</span>
 					{#if node.unreadEmails > 0}
-						<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">{node.unreadEmails}</span>
+						<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full shrink-0">{node.unreadEmails}</span>
 					{/if}
 				</a>
-				<div class="hidden group-hover:flex items-center gap-0.5 pr-1">
+				<!-- shrink-0 keeps these reserved in layout; opacity handles reveal -->
+				<div class="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
 					<button
 						onclick={() => startRename(node)}
 						title="Rename folder"
