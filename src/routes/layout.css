@@ -143,6 +143,23 @@ body {
 	animation: compose-expand 0.2s ease-out both;
 }
 
+/*
+ * Density overrides — applied to any `.email-row` anywhere inside the
+ * app layout when the grid has `.density-compact`. Compact mode trims
+ * vertical padding and hides the one-line preview; comfortable mode is
+ * the default (no overrides).
+ */
+.density-compact .email-row {
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+}
+.density-compact .email-row .email-preview {
+	display: none;
+}
+.density-compact .email-row .email-subject {
+	margin-top: 0;
+}
+
 @media print {
 	aside,
 	header,

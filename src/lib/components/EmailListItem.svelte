@@ -63,7 +63,7 @@
 	onclick={handleRowClick}
 	draggable="true"
 	ondragstart={(e) => onDragStart?.(email, e)}
-	class="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
+	class="email-row flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
 		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -96,13 +96,13 @@
 				{formatDate(email.receivedAt)}
 			</span>
 		</div>
-		<div class="truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5">
+		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5">
 			{email.subject || '(no subject)'}
 			{#if email.hasAttachment}
 				<span class="text-text-tertiary">📎</span>
 			{/if}
 		</div>
-		<div class="flex items-center justify-between gap-2 mt-0.5">
+		<div class="email-preview flex items-center justify-between gap-2 mt-0.5">
 			<span class="truncate text-xs text-text-tertiary">
 				{preview}
 			</span>

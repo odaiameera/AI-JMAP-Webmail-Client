@@ -74,6 +74,7 @@
 
 <div
 	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
+	class:density-compact={data.density === 'compact'}
 	style="grid-template-columns: {sidebarWidth} 1fr auto; transition: grid-template-columns 0.2s ease;"
 >
 	<!-- Row 1: Full-width header -->
