@@ -86,7 +86,7 @@
 				<p class="text-sm text-text font-medium">Light mode</p>
 				<p class="text-xs text-text-tertiary mt-0.5">{theme === 'light' ? 'On' : 'Off — dark mode'}</p>
 			</div>
-			<Toggle checked={theme === 'light'} onChange={setLightTheme} label="Light mode" />
+			<Toggle checked={theme === 'light'} onChange={setLightTheme} />
 		</div>
 
 		<!-- Density -->

@@ -75,7 +75,6 @@
 			<Toggle
 				checked={enabled}
 				onChange={(v) => { enabled = v; save({ enabled: v }); }}
-				label="Enable auto-reply"
 			/>
 		{/snippet}
 	</SettingRow>

@@ -50,7 +50,6 @@
 			<Toggle
 				checked={conversationView}
 				onChange={(v) => { conversationView = v; save({ conversationView: v }, 'conversationView'); }}
-				label="Conversation view"
 			/>
 		{/snippet}
 	</SettingRow>
@@ -122,7 +121,6 @@
 			<Toggle
 				checked={keyboardShortcuts}
 				onChange={(v) => { keyboardShortcuts = v; save({ keyboardShortcuts: v }, 'keyboardShortcuts'); }}
-				label="Keyboard shortcuts"
 			/>
 		{/snippet}
 	</SettingRow>

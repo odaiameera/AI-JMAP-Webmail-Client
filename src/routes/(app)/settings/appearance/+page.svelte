@@ -95,7 +95,7 @@
 		state={readingPaneState}
 	>
 		{#snippet control()}
-			<Toggle checked={readingPane} onChange={toggleReadingPane} label="Reading pane" />
+			<Toggle checked={readingPane} onChange={toggleReadingPane} />
 		{/snippet}
 	</SettingRow>
 </section>

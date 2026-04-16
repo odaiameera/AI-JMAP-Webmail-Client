@@ -75,7 +75,7 @@
 		errorMessage={permissionError}
 	>
 		{#snippet control()}
-			<Toggle checked={enabled} onChange={toggleEnabled} label="Enable notifications" />
+			<Toggle checked={enabled} onChange={toggleEnabled} />
 		{/snippet}
 	</SettingRow>
 
