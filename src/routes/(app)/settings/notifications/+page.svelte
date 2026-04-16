@@ -1,0 +1,103 @@
+<script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
+	import Toggle from '$lib/components/settings/Toggle.svelte';
+	import { LABEL_PREFIX } from '$lib/types/labels';
+	import type { LayoutData } from '../$types';
+
+	let { data }: { data: LayoutData } = $props();
+
+	let enabled = $state(data.notificationsEnabled);
+	let selectedFolders = $state<Set<string>>(new Set(data.notificationFolders));
+
+	const states = $state<Record<string, SaveState>>({});
+	function flash(key: string, ok: boolean) {
+		states[key] = ok ? 'saved' : 'error';
+		if (ok) setTimeout(() => { if (states[key] === 'saved') states[key] = 'idle'; }, 1800);
+	}
+
+	async function save(body: unknown, key: string) {
+		states[key] = 'saving';
+		try {
+			const res = await fetch('/api/preferences/notifications', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			flash(key, res.ok);
+			if (res.ok) await invalidateAll();
+		} catch {
+			flash(key, false);
+		}
+	}
+
+	let permissionError = $state('');
+
+	async function toggleEnabled(next: boolean) {
+		permissionError = '';
+		if (next && typeof Notification !== 'undefined') {
+			const perm = await Notification.requestPermission();
+			if (perm !== 'granted') {
+				permissionError = 'Browser denied notification permission. Adjust it in your browser settings, then try again.';
+				enabled = false;
+				return;
+			}
+		}
+		enabled = next;
+		await save({ enabled: next }, 'enabled');
+	}
+
+	function toggleFolder(id: string, checked: boolean) {
+		const next = new Set(selectedFolders);
+		if (checked) next.add(id);
+		else next.delete(id);
+		selectedFolders = next;
+		save({ folders: [...next] }, `folder:${id}`);
+	}
+
+	const notifiableFolders = $derived(
+		data.mailboxes.filter((m) => !m.name.startsWith(LABEL_PREFIX) && m.role !== 'drafts' && m.role !== 'sent')
+	);
+</script>
+
+<header class="mb-6">
+	<h1 class="text-xl font-semibold text-text">Notifications</h1>
+	<p class="text-sm text-text-tertiary mt-1">
+		Browser notifications for new mail. Notifications work while Ameera is open in a browser tab.
+	</p>
+</header>
+
+<section>
+	<SettingRow
+		title="Enable notifications"
+		description="Request permission from your browser and show a notification when new mail arrives in the selected folders."
+		state={states.enabled ?? 'idle'}
+		errorMessage={permissionError}
+	>
+		{#snippet control()}
+			<Toggle checked={enabled} onchange={toggleEnabled} label="Enable notifications" />
+		{/snippet}
+	</SettingRow>
+
+	<div class="py-4 border-b border-border last:border-b-0">
+		<p class="text-sm font-medium text-text">Notify for folders</p>
+		<p class="text-xs text-text-tertiary mt-1 mb-3">Choose which folders should trigger a notification.</p>
+		<div class="flex flex-col gap-1.5 max-w-[420px]">
+			{#each notifiableFolders as mb (mb.id)}
+				<label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-hover/50 border border-border/60 cursor-pointer hover:bg-surface-hover transition-colors">
+					<input
+						type="checkbox"
+						disabled={!enabled}
+						checked={selectedFolders.has(mb.id)}
+						onchange={(e) => toggleFolder(mb.id, (e.currentTarget as HTMLInputElement).checked)}
+						class="w-3.5 h-3.5 rounded border-border accent-accent cursor-pointer disabled:cursor-not-allowed"
+					/>
+					<span class="text-sm text-text flex-1 truncate">{mb.name}</span>
+					{#if mb.unreadEmails > 0}
+						<span class="text-xs text-text-tertiary">{mb.unreadEmails}</span>
+					{/if}
+				</label>
+			{/each}
+		</div>
+	</div>
+</section>

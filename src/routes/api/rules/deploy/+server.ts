@@ -33,7 +33,7 @@ async function jmapRequest(
 	return res.json();
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
 
 	const { rules } = await request.json() as { rules: Rule[] };
@@ -44,7 +44,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// compileRulesToSieve can't do that without the current mailbox list.
 	const client = createClient(locals.auth);
 	const mailboxes = await getMailboxes(client, accountId);
-	const script = compileRulesToSieve(rules, buildSieveContext(mailboxes));
+
+	// Auto-reply lives in cookies (the auto-reply page saves them). Pass
+	// the current config through so the compiled script includes the
+	// vacation block when enabled.
+	const autoReply = {
+		enabled: cookies.get('auto_reply_enabled') === 'on',
+		subject: decodeURIComponent(cookies.get('auto_reply_subject') ?? ''),
+		body: decodeURIComponent(cookies.get('auto_reply_body') ?? '')
+	};
+
+	const script = compileRulesToSieve(rules, buildSieveContext(mailboxes), autoReply);
 
 	try {
 		// Step 1: Upload script as blob

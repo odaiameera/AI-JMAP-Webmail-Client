@@ -172,11 +172,7 @@
 		<SettingsIsland
 			onClose={() => settingsOpen = false}
 			initialTheme={initialTheme}
-			displayName={data.displayName}
-			signature={data.signature}
-			labels={data.labels ?? []}
-			rules={data.rules ?? []}
-			mailboxes={data.mailboxes}
+			density={data.density ?? 'comfortable'}
 		/>
 	</div>
 {/if}

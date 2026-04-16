@@ -2,6 +2,12 @@ import type { Rule, RuleCondition, RuleAction, RuleConditionOp } from '$lib/type
 import type { Mailbox } from '$lib/jmap/types';
 import { LABEL_PREFIX } from '$lib/types/labels';
 
+export interface AutoReplyConfig {
+	enabled: boolean;
+	subject: string;
+	body: string;
+}
+
 export interface SieveContext {
 	mailboxById: Map<string, Mailbox>;
 	mailboxByName: Map<string, Mailbox>;
@@ -14,17 +20,38 @@ export function buildSieveContext(mailboxes: Mailbox[]): SieveContext {
 	};
 }
 
-export function compileRulesToSieve(rules: Rule[], ctx: SieveContext): string {
+export function compileRulesToSieve(
+	rules: Rule[],
+	ctx: SieveContext,
+	autoReply?: AutoReplyConfig
+): string {
 	const activeRules = rules.filter((r) => r.enabled);
-	if (activeRules.length === 0) {
+	const autoReplyActive = !!autoReply?.enabled && autoReply.body.trim().length > 0;
+
+	// Nothing to emit — keep the minimum require line so the server still
+	// parses the script cleanly.
+	if (activeRules.length === 0 && !autoReplyActive) {
 		return `require ["fileinto", "imap4flags", "envelope", "header"];\n\n# No active rules\n`;
 	}
 
+	// `copy` is required for `fileinto :copy` used by applyLabel.
+	// `vacation` is required when we emit the auto-reply block.
+	const requires = ['fileinto', 'imap4flags', 'envelope', 'header', 'body', 'copy'];
+	if (autoReplyActive) requires.push('vacation');
+
 	const lines: string[] = [
-		// `copy` is required for `fileinto :copy` used by applyLabel.
-		`require ["fileinto", "imap4flags", "envelope", "header", "body", "copy"];`,
+		`require [${requires.map((r) => `"${r}"`).join(', ')}];`,
 		''
 	];
+
+	if (autoReplyActive && autoReply) {
+		// Bare `vacation` with :days 1 rate-limits replies to the same sender
+		// to once per day — the canonical vacation-auto-reply behavior.
+		const subject = autoReply.subject.trim() || 'Out of office';
+		lines.push('# Auto-reply (vacation)');
+		lines.push(`vacation :days 1 :subject "${escSieve(subject)}" "${escSieve(autoReply.body)}";`);
+		lines.push('');
+	}
 
 	for (const rule of activeRules) {
 		lines.push(`# Rule: ${rule.name}`);

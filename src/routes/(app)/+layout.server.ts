@@ -20,6 +20,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 
 		const readingPane = cookies.get('reading_pane') ?? 'on';
 		const theme = cookies.get('theme') ?? 'dark';
+		const density = cookies.get('density') ?? 'comfortable';
 		const displayName = cookies.get('display_name') ?? 'Odai Ameera';
 		const rawSignature = cookies.get('signature');
 		const signature = rawSignature ? decodeURIComponent(rawSignature) : '';
@@ -51,6 +52,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			userEmail,
 			readingPaneDefault: readingPane === 'on',
 			theme,
+			density,
 			displayName,
 			signature,
 			labels,
