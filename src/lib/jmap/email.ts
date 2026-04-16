@@ -272,12 +272,40 @@ export async function moveEmail(
 	const patch: Record<string, unknown> = {
 		[`mailboxIds/${targetMailboxId}`]: true
 	};
-	if (sourceMailboxId) {
+	if (sourceMailboxId && sourceMailboxId !== targetMailboxId) {
 		patch[`mailboxIds/${sourceMailboxId}`] = null;
 	}
 
 	await client.request([
 		['Email/set', { accountId, update: { [id]: patch } }, '0']
+	]);
+}
+
+/**
+ * Move a batch of emails in a single Email/set call. Each id is detached
+ * from `sourceMailboxId` (when supplied and different from the target) and
+ * attached to `targetMailboxId`. One round-trip regardless of batch size.
+ */
+export async function moveEmails(
+	client: JMAPClient,
+	accountId: string,
+	ids: string[],
+	targetMailboxId: string,
+	sourceMailboxId?: string
+): Promise<void> {
+	if (ids.length === 0) return;
+	const update: Record<string, Record<string, unknown>> = {};
+	for (const id of ids) {
+		const patch: Record<string, unknown> = {
+			[`mailboxIds/${targetMailboxId}`]: true
+		};
+		if (sourceMailboxId && sourceMailboxId !== targetMailboxId) {
+			patch[`mailboxIds/${sourceMailboxId}`] = null;
+		}
+		update[id] = patch;
+	}
+	await client.request([
+		['Email/set', { accountId, update }, '0']
 	]);
 }
 

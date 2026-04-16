@@ -2,10 +2,13 @@
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
 	import FullComposer from './FullComposer.svelte';
+	import FolderPicker from './FolderPicker.svelte';
 	import { openCompose, fullComposeOpen } from '$lib/stores/compose';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getContext } from 'svelte';
-	import type { Email } from '$lib/jmap/types';
+	import type { Email, Mailbox } from '$lib/jmap/types';
+	import type { Label } from '$lib/types/labels';
 
 	let { emails, total, title, mailboxId = '' }: {
 		emails: Email[];
@@ -13,6 +16,9 @@
 		title: string;
 		mailboxId?: string;
 	} = $props();
+
+	const mailboxes = $derived<Mailbox[]>(page.data.mailboxes ?? []);
+	const allLabels = getContext<Label[]>('labels') ?? [];
 
 	const readingPane = getContext<{ subscribe: (fn: (v: boolean) => void) => () => void; toggle: () => void }>('readingPane');
 	let paneOpen = $state(false);
@@ -27,6 +33,29 @@
 	let listWidth = $state(420);
 	let dragging = $state(false);
 	let loadingPreview = $state(false);
+	let showMovePicker = $state(false);
+
+	async function bulkMoveTo(targetMailboxId: string) {
+		if (selectedIds.size === 0) return;
+		showMovePicker = false;
+		bulkLoading = 'moveTo';
+		try {
+			await fetch('/api/email/bulk', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					ids: [...selectedIds],
+					action: 'moveTo',
+					targetMailboxId,
+					sourceMailboxId: mailboxId
+				})
+			});
+			selectedIds = new Set();
+			await invalidateAll();
+		} finally {
+			bulkLoading = '';
+		}
+	}
 
 	function startDrag(e: MouseEvent) {
 		e.preventDefault();
@@ -117,6 +146,33 @@
 					<button onclick={() => bulkAction('markUnread')} title="Mark Unread" disabled={!!bulkLoading} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
 					</button>
+					<div class="relative">
+						<button
+							onclick={(e) => { e.stopPropagation(); showMovePicker = !showMovePicker; }}
+							title="Move to…"
+							disabled={!!bulkLoading}
+							class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
+								{showMovePicker ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
+								<path d="M2 13h10"/>
+								<path d="m9 16 3-3-3-3"/>
+								<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
+							</svg>
+						</button>
+						{#if showMovePicker}
+							<div class="absolute top-full left-0 mt-1 z-30">
+								<FolderPicker
+									{mailboxes}
+									labels={allLabels}
+									excludeIds={mailboxId ? [mailboxId] : []}
+									onPick={bulkMoveTo}
+									onClose={() => { showMovePicker = false; }}
+								/>
+							</div>
+						{/if}
+					</div>
 					<button onclick={() => bulkAction('archive')} title="Archive" disabled={!!bulkLoading} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 					</button>

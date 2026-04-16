@@ -1,13 +1,17 @@
 <script lang="ts">
-	import type { Email } from '$lib/jmap/types';
+	import type { Email, Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
 	import { openCompose } from '$lib/stores/compose';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount, getContext } from 'svelte';
+	import FolderPicker from './FolderPicker.svelte';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
 	let { email, compact = false }: { email: Email; compact?: boolean } = $props();
+
+	const mailboxes = $derived<Mailbox[]>(page.data.mailboxes ?? []);
 
 	const from = $derived(email.from?.[0]);
 	const toList = $derived(email.to ?? []);
@@ -27,6 +31,38 @@
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let iframeHeight = $state(400);
 	let showLabelMenu = $state(false);
+	let showMovePicker = $state(false);
+
+	/**
+	 * Destination to navigate to after a move/trash/archive. If the email
+	 * came from the inbox, go back to /inbox; otherwise fall back to the
+	 * source folder so the user lands where they started.
+	 */
+	function destAfterAction(sourceId: string): string {
+		if (!sourceId) return '/inbox';
+		const source = mailboxes.find((m) => m.id === sourceId);
+		if (source?.role === 'inbox') return '/inbox';
+		return `/folder/${sourceId}`;
+	}
+
+	async function handleMove(targetMailboxId: string) {
+		showMovePicker = false;
+		actionLoading = 'move';
+		try {
+			await fetch(`/api/email/${email.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'moveTo',
+					targetMailboxId,
+					sourceMailboxId
+				})
+			});
+			goto(destAfterAction(sourceMailboxId));
+		} finally {
+			actionLoading = '';
+		}
+	}
 
 	const appliedLabels = $derived(allLabels.filter((l) => email.mailboxIds[l.id] === true));
 
@@ -274,6 +310,33 @@
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
 				{/if}
 			</button>
+			<div class="relative">
+				<button
+					onclick={(e) => { e.stopPropagation(); showMovePicker = !showMovePicker; }}
+					title="Move to…"
+					disabled={actionLoading === 'move'}
+					class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
+						{showMovePicker ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
+						<path d="M2 13h10"/>
+						<path d="m9 16 3-3-3-3"/>
+						<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
+					</svg>
+				</button>
+				{#if showMovePicker}
+					<div class="absolute top-full right-0 mt-1 z-30">
+						<FolderPicker
+							{mailboxes}
+							labels={allLabels}
+							excludeIds={sourceMailboxId ? [sourceMailboxId] : []}
+							onPick={handleMove}
+							onClose={() => { showMovePicker = false; }}
+						/>
+					</div>
+				{/if}
+			</div>
 			<button onclick={() => doAction('archive')} title="Archive" disabled={actionLoading === 'archive'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 			</button>
