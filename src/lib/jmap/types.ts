@@ -36,6 +36,21 @@ export interface Mailbox {
 	parentId: string | null;
 }
 
+export interface EmailAttachment {
+	partId: string;
+	blobId: string;
+	/** MIME type, e.g. `application/pdf`. */
+	type: string;
+	/** Filename as declared in the message, or null if absent. */
+	name: string | null;
+	/** Size in bytes. */
+	size: number;
+	/** Inline Content-ID, if any. Present for images referenced via `cid:` in HTML. */
+	cid: string | null;
+	/** `attachment`, `inline`, or null. */
+	disposition: string | null;
+}
+
 export interface Email {
 	id: string;
 	blobId: string;
@@ -53,6 +68,7 @@ export interface Email {
 	bodyValues?: Record<string, { value: string; isEncodingProblem: boolean; isTruncated: boolean }>;
 	htmlBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
 	textBody?: Array<{ partId: string; blobId: string; type: string; name: string | null }>;
+	attachments?: EmailAttachment[];
 	'header:list-unsubscribe:asText'?: string | null;
 	'header:list-unsubscribe-post:asText'?: string | null;
 }

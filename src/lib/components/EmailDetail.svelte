@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import { onMount, getContext } from 'svelte';
 	import FolderPicker from './FolderPicker.svelte';
+	import AttachmentBar from './AttachmentBar.svelte';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
@@ -456,6 +457,8 @@
 			{/if}
 		</div>
 	</div>
+
+	<AttachmentBar emailId={email.id} attachments={email.attachments ?? []} />
 
 	<!-- Email body in sandboxed iframe -->
 	<div class="flex-1 overflow-y-auto {compact ? 'px-4 py-3' : 'px-6 py-4'}">
