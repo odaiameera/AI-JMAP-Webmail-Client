@@ -13,7 +13,7 @@
 	let dragStartOffsetX = 0;
 	let dragStartOffsetY = 0;
 
-	const src = $derived(attachmentUrl(attachment.emailId, attachment.blobId, attachment.name));
+	const src = $derived(attachmentUrl(attachment.emailId, attachment.blobId, attachment.name, 'inline'));
 
 	function onWheel(e: WheelEvent) {
 		e.preventDefault();

@@ -3,7 +3,7 @@
 	import { attachmentUrl } from '$lib/attachments/fetch';
 
 	let { attachment }: { attachment: ViewerAttachment } = $props();
-	const src = $derived(attachmentUrl(attachment.emailId, attachment.blobId, attachment.name));
+	const src = $derived(attachmentUrl(attachment.emailId, attachment.blobId, attachment.name, 'inline'));
 </script>
 
 <iframe

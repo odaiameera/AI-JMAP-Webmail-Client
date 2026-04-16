@@ -1,17 +1,16 @@
 /**
- * Build the proxied attachment URL. Defaults to inline disposition so the
- * resource can be embedded in `<img>`, `<iframe>`, etc. Pass `download: true`
- * to force the browser to save the file via Content-Disposition: attachment.
+ * Build the proxied attachment URL. Defaults to `download` mode so direct
+ * hits or bookmarks don't accidentally render a hostile attachment in the
+ * browser. The built-in viewer opts into inline rendering explicitly.
  */
 export function attachmentUrl(
 	emailId: string,
 	blobId: string,
 	name: string,
-	opts: { download?: boolean } = {}
+	mode: 'inline' | 'download' = 'download'
 ): string {
-	const params = new URLSearchParams({ name });
-	if (opts.download) params.set('download', '1');
-	return `/api/email/${emailId}/attachment/${blobId}?${params.toString()}`;
+	const base = `/api/email/${emailId}/attachment/${blobId}?name=${encodeURIComponent(name)}`;
+	return mode === 'inline' ? `${base}&disposition=inline` : base;
 }
 
 export async function fetchBlob(emailId: string, blobId: string, name: string): Promise<Blob> {

@@ -15,7 +15,7 @@
 
 	function handleDownload() {
 		const link = document.createElement('a');
-		link.href = attachmentUrl(attachment.emailId, attachment.blobId, attachment.name, { download: true });
+		link.href = attachmentUrl(attachment.emailId, attachment.blobId, attachment.name);
 		link.download = attachment.name;
 		link.click();
 	}

@@ -36,7 +36,7 @@
 		e.stopPropagation();
 		const name = a.name ?? 'attachment';
 		const link = document.createElement('a');
-		link.href = attachmentUrl(emailId, a.blobId, name, { download: true });
+		link.href = attachmentUrl(emailId, a.blobId, name);
 		link.download = name;
 		link.click();
 	}
