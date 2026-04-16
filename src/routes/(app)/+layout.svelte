@@ -142,7 +142,7 @@
 	</main>
 
 	<!-- Row 2, Col 3: App rail -->
-	<AppRail initialTheme={initialTheme} settingsOpen={settingsOpen} onToggleSettings={() => { settingsOpen = !settingsOpen; }} />
+	<AppRail settingsOpen={settingsOpen} onToggleSettings={() => { settingsOpen = !settingsOpen; }} />
 </div>
 
 {#if profileOpen}
