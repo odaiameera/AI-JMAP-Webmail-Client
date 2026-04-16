@@ -102,21 +102,19 @@
 				<span class="text-text-tertiary">📎</span>
 			{/if}
 		</div>
-		<div class="email-preview flex items-center justify-between gap-2 mt-0.5">
-			<span class="truncate text-xs text-text-tertiary">
-				{preview}
-			</span>
-			{#if appliedLabels.length > 0}
-				<div class="flex items-center gap-1 shrink-0">
-					{#each appliedLabels.slice(0, 2) as label}
-						<span class="rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none"
-							style="background-color: {label.color}; color: {textColorForBg(label.color)}">{label.name}</span>
-					{/each}
-					{#if appliedLabels.length > 2}
-						<span class="text-[10px] text-text-tertiary font-medium">+{appliedLabels.length - 2}</span>
-					{/if}
-				</div>
-			{/if}
+		{#if appliedLabels.length > 0}
+			<div class="email-chips flex items-center gap-1 mt-0.5">
+				{#each appliedLabels.slice(0, 2) as label}
+					<span class="rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none"
+						style="background-color: {label.color}; color: {textColorForBg(label.color)}">{label.name}</span>
+				{/each}
+				{#if appliedLabels.length > 2}
+					<span class="text-[10px] text-text-tertiary font-medium">+{appliedLabels.length - 2}</span>
+				{/if}
+			</div>
+		{/if}
+		<div class="email-preview truncate text-xs text-text-tertiary mt-0.5">
+			{preview}
 		</div>
 	</div>
 </a>
