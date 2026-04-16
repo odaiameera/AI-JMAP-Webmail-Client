@@ -122,8 +122,9 @@
 					<img
 						src={$profilePhoto.url}
 						alt="Profile"
-						class="w-full h-full object-cover origin-center"
-						style="transform: scale({$profilePhoto.zoom});"
+						class="w-full h-full object-cover origin-center pointer-events-none select-none"
+						style="transform: translate({$profilePhoto.offsetX * (32 / 80)}px, {$profilePhoto.offsetY * (32 / 80)}px) scale({$profilePhoto.zoom});"
+						draggable="false"
 					/>
 				{:else}
 					{avatarLetter}
