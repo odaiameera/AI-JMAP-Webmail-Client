@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import { invalidateAll } from '$app/navigation';
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Select from '$lib/components/settings/Select.svelte';
@@ -37,6 +38,8 @@
 		'Courier New', 'Verdana', 'Tahoma', 'Trebuchet MS'
 	];
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Composer', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Composer</h1>

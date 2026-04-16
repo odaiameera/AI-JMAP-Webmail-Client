@@ -1,0 +1,11 @@
+{
+  "name": "ameera. Mail",
+  "short_name": "ameera.",
+  "description": "Self-hosted webmail",
+  "theme_color": "#6366F1",
+  "background_color": "#09090B",
+  "display": "standalone",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" }
+  ]
+}

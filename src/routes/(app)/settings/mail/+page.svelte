@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import { invalidateAll } from '$app/navigation';
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Toggle from '$lib/components/settings/Toggle.svelte';
@@ -34,6 +35,8 @@
 		}
 	}
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Mail', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Mail</h1>

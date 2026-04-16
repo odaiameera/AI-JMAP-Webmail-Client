@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import { slide, fade, fly } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
 	import { onDestroy } from 'svelte';
@@ -310,7 +311,7 @@
 	}
 </script>
 
-<svelte:head><title>Rules — Webmail</title></svelte:head>
+<svelte:head><title>{pageTitle({ page: 'Filters & Rules', subtitle: 'Settings' })}</title></svelte:head>
 
 <div class="h-full flex flex-col overflow-hidden">
 	<header class="px-6 py-4 border-b border-border flex items-center gap-3 shrink-0">

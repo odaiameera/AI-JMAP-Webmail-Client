@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import { invalidateAll } from '$app/navigation';
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Toggle from '$lib/components/settings/Toggle.svelte';
@@ -50,6 +51,8 @@
 		await save('/api/preferences/reading-pane', { value: next ? 'on' : 'off' }, (s) => (readingPaneState = s));
 	}
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Appearance', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Appearance</h1>

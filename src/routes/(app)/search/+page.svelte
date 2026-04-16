@@ -1,12 +1,13 @@
 <script lang="ts">
 	import EmailListItem from '$lib/components/EmailListItem.svelte';
+	import { pageTitle } from '$lib/utils/title';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Search: {data.query} — Webmail</title>
+	<title>{pageTitle({ page: data.query ? `Search: "${data.query}"` : 'Search' })}</title>
 </svelte:head>
 
 <div class="h-full flex flex-col">

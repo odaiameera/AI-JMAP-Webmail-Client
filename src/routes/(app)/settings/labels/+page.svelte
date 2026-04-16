@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
 
 	const labels = $derived(data.labels);
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Labels', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Labels</h1>

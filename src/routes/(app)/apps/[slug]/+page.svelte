@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -14,7 +15,7 @@
 </script>
 
 <svelte:head>
-	<title>{title} — Webmail</title>
+	<title>{pageTitle({ page: title })}</title>
 </svelte:head>
 
 <div class="h-full flex items-center justify-center">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import type { LayoutData } from '../$types';
 	import { LABEL_PREFIX } from '$lib/types/labels';
 
@@ -9,6 +10,8 @@
 	);
 	const systemFolders = $derived(data.mailboxes.filter((m) => m.role !== null));
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Folders', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Folders</h1>

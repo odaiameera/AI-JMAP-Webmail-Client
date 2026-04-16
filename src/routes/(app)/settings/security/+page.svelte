@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Security', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Security</h1>

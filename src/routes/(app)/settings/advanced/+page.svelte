@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '$lib/utils/title';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	let importing = $state(false);
@@ -61,6 +62,8 @@
 		}
 	}
 </script>
+
+<svelte:head><title>{pageTitle({ page: 'Advanced', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Advanced</h1>

@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { queryAndFetchEmails } from '$lib/jmap/email';
+import { mailboxDisplayName } from '$lib/utils/mailbox-display';
 
 export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	if (!locals.auth) {
@@ -9,11 +10,11 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	}
 
 	const client = createClient(locals.auth);
-	const { mailboxes } = await parent();
+	const { mailboxes, labels } = await parent();
 
 	const mailbox = mailboxes.find((m) => m.id === params.id);
 	if (!mailbox) {
-		return { emails: [], total: 0, mailboxName: 'Unknown' };
+		return { emails: [], total: 0, mailboxName: 'Unknown', mailboxId: params.id, unreadCount: 0 };
 	}
 
 	const result = await queryAndFetchEmails(client, locals.auth.accountId, mailbox.id, { limit: 50 });
@@ -21,7 +22,8 @@ export const load: PageServerLoad = async ({ locals, params, parent }) => {
 	return {
 		emails: result.emails,
 		total: result.total,
-		mailboxName: mailbox.name,
-		mailboxId: mailbox.id
+		mailboxName: mailboxDisplayName(mailbox, labels),
+		mailboxId: mailbox.id,
+		unreadCount: mailbox.unreadEmails
 	};
 };

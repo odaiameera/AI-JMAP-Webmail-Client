@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { pageTitle } from '$lib/utils/title';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -63,7 +64,7 @@
 	}
 </script>
 
-<svelte:head><title>Settings — Webmail</title></svelte:head>
+<svelte:head><title>{pageTitle({ page: 'Settings' })}</title></svelte:head>
 
 <div class="h-full flex flex-col overflow-hidden">
 	<header class="px-6 py-4 border-b border-border flex items-center gap-3 shrink-0">

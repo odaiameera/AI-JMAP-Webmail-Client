@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { pageTitle } from '$lib/utils/title';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -7,13 +8,13 @@
 </script>
 
 <svelte:head>
-	<title>Login — Webmail</title>
+	<title>{pageTitle({ page: 'Sign in' })}</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center px-4">
 	<div class="w-full max-w-sm">
 		<div class="text-center mb-8">
-			<h1 class="text-2xl font-bold text-text">Webmail</h1>
+			<h1 class="text-2xl font-bold text-text">ameera. <span class="text-text-tertiary font-normal">Mail</span></h1>
 			<p class="text-text-tertiary mt-1 text-sm">Sign in to your account</p>
 		</div>
 
