@@ -134,7 +134,14 @@
 	</div>
 
 	<!-- Row 2, Col 1: Sidebar -->
-	<Sidebar mailboxes={data.mailboxes} hideHeader={true} collapsed={sidebarCollapsed} onToggleCollapse={() => { sidebarCollapsed = !sidebarCollapsed; }} />
+	<Sidebar
+		mailboxes={data.mailboxes}
+		labels={data.labels ?? []}
+		folderExpanded={data.folderExpanded ?? {}}
+		hideHeader={true}
+		collapsed={sidebarCollapsed}
+		onToggleCollapse={() => { sidebarCollapsed = !sidebarCollapsed; }}
+	/>
 
 	<!-- Row 2, Col 2: Main content -->
 	<main class="overflow-hidden min-w-0 bg-bg rounded-tl-xl rounded-tr-xl">

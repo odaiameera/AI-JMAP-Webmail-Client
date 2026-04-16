@@ -32,6 +32,19 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const rawRules = cookies.get('mail_rules');
 		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];
 
+		// Sidebar expand/collapse state — Record<id, boolean>. Absence means
+		// "default": section headers expanded, individual folders collapsed.
+		let folderExpanded: Record<string, boolean> = {};
+		const rawExpanded = cookies.get('folder_expanded');
+		if (rawExpanded) {
+			try {
+				const parsed = JSON.parse(decodeURIComponent(rawExpanded));
+				if (parsed && typeof parsed === 'object') folderExpanded = parsed;
+			} catch {
+				// Ignore malformed cookie.
+			}
+		}
+
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
@@ -41,7 +54,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			displayName,
 			signature,
 			labels,
-			rules
+			rules,
+			folderExpanded
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {
