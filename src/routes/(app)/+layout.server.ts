@@ -4,6 +4,7 @@ import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import { JMAPAuthError } from '$lib/jmap/client';
 import { deleteSession } from '$lib/server/session';
+import { listLabels, migrateKeywordLabelsIfNeeded } from '$lib/server/labels';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	if (!locals.auth) {
@@ -23,8 +24,10 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const rawSignature = cookies.get('signature');
 		const signature = rawSignature ? decodeURIComponent(rawSignature) : '';
 
-		const rawLabels = cookies.get('mail_labels');
-		const labels = rawLabels ? JSON.parse(decodeURIComponent(rawLabels)) : [];
+		// One-shot migration from keyword-based labels to JMAP mailbox labels.
+		// Idempotent; the marker cookie makes subsequent loads a no-op.
+		await migrateKeywordLabelsIfNeeded(client, locals.auth.accountId, cookies);
+		const labels = await listLabels(client, locals.auth.accountId, cookies);
 
 		const rawRules = cookies.get('mail_rules');
 		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];

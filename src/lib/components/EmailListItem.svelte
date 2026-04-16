@@ -21,7 +21,7 @@
 		!email.preview || /^[A-Z_]+$/.test(email.preview.trim()) ? '' : email.preview
 	);
 	const appliedLabels = $derived(
-		allLabels.filter(l => email.keywords[l.id] === true)
+		allLabels.filter((l) => email.mailboxIds[l.id] === true)
 	);
 
 	function textColorForBg(hex: string): string {

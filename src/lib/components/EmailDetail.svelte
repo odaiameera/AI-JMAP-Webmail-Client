@@ -15,17 +15,23 @@
 	const isDraft = $derived('$draft' in email.keywords);
 	const isRead = $derived('$seen' in email.keywords);
 	const unsubscribeHeader = $derived(email['header:list-unsubscribe:asText'] ?? null);
-	const sourceMailboxId = $derived(Object.keys(email.mailboxIds)[0] ?? '');
+	// Label ids are also mailbox ids now; skip them when picking a source
+	// mailbox for move-style actions (archive/trash/spam) so we don't
+	// accidentally treat a label as the email's home folder.
+	const labelIdSet = $derived(new Set(allLabels.map((l) => l.id)));
+	const sourceMailboxId = $derived(
+		Object.keys(email.mailboxIds).find((id) => !labelIdSet.has(id)) ?? ''
+	);
 
 	let actionLoading = $state('');
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let iframeHeight = $state(400);
 	let showLabelMenu = $state(false);
 
-	const appliedLabels = $derived(allLabels.filter(l => email.keywords[l.id] === true));
+	const appliedLabels = $derived(allLabels.filter((l) => email.mailboxIds[l.id] === true));
 
 	async function toggleLabel(labelId: string) {
-		const isApplied = email.keywords[labelId] === true;
+		const isApplied = email.mailboxIds[labelId] === true;
 		const action = isApplied ? 'remove' : 'apply';
 		await fetch(`/api/email/${email.id}/label`, {
 			method: 'POST',
@@ -33,9 +39,9 @@
 			body: JSON.stringify({ labelId, action })
 		});
 		if (isApplied) {
-			delete email.keywords[labelId];
+			delete email.mailboxIds[labelId];
 		} else {
-			email.keywords[labelId] = true;
+			email.mailboxIds[labelId] = true;
 		}
 		showLabelMenu = false;
 	}

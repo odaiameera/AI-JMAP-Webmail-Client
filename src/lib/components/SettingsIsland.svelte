@@ -21,13 +21,18 @@
 	let accountSaved = $state(false);
 	let saving = $state(false);
 
-	// Labels state
-	let localLabels = $state<Label[]>([...labels]);
+	// Labels state — the `labels` prop is the source of truth (server-loaded).
+	// We only keep UI state locally (pending form values, which row is being
+	// edited, which mutation is in flight for a spinner).
 	let showCreateForm = $state(false);
 	let newLabelName = $state('');
 	let newLabelColor = $state('#6366F1');
 	let editingLabelId = $state<string | null>(null);
 	let editingLabelName = $state('');
+	let creatingLabel = $state(false);
+	let deletingLabelId = $state<string | null>(null);
+	let renamingLabelId = $state<string | null>(null);
+	let labelError = $state('');
 
 	// Rules state
 	let localRules = $state<Rule[]>([...rules]);
@@ -77,41 +82,83 @@
 		} finally { saving = false; }
 	}
 
-	// Labels
-	async function saveLabels() {
-		await fetch('/api/preferences/labels', {
+	// Labels — each mutation hits /api/preferences/labels with an action
+	// payload, then invalidateAll() refreshes the layout loader so the
+	// `labels` prop reflects the new JMAP state.
+	async function labelRequest(body: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
+		const res = await fetch('/api/preferences/labels', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ labels: localLabels })
+			body: JSON.stringify(body)
 		});
-	}
-
-	function createLabel() {
-		if (!newLabelName.trim()) return;
-		const id = 'label_' + newLabelName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
-		localLabels = [...localLabels, { id, name: newLabelName.trim(), color: newLabelColor, createdAt: Date.now() }];
-		saveLabels();
-		newLabelName = '';
-		newLabelColor = '#6366F1';
-		showCreateForm = false;
-	}
-
-	function deleteLabel(id: string) {
-		localLabels = localLabels.filter(l => l.id !== id);
-		saveLabels();
-	}
-
-	function updateLabelColor(id: string, color: string) {
-		localLabels = localLabels.map(l => l.id === id ? { ...l, color } : l);
-		saveLabels();
-	}
-
-	function saveLabelEdit(id: string) {
-		if (editingLabelName.trim()) {
-			localLabels = localLabels.map(l => l.id === id ? { ...l, name: editingLabelName.trim() } : l);
-			saveLabels();
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok || data?.success === false) {
+			return { success: false, error: data?.error ?? `HTTP ${res.status}` };
 		}
+		return { success: true };
+	}
+
+	async function createLabel() {
+		const name = newLabelName.trim();
+		if (!name) return;
+		labelError = '';
+		creatingLabel = true;
+		try {
+			const result = await labelRequest({ action: 'create', name, color: newLabelColor });
+			if (!result.success) {
+				labelError = result.error ?? 'Failed to create label';
+				return;
+			}
+			await invalidateAll();
+			newLabelName = '';
+			newLabelColor = '#6366F1';
+			showCreateForm = false;
+		} finally {
+			creatingLabel = false;
+		}
+	}
+
+	async function deleteLabel(id: string) {
+		labelError = '';
+		deletingLabelId = id;
+		try {
+			const result = await labelRequest({ action: 'delete', id });
+			if (!result.success) {
+				labelError = result.error ?? 'Failed to delete label';
+				return;
+			}
+			await invalidateAll();
+		} finally {
+			deletingLabelId = null;
+		}
+	}
+
+	async function updateLabelColor(id: string, color: string) {
+		labelError = '';
+		const result = await labelRequest({ action: 'updateColor', id, color });
+		if (!result.success) {
+			labelError = result.error ?? 'Failed to update color';
+			return;
+		}
+		await invalidateAll();
+	}
+
+	async function saveLabelEdit(id: string) {
+		const name = editingLabelName.trim();
 		editingLabelId = null;
+		if (!name) return;
+		labelError = '';
+		renamingLabelId = id;
+		try {
+			const result = await labelRequest({ action: 'rename', id, name });
+			if (!result.success) {
+				labelError = result.error ?? 'Failed to rename label';
+				return;
+			}
+			await invalidateAll();
+		} finally {
+			renamingLabelId = null;
+		}
 	}
 
 	// Rules — save to cookie AND deploy to server silently
@@ -298,32 +345,45 @@
 				<div class="px-6 py-5 flex flex-col gap-4">
 					<h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide">Labels</h3>
 
+					{#if labelError}
+						<div class="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{labelError}</div>
+					{/if}
+
 					{#if showCreateForm}
 						<div class="flex items-center gap-2 p-3 bg-surface-hover rounded-lg border border-border">
-							<input type="color" bind:value={newLabelColor} class="w-8 h-8 rounded cursor-pointer border-0 bg-transparent p-0" title="Pick color" />
+							<input type="color" bind:value={newLabelColor} class="w-8 h-8 rounded cursor-pointer border-0 bg-transparent p-0" title="Pick color" disabled={creatingLabel} />
 							<input bind:value={newLabelName} type="text" placeholder="Label name" maxlength={30}
-								class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary"
+								disabled={creatingLabel}
+								class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary disabled:opacity-60"
 								onkeydown={(e) => e.key === 'Enter' && createLabel()} />
-							<button onclick={createLabel} class="text-xs bg-accent text-white px-3 py-1 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer">Create</button>
-							<button onclick={() => showCreateForm = false} class="text-xs text-text-tertiary hover:text-text cursor-pointer">Cancel</button>
+							<button onclick={createLabel} disabled={creatingLabel || !newLabelName.trim()}
+								class="inline-flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-1 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+								{#if creatingLabel}
+									<span class="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+									Creating
+								{:else}
+									Create
+								{/if}
+							</button>
+							<button onclick={() => { showCreateForm = false; labelError = ''; }} disabled={creatingLabel} class="text-xs text-text-tertiary hover:text-text cursor-pointer disabled:opacity-60">Cancel</button>
 						</div>
 					{:else}
-						<button onclick={() => showCreateForm = true}
+						<button onclick={() => { showCreateForm = true; labelError = ''; }}
 							class="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border text-sm text-text-tertiary hover:text-text hover:border-text-tertiary transition-colors cursor-pointer">
 							<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 							New label
 						</button>
 					{/if}
 
-					{#if localLabels.length === 0}
+					{#if labels.length === 0}
 						<p class="text-xs text-text-tertiary text-center py-4">No labels yet. Create one above.</p>
 					{:else}
 						<div class="flex flex-col">
-							{#each localLabels as label}
+							{#each labels as label (label.id)}
 								<div class="flex items-center gap-3 py-2 px-1 group">
 									<label class="cursor-pointer shrink-0" title="Change color">
 										<input type="color" class="sr-only" value={label.color}
-											oninput={(e) => updateLabelColor(label.id, (e.currentTarget as HTMLInputElement).value)} />
+											onchange={(e) => updateLabelColor(label.id, (e.currentTarget as HTMLInputElement).value)} />
 										<span class="w-3 h-3 rounded-full block border border-white/20" style="background-color: {label.color}"></span>
 									</label>
 									{#if editingLabelId === label.id}
@@ -336,14 +396,22 @@
 										<span class="flex-1 text-sm text-text cursor-pointer hover:text-text-secondary"
 											ondblclick={() => { editingLabelId = label.id; editingLabelName = label.name; }}>
 											{label.name}
+											{#if renamingLabelId === label.id}
+												<span class="ml-2 inline-block w-3 h-3 rounded-full border-2 border-text-tertiary/40 border-t-text-tertiary animate-spin align-middle"></span>
+											{/if}
 										</span>
 									{/if}
-									<button onclick={() => deleteLabel(label.id)} title="Delete label"
-										class="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 cursor-pointer p-1 rounded">
-										<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
-											<path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-										</svg>
-									</button>
+									{#if deletingLabelId === label.id}
+										<span class="w-3 h-3 rounded-full border-2 border-red-400/40 border-t-red-400 animate-spin"></span>
+									{:else}
+										<button onclick={() => deleteLabel(label.id)} title="Delete label"
+											disabled={deletingLabelId !== null}
+											class="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 cursor-pointer p-1 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+											<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
+												<path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+											</svg>
+										</button>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -470,7 +538,7 @@
 														</select>
 													{:else if action.type === 'applyLabel'}
 														<select bind:value={action.value} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none flex-1">
-															{#each localLabels as lb}
+															{#each labels as lb}
 																<option value={lb.id}>{lb.name}</option>
 															{/each}
 														</select>
