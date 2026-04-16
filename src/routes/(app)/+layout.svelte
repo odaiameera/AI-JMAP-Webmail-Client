@@ -3,9 +3,11 @@
 	import AppRail from '$lib/components/AppRail.svelte';
 	import ComposeModal from '$lib/components/ComposeModal.svelte';
 	import SettingsIsland from '$lib/components/SettingsIsland.svelte';
+	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, setContext } from 'svelte';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
+	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -23,10 +25,15 @@
 	let activeFilters = $state(new Set(['from', 'to', 'subject', 'body']));
 	let settingsOpen = $state(false);
 	let settingsEl = $state<HTMLDivElement | undefined>(undefined);
+	let profileOpen = $state(false);
+	let profileCardEl = $state<HTMLDivElement | undefined>(undefined);
+	let sidebarCollapsed = $state(false);
 
 	const avatarLetter = $derived((data.displayName ?? 'O')[0].toUpperCase());
+	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
 
 	onMount(() => {
+		profilePhoto.hydrate();
 		const handler = () => readingPane.setFromViewport(window.innerWidth);
 		window.addEventListener('resize', handler);
 		return () => window.removeEventListener('resize', handler);
@@ -57,19 +64,23 @@
 		if (settingsOpen && settingsEl && !settingsEl.contains(e.target as Node)) {
 			settingsOpen = false;
 		}
+		if (profileOpen && profileCardEl && !profileCardEl.contains(e.target as Node)) {
+			profileOpen = false;
+		}
 	}
 </script>
 
 <svelte:window onclick={handleClickOutside} />
 
-<div class="h-screen overflow-hidden bg-surface grid grid-cols-[auto_1fr_auto] grid-rows-[auto_1fr]">
-	<!-- Row 1, Col 1: Sidebar logo -->
-	<div class="px-4 flex items-center h-14">
-		<h1 class="text-lg font-bold text-text tracking-tight leading-none">ameera.</h1>
-	</div>
-
-	<!-- Row 1, Col 2+3: Search + Name + Settings + Profile -->
-	<div class="col-span-2 flex items-center px-5 gap-3">
+<div
+	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
+	style="grid-template-columns: {sidebarWidth} 1fr auto; transition: grid-template-columns 0.2s ease;"
+>
+	<!-- Row 1: Full-width header -->
+	<div class="col-span-3 flex items-center h-14 pl-4 pr-0 gap-4">
+		<h1 class="text-lg font-bold text-text tracking-tight leading-none shrink-0 {sidebarCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
+			{sidebarCollapsed ? '' : 'ameera.'}
+		</h1>
 		<form onsubmit={handleSearch} class="relative w-[420px]">
 			<input
 				type="text"
@@ -100,15 +111,31 @@
 		<div class="flex-1"></div>
 		<span class="text-sm text-text-secondary select-none">{data.displayName}</span>
 		<div class="w-px h-5 bg-border shrink-0"></div>
-		<div class="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold select-none shrink-0" title="Profile">
-			{avatarLetter}
+		<!-- 52px wrapper aligns avatar center with the AppRail column below -->
+		<div class="w-[52px] shrink-0 flex items-center justify-center">
+			<button
+				onclick={(e) => { e.stopPropagation(); profileOpen = !profileOpen; }}
+				class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-semibold select-none shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/50 transition-shadow overflow-hidden"
+				title="Profile"
+			>
+				{#if $profilePhoto.url}
+					<img
+						src={$profilePhoto.url}
+						alt="Profile"
+						class="w-full h-full object-cover origin-center"
+						style="transform: scale({$profilePhoto.zoom});"
+					/>
+				{:else}
+					{avatarLetter}
+				{/if}
+			</button>
 		</div>
 	</div>
 
 	<!-- Row 2, Col 1: Sidebar -->
-	<Sidebar mailboxes={data.mailboxes} hideHeader={true} />
+	<Sidebar mailboxes={data.mailboxes} hideHeader={true} collapsed={sidebarCollapsed} onToggleCollapse={() => { sidebarCollapsed = !sidebarCollapsed; }} />
 
-	<!-- Row 2, Col 2: Main content (inset with rounded corners) -->
+	<!-- Row 2, Col 2: Main content -->
 	<main class="overflow-hidden min-w-0 bg-bg rounded-tl-xl rounded-tr-xl">
 		{@render children()}
 	</main>
@@ -116,6 +143,18 @@
 	<!-- Row 2, Col 3: App rail -->
 	<AppRail initialTheme={initialTheme} settingsOpen={settingsOpen} onToggleSettings={() => { settingsOpen = !settingsOpen; }} />
 </div>
+
+{#if profileOpen}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div bind:this={profileCardEl} class="fixed z-50" style="top: 56px; right: 64px;" onclick={(e) => e.stopPropagation()}>
+		<ProfileCard
+			displayName={data.displayName}
+			email={data.userEmail}
+			onClose={() => { profileOpen = false; }}
+		/>
+	</div>
+{/if}
 
 {#if settingsOpen}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->

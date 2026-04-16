@@ -14,6 +14,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const client = createClient(locals.auth);
 		const mailboxes = await getMailboxes(client, locals.auth.accountId);
 
+		const decoded = Buffer.from(locals.auth.authHeader.replace('Basic ', ''), 'base64').toString();
+		const userEmail = decoded.split(':')[0];
+
 		const readingPane = cookies.get('reading_pane') ?? 'on';
 		const theme = cookies.get('theme') ?? 'dark';
 		const displayName = cookies.get('display_name') ?? 'Odai Ameera';
@@ -29,6 +32,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
+			userEmail,
 			readingPaneDefault: readingPane === 'on',
 			theme,
 			displayName,
