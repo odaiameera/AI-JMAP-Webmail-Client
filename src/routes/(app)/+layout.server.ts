@@ -46,6 +46,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			}
 		}
 
+		// Notification prefs are surfaced here (not just in the settings
+		// layout) so the realtime layer can decide whether to fire desktop
+		// notifications for new mail without a second round-trip.
+		const notificationsEnabled = cookies.get('notifications') === 'on';
+
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
@@ -57,7 +62,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			signature,
 			labels,
 			rules,
-			folderExpanded
+			folderExpanded,
+			notificationsEnabled
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

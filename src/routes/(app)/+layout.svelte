@@ -4,10 +4,15 @@
 	import ComposeModal from '$lib/components/ComposeModal.svelte';
 	import SettingsIsland from '$lib/components/SettingsIsland.svelte';
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
+	import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
+	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount, setContext } from 'svelte';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
+	import { realtime } from '$lib/stores/realtime';
+	import { showToast } from '$lib/stores/toast';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -36,7 +41,64 @@
 		profilePhoto.hydrate();
 		const handler = () => readingPane.setFromViewport(window.innerWidth);
 		window.addEventListener('resize', handler);
-		return () => window.removeEventListener('resize', handler);
+
+		// Real-time push: open the SSE connection and pause it whenever the
+		// tab is hidden so a backgrounded window doesn't keep a long-lived
+		// upstream socket alive needlessly.
+		realtime.connect();
+		const handleVisibility = () => {
+			if (document.hidden) realtime.disconnect();
+			else realtime.connect();
+		};
+		document.addEventListener('visibilitychange', handleVisibility);
+
+		return () => {
+			window.removeEventListener('resize', handler);
+			document.removeEventListener('visibilitychange', handleVisibility);
+			realtime.disconnect();
+		};
+	});
+
+	// Watch the inbox unread count for new mail. Kept as a plain `let`
+	// (not `$state`) so writes don't re-trigger the effect that reads it.
+	// `-1` is the "no baseline yet" sentinel — first effect run captures
+	// the starting value without firing a toast.
+	let lastInboxUnread = -1;
+
+	$effect(() => {
+		const inbox = data.mailboxes.find((m) => m.role === 'inbox');
+		if (!inbox) return;
+
+		const current = inbox.unreadEmails;
+		if (lastInboxUnread === -1) {
+			lastInboxUnread = current;
+			return;
+		}
+
+		if (current > lastInboxUnread) {
+			const delta = current - lastInboxUnread;
+			const onInbox = page.url.pathname === '/inbox';
+
+			if (!onInbox) {
+				showToast({
+					message: `${delta} new message${delta === 1 ? '' : 's'}`,
+					action: { label: 'View', onClick: () => goto('/inbox') }
+				});
+			}
+
+			if (
+				data.notificationsEnabled &&
+				typeof Notification !== 'undefined' &&
+				Notification.permission === 'granted'
+			) {
+				new Notification(
+					delta === 1 ? 'New message' : `${delta} new messages`,
+					{ body: 'Your inbox has new mail.', tag: 'ameera-mail-new', silent: false }
+				);
+			}
+		}
+
+		lastInboxUnread = current;
 	});
 
 	function toggleFilter(f: string) {
@@ -110,6 +172,8 @@
 			{/if}
 		</form>
 		<div class="flex-1"></div>
+		<ConnectionStatus />
+		<div class="w-px h-5 bg-border shrink-0"></div>
 		<span class="text-sm text-text-secondary select-none">{data.displayName}</span>
 		<div class="w-px h-5 bg-border shrink-0"></div>
 		<!-- 52px wrapper aligns avatar center with the AppRail column below -->
@@ -179,3 +243,4 @@
 {/if}
 
 <ComposeModal />
+<ToastContainer />
