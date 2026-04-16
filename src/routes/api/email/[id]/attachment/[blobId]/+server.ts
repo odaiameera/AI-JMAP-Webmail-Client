@@ -13,6 +13,7 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
 	}
 
 	const filename = url.searchParams.get('name') ?? 'attachment';
+	const forceDownload = url.searchParams.get('download') === '1';
 	const downloadUrl =
 		`${locals.auth.apiUrl}download/${locals.auth.accountId}/${params.blobId}/${encodeURIComponent(filename)}`;
 
@@ -24,15 +25,17 @@ export const GET: RequestHandler = async ({ params, locals, url }) => {
 		return new Response('Download failed', { status: res.status });
 	}
 
-	// Stream the blob through with the sender's content-type and a
-	// Content-Disposition that browsers treat as a download. The filename
-	// is sanitised (quotes stripped) to keep the header well-formed.
+	// Default to `inline` so the built-in viewer can render PDFs in an
+	// iframe and the browser doesn't trigger a download for `<img>`/fetch
+	// previews. The download chip in the viewer uses `link.download` plus
+	// `?download=1` to explicitly request attachment disposition.
 	const safeName = filename.replace(/"/g, '');
+	const disposition = forceDownload ? 'attachment' : 'inline';
 	return new Response(res.body, {
 		status: 200,
 		headers: {
 			'Content-Type': res.headers.get('Content-Type') ?? 'application/octet-stream',
-			'Content-Disposition': `attachment; filename="${safeName}"`,
+			'Content-Disposition': `${disposition}; filename="${safeName}"`,
 			'Content-Length': res.headers.get('Content-Length') ?? ''
 		}
 	});

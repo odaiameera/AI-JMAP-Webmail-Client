@@ -1,5 +1,9 @@
 <script lang="ts">
 	import type { EmailAttachment } from '$lib/jmap/types';
+	import type { ViewerAttachment } from '$lib/attachments/types';
+	import { detectKind } from '$lib/attachments/detect';
+	import { attachmentUrl } from '$lib/attachments/fetch';
+	import ViewerModal from './viewers/ViewerModal.svelte';
 
 	let { emailId, attachments }: {
 		emailId: string;
@@ -14,6 +18,28 @@
 	const files = $derived(
 		attachments.filter((a) => a.disposition !== 'inline' && !a.cid)
 	);
+
+	let activeAttachment = $state<ViewerAttachment | null>(null);
+
+	function openViewer(a: EmailAttachment) {
+		activeAttachment = {
+			emailId,
+			blobId: a.blobId,
+			name: a.name ?? 'attachment',
+			type: a.type,
+			size: a.size,
+			kind: detectKind(a.type, a.name)
+		};
+	}
+
+	function downloadAttachment(a: EmailAttachment, e: MouseEvent) {
+		e.stopPropagation();
+		const name = a.name ?? 'attachment';
+		const link = document.createElement('a');
+		link.href = attachmentUrl(emailId, a.blobId, name, { download: true });
+		link.download = name;
+		link.click();
+	}
 
 	function formatSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -34,11 +60,6 @@
 		if (type.includes('presentation') || type.includes('powerpoint')) return 'slides';
 		return 'file';
 	}
-
-	function downloadUrl(a: EmailAttachment): string {
-		const name = a.name ?? 'attachment';
-		return `/api/email/${emailId}/attachment/${a.blobId}?name=${encodeURIComponent(name)}`;
-	}
 </script>
 
 {#if files.length > 0}
@@ -49,11 +70,11 @@
 		<div class="flex flex-wrap gap-2">
 			{#each files as a (a.blobId)}
 				{@const kind = iconKindFor(a.type)}
-				<a
-					href={downloadUrl(a)}
-					download={a.name}
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+				<div
+					onclick={() => openViewer(a)}
 					title={`${a.name ?? 'attachment'} · ${formatSize(a.size)}`}
-					class="flex items-center gap-2 px-3 py-2 bg-surface-hover border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group max-w-[280px] no-underline"
+					class="flex items-center gap-2 px-3 py-2 bg-surface-hover border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer group max-w-[280px]"
 				>
 					<span class="shrink-0 text-text-secondary group-hover:text-accent transition-colors">
 						{#if kind === 'image'}
@@ -72,17 +93,27 @@
 							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 						{/if}
 					</span>
-					<div class="min-w-0">
+					<div class="min-w-0 flex-1">
 						<div class="text-sm text-text truncate">{a.name ?? 'unnamed'}</div>
 						<div class="text-xs text-text-tertiary">{formatSize(a.size)}</div>
 					</div>
-					<svg class="shrink-0 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-						<polyline points="7 10 12 15 17 10"/>
-						<line x1="12" y1="15" x2="12" y2="3"/>
-					</svg>
-				</a>
+					<button
+						onclick={(e) => downloadAttachment(a, e)}
+						title="Download"
+						class="shrink-0 p-1 rounded text-text-tertiary hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+					>
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+							<polyline points="7 10 12 15 17 10"/>
+							<line x1="12" y1="15" x2="12" y2="3"/>
+						</svg>
+					</button>
+				</div>
 			{/each}
 		</div>
 	</div>
+{/if}
+
+{#if activeAttachment}
+	<ViewerModal attachment={activeAttachment} onClose={() => (activeAttachment = null)} />
 {/if}
