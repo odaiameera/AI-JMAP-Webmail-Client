@@ -71,6 +71,10 @@ export interface Email {
 	attachments?: EmailAttachment[];
 	'header:list-unsubscribe:asText'?: string | null;
 	'header:list-unsubscribe-post:asText'?: string | null;
+	/** Spam classifier status set by the server, typically `Yes, ...` or `No, ...`. */
+	'header:x-spam-status:asText'?: string | null;
+	/** Numeric spam score; higher = more spammy. */
+	'header:x-spam-score:asText'?: string | null;
 }
 
 export interface EmailQueryResult {

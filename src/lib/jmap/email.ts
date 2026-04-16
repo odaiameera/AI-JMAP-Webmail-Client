@@ -63,7 +63,9 @@ export async function getEmailDetail(
 					...LIST_PROPERTIES,
 					'htmlBody', 'textBody', 'bodyValues', 'attachments',
 					'header:list-unsubscribe:asText',
-					'header:list-unsubscribe-post:asText'
+					'header:list-unsubscribe-post:asText',
+					'header:x-spam-status:asText',
+					'header:x-spam-score:asText'
 				],
 				fetchAllBodyValues: true
 			},
@@ -324,6 +326,107 @@ export const spamEmail = (
 	client: JMAPClient, accountId: string, id: string,
 	currentMailboxId: string, junkMailboxId: string
 ) => moveEmail(client, accountId, id, junkMailboxId, currentMailboxId);
+
+/**
+ * Mark an email as spam: move to Junk AND set the `$junk` IMAP keyword
+ * (clearing `$notjunk` if set) so Stalwart's Bayesian classifier can
+ * learn from the correction. One Email/set patch updates both at once.
+ */
+export async function markAsSpam(
+	client: JMAPClient,
+	accountId: string,
+	id: string,
+	currentMailboxId: string,
+	junkMailboxId: string
+): Promise<void> {
+	const patch: Record<string, unknown> = {
+		[`mailboxIds/${junkMailboxId}`]: true,
+		'keywords/$junk': true,
+		'keywords/$notjunk': null
+	};
+	if (currentMailboxId && currentMailboxId !== junkMailboxId) {
+		patch[`mailboxIds/${currentMailboxId}`] = null;
+	}
+	await client.request([
+		['Email/set', { accountId, update: { [id]: patch } }, '0']
+	]);
+}
+
+/**
+ * Mark an email as NOT spam: move from Junk back to Inbox AND flip the
+ * keywords so the classifier learns which direction this message
+ * belongs in.
+ */
+export async function markAsNotSpam(
+	client: JMAPClient,
+	accountId: string,
+	id: string,
+	junkMailboxId: string,
+	inboxMailboxId: string
+): Promise<void> {
+	await client.request([
+		[
+			'Email/set',
+			{
+				accountId,
+				update: {
+					[id]: {
+						[`mailboxIds/${junkMailboxId}`]: null,
+						[`mailboxIds/${inboxMailboxId}`]: true,
+						'keywords/$junk': null,
+						'keywords/$notjunk': true
+					}
+				}
+			},
+			'0'
+		]
+	]);
+}
+
+/** Batch version of {@link markAsSpam}. */
+export async function markManyAsSpam(
+	client: JMAPClient,
+	accountId: string,
+	ids: string[],
+	currentMailboxId: string,
+	junkMailboxId: string
+): Promise<void> {
+	if (ids.length === 0) return;
+	const update: Record<string, Record<string, unknown>> = {};
+	for (const id of ids) {
+		const patch: Record<string, unknown> = {
+			[`mailboxIds/${junkMailboxId}`]: true,
+			'keywords/$junk': true,
+			'keywords/$notjunk': null
+		};
+		if (currentMailboxId && currentMailboxId !== junkMailboxId) {
+			patch[`mailboxIds/${currentMailboxId}`] = null;
+		}
+		update[id] = patch;
+	}
+	await client.request([['Email/set', { accountId, update }, '0']]);
+}
+
+/** Batch version of {@link markAsNotSpam}. */
+export async function markManyAsNotSpam(
+	client: JMAPClient,
+	accountId: string,
+	ids: string[],
+	junkMailboxId: string,
+	inboxMailboxId: string
+): Promise<void> {
+	if (ids.length === 0) return;
+	const update: Record<string, Record<string, unknown>> = {};
+	for (const id of ids) {
+		update[id] = {
+			[`mailboxIds/${junkMailboxId}`]: null,
+			[`mailboxIds/${inboxMailboxId}`]: true,
+			'keywords/$junk': null,
+			'keywords/$notjunk': true
+		};
+	}
+	await client.request([['Email/set', { accountId, update }, '0']]);
+}
 
 export const forwardEmail = sendEmail;
 

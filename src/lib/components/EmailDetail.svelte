@@ -61,6 +61,22 @@
 		Object.keys(email.mailboxIds).find((id) => !labelIdSet.has(id)) ?? ''
 	);
 
+	// --- Spam classifier output (read-only for display + contextual button) ---
+	const spamScore = $derived.by<number | null>(() => {
+		const raw = email['header:x-spam-score:asText'];
+		if (!raw) return null;
+		const parsed = parseFloat(raw.trim());
+		return Number.isFinite(parsed) ? parsed : null;
+	});
+	const spamStatus = $derived(email['header:x-spam-status:asText']?.toLowerCase() ?? '');
+	const isFlaggedSpam = $derived(spamStatus.startsWith('yes'));
+	const isInJunk = $derived(
+		Object.keys(email.mailboxIds).some((id) => {
+			const mb = mailboxes.find((m) => m.id === id);
+			return mb?.role === 'junk';
+		})
+	);
+
 	let actionLoading = $state('');
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let iframeHeight = $state(400);
@@ -364,7 +380,22 @@
 					{/if}
 				</div>
 			</div>
-			<span class="text-xs text-text-tertiary shrink-0">{formatDate(email.receivedAt)}</span>
+			<div class="flex flex-col items-end gap-1 shrink-0">
+				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
+				{#if spamScore !== null}
+					<span
+						class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full
+							{isFlaggedSpam
+								? 'bg-red-500/10 text-red-400'
+								: spamScore > 3
+									? 'bg-yellow-500/10 text-yellow-400'
+									: 'bg-text-tertiary/10 text-text-tertiary'}"
+						title={isFlaggedSpam ? 'Flagged as spam by the classifier' : 'Spam classifier score'}
+					>
+						Spam score: {spamScore.toFixed(1)}
+					</span>
+				{/if}
+			</div>
 		</div>
 	</header>
 
@@ -418,9 +449,28 @@
 			<button onclick={() => doAction('archive')} title="Archive" disabled={actionLoading === 'archive'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 			</button>
-			<button onclick={() => doAction('spam')} title="Spam" disabled={actionLoading === 'spam'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
-			</button>
+			{#if isInJunk}
+				<button
+					onclick={() => doAction('notSpam')}
+					title="Not spam — move back to Inbox and train the classifier"
+					disabled={actionLoading === 'notSpam'}
+					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-green-400 transition-colors cursor-pointer disabled:opacity-50"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+						<path d="m9 12 2 2 4-4"/>
+					</svg>
+				</button>
+			{:else}
+				<button
+					onclick={() => doAction('spam')}
+					title="Mark as spam — move to Junk and train the classifier"
+					disabled={actionLoading === 'spam'}
+					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
+				</button>
+			{/if}
 			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 			</button>
