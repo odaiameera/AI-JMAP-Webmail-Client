@@ -34,6 +34,21 @@
 	let dragging = $state(false);
 	let loadingPreview = $state(false);
 	let showMovePicker = $state(false);
+	let moveTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
+
+	/**
+	 * Build the payload for a dragstart on a list row. If the dragged email
+	 * is part of a multi-selection, move all selected ids; otherwise drag
+	 * just this one so users can drag a row without selecting it first.
+	 */
+	function handleRowDragStart(email: Email, e: DragEvent) {
+		if (!e.dataTransfer) return;
+		const ids = selectedIds.has(email.id) && selectedIds.size > 1
+			? [...selectedIds]
+			: [email.id];
+		e.dataTransfer.setData('application/x-email-ids', JSON.stringify(ids));
+		e.dataTransfer.effectAllowed = 'move';
+	}
 
 	async function bulkMoveTo(targetMailboxId: string) {
 		if (selectedIds.size === 0) return;
@@ -146,33 +161,32 @@
 					<button onclick={() => bulkAction('markUnread')} title="Mark Unread" disabled={!!bulkLoading} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
 					</button>
-					<div class="relative">
-						<button
-							onclick={(e) => { e.stopPropagation(); showMovePicker = !showMovePicker; }}
-							title="Move to…"
-							disabled={!!bulkLoading}
-							class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
-								{showMovePicker ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
-								<path d="M2 13h10"/>
-								<path d="m9 16 3-3-3-3"/>
-								<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
-							</svg>
-						</button>
-						{#if showMovePicker}
-							<div class="absolute top-full left-0 mt-1 z-30">
-								<FolderPicker
-									{mailboxes}
-									labels={allLabels}
-									excludeIds={mailboxId ? [mailboxId] : []}
-									onPick={bulkMoveTo}
-									onClose={() => { showMovePicker = false; }}
-								/>
-							</div>
-						{/if}
-					</div>
+					<button
+						bind:this={moveTriggerEl}
+						onclick={(e) => { e.stopPropagation(); showMovePicker = !showMovePicker; }}
+						title="Move to…"
+						disabled={!!bulkLoading}
+						class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
+							{showMovePicker ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
+							<path d="M2 13h10"/>
+							<path d="m9 16 3-3-3-3"/>
+							<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
+						</svg>
+					</button>
+					{#if showMovePicker}
+						<FolderPicker
+							{mailboxes}
+							labels={allLabels}
+							excludeIds={mailboxId ? [mailboxId] : []}
+							anchor={moveTriggerEl ?? null}
+							align="left"
+							onPick={bulkMoveTo}
+							onClose={() => { showMovePicker = false; }}
+						/>
+					{/if}
 					<button onclick={() => bulkAction('archive')} title="Archive" disabled={!!bulkLoading} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 					</button>
@@ -225,6 +239,7 @@
 						selected={selectedIds.has(email.id)}
 						onSelect={toggleSelect}
 						onClick={paneOpen ? handlePaneClick : undefined}
+						onDragStart={handleRowDragStart}
 						active={paneOpen && previewEmail?.id === email.id}
 					/>
 				{/each}

@@ -8,12 +8,18 @@
 		mailboxes,
 		labels = [],
 		excludeIds = [],
+		anchor = null,
+		align = 'left',
 		onPick,
 		onClose
 	}: {
 		mailboxes: Mailbox[];
 		labels?: Label[];
 		excludeIds?: string[];
+		/** Trigger element — used to compute the popover's fixed position. */
+		anchor?: HTMLElement | null;
+		/** Which edge of the anchor the popover aligns with horizontally. */
+		align?: 'left' | 'right';
 		onPick: (id: string) => void;
 		onClose: () => void;
 	} = $props();
@@ -39,7 +45,6 @@
 		const list: PickerItem[] = [];
 		for (const m of mailboxes) {
 			if (excludeSet.has(m.id)) continue;
-			// Drafts, Sent Messages, and "sent" role are never a legal target.
 			if (m.role === 'drafts') continue;
 			if (m.role === 'sent') continue;
 			if (m.name === 'Sent Messages') continue;
@@ -54,25 +59,13 @@
 					unread: m.unreadEmails
 				});
 			} else if (m.role) {
-				list.push({
-					id: m.id,
-					name: m.name,
-					kind: 'system',
-					role: m.role,
-					unread: m.unreadEmails
-				});
+				list.push({ id: m.id, name: m.name, kind: 'system', role: m.role, unread: m.unreadEmails });
 			} else {
-				list.push({
-					id: m.id,
-					name: m.name,
-					kind: 'folder',
-					unread: m.unreadEmails
-				});
+				list.push({ id: m.id, name: m.name, kind: 'folder', unread: m.unreadEmails });
 			}
 		}
 
 		list.sort((a, b) => {
-			// System first (role order), then folders (alphabetical), then labels (alphabetical).
 			const kindOrder = { system: 0, folder: 1, label: 2 };
 			if (kindOrder[a.kind] !== kindOrder[b.kind]) return kindOrder[a.kind] - kindOrder[b.kind];
 			if (a.kind === 'system') {
@@ -92,20 +85,64 @@
 	let inputEl = $state<HTMLInputElement | undefined>(undefined);
 	let rootEl = $state<HTMLDivElement | undefined>(undefined);
 
+	// Fixed-position coordinates computed from the anchor element.
+	let top = $state(0);
+	let left = $state(0);
+	let positioned = $state(false);
+
+	const PICKER_WIDTH = 280;
+	const PICKER_MAX_HEIGHT = 340;
+	const GAP = 4;
+
+	function computePosition() {
+		if (!anchor || typeof window === 'undefined') return;
+		const rect = anchor.getBoundingClientRect();
+
+		// Horizontal — align left or right edge of picker with the anchor.
+		let nextLeft = align === 'right' ? rect.right - PICKER_WIDTH : rect.left;
+		// Keep in viewport with 8px margin.
+		nextLeft = Math.max(8, Math.min(nextLeft, window.innerWidth - PICKER_WIDTH - 8));
+
+		// Vertical — default below the anchor, flip above if there isn't room.
+		const spaceBelow = window.innerHeight - rect.bottom;
+		const needed = PICKER_MAX_HEIGHT + GAP + 8;
+		let nextTop: number;
+		if (spaceBelow >= needed || rect.top < needed) {
+			nextTop = rect.bottom + GAP;
+		} else {
+			nextTop = Math.max(8, rect.top - PICKER_MAX_HEIGHT - GAP);
+		}
+
+		left = nextLeft;
+		top = nextTop;
+		positioned = true;
+	}
+
 	const filtered = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		if (!q) return items.slice(0, 100);
 		return items.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 100);
 	});
 
-	// Keep highlight in range when the filter changes.
 	$effect(() => {
 		filtered;
 		if (highlight >= filtered.length) highlight = Math.max(0, filtered.length - 1);
 	});
 
 	onMount(() => {
+		computePosition();
 		inputEl?.focus();
+
+		// Reposition on scroll (capture catches scroll on any ancestor) and
+		// resize. Keeps the popover anchored as the page moves around.
+		const onScroll = () => computePosition();
+		const onResize = () => computePosition();
+		window.addEventListener('scroll', onScroll, true);
+		window.addEventListener('resize', onResize);
+		return () => {
+			window.removeEventListener('scroll', onScroll, true);
+			window.removeEventListener('resize', onResize);
+		};
 	});
 
 	async function scrollHighlightIntoView() {
@@ -143,7 +180,25 @@
 
 	function handleWindowClick(e: MouseEvent) {
 		if (!rootEl) return;
-		if (!rootEl.contains(e.target as Node)) onClose();
+		// Click inside the picker → keep it open.
+		if (rootEl.contains(e.target as Node)) return;
+		// Click on the trigger button → it owns the open/close toggle, leave it be.
+		if (anchor && anchor.contains(e.target as Node)) return;
+		onClose();
+	}
+
+	/**
+	 * Teleport the popover out of its parent (which is overflow:hidden) onto
+	 * document.body so the fixed positioning can reach any corner of the
+	 * viewport without being clipped.
+	 */
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				node.remove();
+			}
+		};
 	}
 
 	function iconFor(item: PickerItem): string {
@@ -162,8 +217,10 @@
 <svelte:window onkeydown={handleKeydown} onclick={handleWindowClick} />
 
 <div
+	use:portal
 	bind:this={rootEl}
-	class="w-[280px] bg-surface border border-border rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden animate-compose-modal-in"
+	class="fixed z-[60] w-[280px] bg-surface border border-border rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden animate-compose-modal-in"
+	style="top: {top}px; left: {left}px; visibility: {positioned ? 'visible' : 'hidden'};"
 	role="dialog"
 	aria-label="Move to folder"
 >

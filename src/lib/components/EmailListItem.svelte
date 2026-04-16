@@ -5,11 +5,12 @@
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
-	let { email, selected = false, onSelect, onClick, active = false }: {
+	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
 		selected?: boolean;
 		onSelect?: (id: string, checked: boolean) => void;
 		onClick?: (email: Email) => void;
+		onDragStart?: (email: Email, e: DragEvent) => void;
 		active?: boolean;
 	} = $props();
 
@@ -60,6 +61,8 @@
 <a
 	href="/email/{email.id}"
 	onclick={handleRowClick}
+	draggable="true"
+	ondragstart={(e) => onDragStart?.(email, e)}
 	class="flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
 		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >

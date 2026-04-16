@@ -264,6 +264,85 @@
 		const m = mailboxes.find((mb) => mb.id === id);
 		return m?.unreadEmails ?? 0;
 	}
+
+	// --- Drag-to-move drop targets ---
+
+	const EMAIL_DRAG_TYPE = 'application/x-email-ids';
+	let dragOverId = $state<string | null>(null);
+
+	function canDropOn(m: { role?: string | null; name?: string }): boolean {
+		if (m.role === 'drafts' || m.role === 'sent') return false;
+		if (m.name === 'Sent Messages') return false;
+		return true;
+	}
+
+	function hasEmailPayload(e: DragEvent): boolean {
+		return !!e.dataTransfer?.types?.includes(EMAIL_DRAG_TYPE);
+	}
+
+	function onRowDragOver(e: DragEvent) {
+		if (!hasEmailPayload(e)) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+	}
+
+	function onRowDragEnter(e: DragEvent, id: string) {
+		if (!hasEmailPayload(e)) return;
+		dragOverId = id;
+	}
+
+	function onRowDragLeave(e: DragEvent, id: string) {
+		// Only clear if we're actually leaving this row — ignore transitions
+		// between children of the row.
+		const related = e.relatedTarget as Node | null;
+		const current = e.currentTarget as Node;
+		if (related && current.contains(related)) return;
+		if (dragOverId === id) dragOverId = null;
+	}
+
+	async function onRowDrop(e: DragEvent, targetMailboxId: string, targetIsLabel: boolean) {
+		if (!hasEmailPayload(e)) return;
+		e.preventDefault();
+		dragOverId = null;
+
+		const raw = e.dataTransfer?.getData(EMAIL_DRAG_TYPE);
+		if (!raw) return;
+		let ids: unknown;
+		try { ids = JSON.parse(raw); } catch { return; }
+		if (!Array.isArray(ids) || ids.length === 0) return;
+
+		// Dropping on a label should ADD the label (multi-mailbox membership)
+		// without removing the email from its home folder — so omit
+		// sourceMailboxId. For real folders, include the current list's
+		// mailbox so the move actually moves.
+		const body: Record<string, unknown> = {
+			ids,
+			action: 'moveTo',
+			targetMailboxId
+		};
+		if (!targetIsLabel && currentMailboxId) {
+			body.sourceMailboxId = currentMailboxId;
+		}
+
+		await fetch('/api/email/bulk', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		await invalidateAll();
+	}
+
+	/** The mailbox the user is currently viewing, so folder drops can
+	 *  detach from it. Derived from the URL. */
+	const currentMailboxId = $derived.by(() => {
+		const path = page.url.pathname;
+		const m = path.match(/^\/folder\/([^/]+)/);
+		if (m) return m[1];
+		if (path.startsWith('/inbox')) {
+			return systemFolders.find((f) => f.role === 'inbox')?.id ?? '';
+		}
+		return '';
+	});
 </script>
 
 <aside class="w-full h-full bg-surface flex flex-col overflow-hidden">
@@ -346,12 +425,19 @@
 		<nav class="flex-1 overflow-y-auto py-1 px-2">
 			<!-- System folders -->
 			{#each systemFolders as mailbox (mailbox.id)}
+				{@const droppable = canDropOn(mailbox)}
 				<a
 					href={getMailboxHref(mailbox)}
+					ondragover={droppable ? onRowDragOver : undefined}
+					ondragenter={droppable ? (e) => onRowDragEnter(e, mailbox.id) : undefined}
+					ondragleave={droppable ? (e) => onRowDragLeave(e, mailbox.id) : undefined}
+					ondrop={droppable ? (e) => onRowDrop(e, mailbox.id, false) : undefined}
 					class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
-						{isMailboxActive(mailbox)
-							? 'bg-accent/10 text-accent'
-							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+						{dragOverId === mailbox.id
+							? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+							: isMailboxActive(mailbox)
+								? 'bg-accent/10 text-accent'
+								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(mailbox.role)}</span>
 					<span class="flex-1 truncate">{mailbox.name}</span>
@@ -528,10 +614,16 @@
 						{#each labels as label (label.id)}
 							<a
 								href={`/folder/${label.id}`}
+								ondragover={onRowDragOver}
+								ondragenter={(e) => onRowDragEnter(e, label.id)}
+								ondragleave={(e) => onRowDragLeave(e, label.id)}
+								ondrop={(e) => onRowDrop(e, label.id, true)}
 								class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors
-									{isLabelActive(label)
-										? 'bg-accent/10 text-accent'
-										: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+									{dragOverId === label.id
+										? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+										: isLabelActive(label)
+											? 'bg-accent/10 text-accent'
+											: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 							>
 								<span class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20" style="background-color: {label.color}"></span>
 								<span class="flex-1 truncate">{label.name}</span>
@@ -581,11 +673,18 @@
 			Actions are always in layout via opacity so hovering reveals them
 			without shifting the name.
 		-->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
+			ondragover={onRowDragOver}
+			ondragenter={(e) => onRowDragEnter(e, node.id)}
+			ondragleave={(e) => onRowDragLeave(e, node.id)}
+			ondrop={(e) => onRowDrop(e, node.id, false)}
 			class="group flex items-center gap-1 pr-1 py-1.5 rounded-lg text-sm transition-colors
-				{isMailboxActive(node)
-					? 'bg-accent/10 text-accent'
-					: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+				{dragOverId === node.id
+					? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+					: isMailboxActive(node)
+						? 'bg-accent/10 text-accent'
+						: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 			style="padding-left: {depth * 12}px"
 		>
 			{#if node.children.length > 0}
