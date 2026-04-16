@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { compileRulesToSieve } from '$lib/server/sieve';
+import { buildSieveContext, compileRulesToSieve } from '$lib/server/sieve';
+import { createClient } from '$lib/jmap/auth';
+import { getMailboxes } from '$lib/jmap/mailbox';
 import type { Rule } from '$lib/types/rules';
 
 const JMAP_BASE = 'https://mx.odaiameera.com/jmap/';
@@ -36,7 +38,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { rules } = await request.json() as { rules: Rule[] };
 	const { authHeader, accountId } = locals.auth;
-	const script = compileRulesToSieve(rules);
+
+	// Sieve needs to resolve applyLabel/moveToFolder action values (mailbox
+	// ids, or legacy names for older rules) to IMAP mailbox names —
+	// compileRulesToSieve can't do that without the current mailbox list.
+	const client = createClient(locals.auth);
+	const mailboxes = await getMailboxes(client, accountId);
+	const script = compileRulesToSieve(rules, buildSieveContext(mailboxes));
 
 	try {
 		// Step 1: Upload script as blob

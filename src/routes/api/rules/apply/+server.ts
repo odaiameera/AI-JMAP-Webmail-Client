@@ -1,183 +1,206 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
-import type { Rule, RuleCondition } from '$lib/types/rules';
-import type { Email, Mailbox } from '$lib/jmap/types';
+import { buildJmapFilter } from '$lib/server/rules';
+import type { Rule, RuleAction } from '$lib/types/rules';
+import type { Email } from '$lib/jmap/types';
 
-function matchCondition(c: RuleCondition, email: Email): boolean {
-	let fieldValue = '';
+const PAGE = 200;
+const BATCH = 50;
 
-	switch (c.field) {
-		case 'from':
-			fieldValue = email.from?.map(a => `${a.name ?? ''} ${a.email}`).join(' ') ?? '';
-			break;
-		case 'to':
-			fieldValue = [
-				...(email.to ?? []),
-				...(email.cc ?? [])
-			].map(a => `${a.name ?? ''} ${a.email}`).join(' ');
-			break;
-		case 'subject':
-			fieldValue = email.subject ?? '';
-			break;
-		case 'size':
-			return email.size > parseInt(c.value) * 1024;
-		case 'hasAttachment':
-			return email.hasAttachment;
-		case 'body':
-			return false;
-	}
-
-	const val = c.value.toLowerCase();
-	const fv = fieldValue.toLowerCase();
-
-	let result: boolean;
-	switch (c.op) {
-		case 'contains':     result = fv.includes(val); break;
-		case 'not_contains': result = !fv.includes(val); break;
-		case 'is':           result = fv === val; break;
-		case 'starts_with':  result = fv.startsWith(val); break;
-		case 'ends_with':    result = fv.endsWith(val); break;
-		default:             result = fv.includes(val);
-	}
-
-	return c.negate ? !result : result;
+interface ActionCtx {
+	inboxId?: string;
+	trashId?: string;
 }
 
-function matchRule(rule: Rule, email: Email): boolean {
-	if (!rule.enabled || rule.conditions.length === 0) return false;
+/**
+ * Translate a single rule's actions into a JMAP Email/set update patch for
+ * one email. Keep the email in its source folder by default — only
+ * `moveToFolder` and `delete` detach from the inbox.
+ *
+ * `applyLabel` ADDS the label mailbox to `mailboxIds` (multi-mailbox
+ * membership is exactly the model Phase 1 established) — it does NOT
+ * overwrite, which would remove the email from the inbox.
+ */
+function buildUpdates(email: Email, rule: Rule, ctx: ActionCtx): Record<string, unknown> {
+	const patch: Record<string, unknown> = {};
 
-	if (rule.logic === 'allof') {
-		return rule.conditions.every(c => matchCondition(c, email));
-	} else {
-		return rule.conditions.some(c => matchCondition(c, email));
+	for (const action of rule.actions) {
+		applyAction(patch, email, action, ctx);
+	}
+	return patch;
+}
+
+function applyAction(
+	patch: Record<string, unknown>,
+	email: Email,
+	action: RuleAction,
+	ctx: ActionCtx
+): void {
+	switch (action.type) {
+		case 'applyLabel':
+			if (action.value && !email.mailboxIds[action.value]) {
+				patch[`mailboxIds/${action.value}`] = true;
+			}
+			break;
+		case 'markRead':
+			if (!email.keywords['$seen']) patch['keywords/$seen'] = true;
+			break;
+		case 'markImportant':
+			if (!email.keywords['$flagged']) patch['keywords/$flagged'] = true;
+			break;
+		case 'moveToFolder':
+			if (action.value) {
+				patch[`mailboxIds/${action.value}`] = true;
+				// Rule-context "move" only detaches from the inbox for safety —
+				// Phase 4's doc spells this out: moving from arbitrary folders
+				// via a rule isn't supported yet.
+				if (ctx.inboxId && email.mailboxIds[ctx.inboxId] && action.value !== ctx.inboxId) {
+					patch[`mailboxIds/${ctx.inboxId}`] = null;
+				}
+			}
+			break;
+		case 'delete':
+			if (ctx.trashId) {
+				patch[`mailboxIds/${ctx.trashId}`] = true;
+				if (ctx.inboxId && email.mailboxIds[ctx.inboxId]) {
+					patch[`mailboxIds/${ctx.inboxId}`] = null;
+				}
+			}
+			break;
+		case 'stopProcessing':
+			// Handled by the caller (skips subsequent rules).
+			break;
 	}
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
-
-	const { rules } = await request.json() as { rules: Rule[] };
-	const activeRules = rules.filter(r => r.enabled);
-
-	if (activeRules.length === 0) {
-		return json({ applied: 0, matched: 0 });
+	if (!locals.auth) {
+		return new Response('Not authenticated', { status: 401 });
 	}
 
+	const { rules } = (await request.json()) as { rules: Rule[] };
+	const activeRules = (rules ?? []).filter((r) => r.enabled);
 	const client = createClient(locals.auth);
 	const { accountId } = locals.auth;
 
-	const mailboxes = await getMailboxes(client, accountId);
-	const mailboxByName = new Map<string, Mailbox>();
-	for (const mb of mailboxes) {
-		mailboxByName.set(mb.name, mb);
-	}
+	const stream = new ReadableStream({
+		async start(controller) {
+			const encoder = new TextEncoder();
+			const send = (data: unknown) => {
+				try {
+					controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+				} catch {
+					// Controller closed mid-flight (client disconnected).
+				}
+			};
 
-	// Paginate to get ALL emails across all mailboxes
-	const allEmails: Email[] = [];
-	let position = 0;
-	const PAGE_SIZE = 200;
+			let scanned = 0;
+			let matched = 0;
+			let applied = 0;
+			let total = 0;
 
-	while (true) {
-		const response = await client.request([
-			['Email/query', {
-				accountId,
-				sort: [{ property: 'receivedAt', isAscending: false }],
-				position,
-				limit: PAGE_SIZE
-			}, 'q'],
-			['Email/get', {
-				accountId,
-				'#ids': { resultOf: 'q', name: 'Email/query', path: '/ids' },
-				properties: ['id', 'from', 'to', 'cc', 'subject', 'size', 'keywords', 'hasAttachment', 'mailboxIds']
-			}, 'g']
-		]);
+			try {
+				if (activeRules.length === 0) {
+					send({ type: 'done', scanned: 0, matched: 0, applied: 0 });
+					return;
+				}
 
-		const emails = (response.methodResponses[1][1] as { list: Email[] }).list;
-		allEmails.push(...emails);
+				const mailboxes = await getMailboxes(client, accountId);
+				const ctx: ActionCtx = {
+					inboxId: mailboxes.find((m) => m.role === 'inbox')?.id,
+					trashId: mailboxes.find((m) => m.role === 'trash')?.id
+				};
 
-		if (emails.length < PAGE_SIZE) break;
-		position += PAGE_SIZE;
+				// Estimate total up-front so the UI can render a progress bar.
+				for (const rule of activeRules) {
+					const filter = buildJmapFilter(rule);
+					if (!filter) continue;
+					const response = await client.request([
+						[
+							'Email/query',
+							{ accountId, filter, calculateTotal: true, limit: 0 },
+							'0'
+						]
+					]);
+					const r = response.methodResponses[0][1] as { total?: number };
+					total += r.total ?? 0;
+				}
+				send({ type: 'start', total });
 
-		// Safety cap at 2000 emails
-		if (allEmails.length >= 2000) break;
-	}
+				// Paginate matching emails per rule — no cap.
+				for (const rule of activeRules) {
+					const filter = buildJmapFilter(rule);
+					if (!filter) continue;
+					let position = 0;
 
-	// Evaluate rules against each email
-	const updates: Record<string, Record<string, unknown>> = {};
-	let matchCount = 0;
+					// Bounded loop for safety; real break condition is "page smaller than PAGE".
+					for (let safety = 0; safety < 10_000; safety++) {
+						const response = await client.request([
+							['Email/query', { accountId, filter, position, limit: PAGE }, 'q'],
+							[
+								'Email/get',
+								{
+									accountId,
+									'#ids': { resultOf: 'q', name: 'Email/query', path: '/ids' },
+									properties: ['id', 'keywords', 'mailboxIds']
+								},
+								'g'
+							]
+						]);
 
-	for (const email of allEmails) {
-		for (const rule of activeRules) {
-			if (!matchRule(rule, email)) continue;
-			matchCount++;
+						const emails = (response.methodResponses[1][1] as { list: Email[] }).list ?? [];
+						if (emails.length === 0) break;
 
-			if (!updates[email.id]) updates[email.id] = {};
-
-			for (const action of rule.actions) {
-				switch (action.type) {
-					case 'applyLabel':
-						if (action.value && !email.keywords[action.value]) {
-							updates[email.id][`keywords/${action.value}`] = true;
+						// Build patches for this page.
+						const patches: Record<string, Record<string, unknown>> = {};
+						for (const email of emails) {
+							const p = buildUpdates(email, rule, ctx);
+							if (Object.keys(p).length > 0) patches[email.id] = p;
 						}
-						break;
-					case 'markRead':
-						if (!email.keywords['$seen']) {
-							updates[email.id]['keywords/$seen'] = true;
+
+						scanned += emails.length;
+						matched += emails.length; // pre-filtered, so every row matched
+
+						// Send updates in JMAP-safe chunks.
+						const entries = Object.entries(patches);
+						for (let i = 0; i < entries.length; i += BATCH) {
+							const chunk = Object.fromEntries(entries.slice(i, i + BATCH));
+							await client.request([
+								['Email/set', { accountId, update: chunk }, '0']
+							]);
+							applied += Object.keys(chunk).length;
 						}
-						break;
-					case 'markImportant':
-						if (!email.keywords['$flagged']) {
-							updates[email.id]['keywords/$flagged'] = true;
-						}
-						break;
-					case 'moveToFolder': {
-						const targetMb = mailboxByName.get(action.value ?? '');
-						if (targetMb) {
-							updates[email.id]['mailboxIds'] = { [targetMb.id]: true };
-						}
-						break;
+
+						send({ type: 'progress', scanned, matched, applied, total });
+
+						if (emails.length < PAGE) break;
+						position += emails.length;
 					}
-					case 'delete': {
-						const trash = mailboxes.find(m => m.role === 'trash');
-						if (trash) {
-							updates[email.id]['mailboxIds'] = { [trash.id]: true };
-						}
-						break;
-					}
-					case 'stopProcessing':
-						break;
+				}
+
+				send({ type: 'done', scanned, matched, applied });
+			} catch (err) {
+				send({
+					type: 'error',
+					message: err instanceof Error ? err.message : 'Apply failed'
+				});
+			} finally {
+				try {
+					controller.close();
+				} catch {
+					// already closed
 				}
 			}
-
-			if (rule.actions.some(a => a.type === 'stopProcessing')) break;
 		}
-	}
+	});
 
-	// Filter out emails with no actual changes
-	const emailsToUpdate = Object.entries(updates).filter(([, u]) => Object.keys(u).length > 0);
-
-	if (emailsToUpdate.length === 0) {
-		return json({ applied: 0, matched: matchCount });
-	}
-
-	// Batch update in chunks of 50
-	const BATCH_SIZE = 50;
-	let applied = 0;
-
-	for (let i = 0; i < emailsToUpdate.length; i += BATCH_SIZE) {
-		const batch = emailsToUpdate.slice(i, i + BATCH_SIZE);
-		const updateObj: Record<string, Record<string, unknown>> = {};
-		for (const [id, changes] of batch) {
-			updateObj[id] = changes;
+	return new Response(stream, {
+		headers: {
+			'Content-Type': 'text/event-stream',
+			'Cache-Control': 'no-cache, no-transform',
+			'Connection': 'keep-alive',
+			'X-Accel-Buffering': 'no'
 		}
-
-		await client.request([
-			['Email/set', { accountId, update: updateObj }, '0']
-		]);
-		applied += batch.length;
-	}
-
-	return json({ applied, matched: matchCount });
+	});
 };

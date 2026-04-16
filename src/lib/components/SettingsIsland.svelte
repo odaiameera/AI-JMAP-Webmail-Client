@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import type { Label } from '$lib/types/labels';
-	import type { Rule, RuleCondition, RuleAction } from '$lib/types/rules';
+	import type { Rule } from '$lib/types/rules';
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- mailboxes is still accepted for callers, but the rules UI no longer consumes it here.
 	import type { Mailbox } from '$lib/jmap/types';
 
-	let { onClose, initialTheme, displayName, signature, labels, rules, mailboxes }: {
+	let { onClose, initialTheme, displayName, signature, labels, rules, mailboxes: _mailboxes }: {
 		onClose: () => void;
 		initialTheme: string;
 		displayName: string;
@@ -34,12 +35,13 @@
 	let renamingLabelId = $state<string | null>(null);
 	let labelError = $state('');
 
-	// Rules state
-	let localRules = $state<Rule[]>([...rules]);
-	let editingRuleId = $state<string | null>(null);
-	let deployError = $state('');
-	let applying = $state(false);
-	let applyToExisting = $state(false);
+	// Filters tab now just summarises — the full editor lives at /settings/rules.
+	const activeRuleCount = $derived(rules.filter((r) => r.enabled).length);
+
+	function openRulesPage() {
+		onClose();
+		goto('/settings/rules');
+	}
 
 	const categories = [
 		{ id: 'appearance', label: 'Look',
@@ -159,97 +161,6 @@
 		} finally {
 			renamingLabelId = null;
 		}
-	}
-
-	// Rules — save to cookie AND deploy to server silently
-	async function saveAndDeployRules(alsoApplyToExisting = false) {
-		deployError = '';
-		try {
-			// Save to cookie
-			await fetch('/api/preferences/rules', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ rules: localRules })
-			});
-			// Deploy to server (silent unless error)
-			const res = await fetch('/api/rules/deploy', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ rules: localRules })
-			});
-			const data = await res.json();
-			if (!data.success) {
-				deployError = data.error ?? 'Deploy failed';
-			}
-			// Apply to existing emails if requested
-			if (alsoApplyToExisting) {
-				applying = true;
-				await fetch('/api/rules/apply', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ rules: localRules })
-				});
-				applying = false;
-			}
-		} catch {
-			deployError = 'Failed to save rules';
-		}
-	}
-
-	function createRule() {
-		const id = 'rule_' + Date.now();
-		const newRule: Rule = {
-			id, name: 'New rule', enabled: true, logic: 'allof',
-			conditions: [{ id: 'c1', field: 'from', op: 'contains', value: '', negate: false }],
-			actions: [{ type: 'moveToFolder', value: 'INBOX' }],
-			createdAt: Date.now()
-		};
-		localRules = [...localRules, newRule];
-		editingRuleId = id;
-		saveAndDeployRules();
-	}
-
-	function toggleRule(id: string) {
-		localRules = localRules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r);
-		saveAndDeployRules();
-	}
-
-	function deleteRule(id: string) {
-		localRules = localRules.filter(r => r.id !== id);
-		if (editingRuleId === id) editingRuleId = null;
-		saveAndDeployRules();
-	}
-
-	function updateRule(id: string, updates: Partial<Rule>) {
-		localRules = localRules.map(r => r.id === id ? { ...r, ...updates } : r);
-	}
-
-	function addCondition(ruleId: string) {
-		localRules = localRules.map(r => {
-			if (r.id !== ruleId) return r;
-			return { ...r, conditions: [...r.conditions, { id: 'c_' + Date.now(), field: 'from' as const, op: 'contains' as const, value: '', negate: false }] };
-		});
-	}
-
-	function removeCondition(ruleId: string, condId: string) {
-		localRules = localRules.map(r => {
-			if (r.id !== ruleId) return r;
-			return { ...r, conditions: r.conditions.filter(c => c.id !== condId) };
-		});
-	}
-
-	function addAction(ruleId: string) {
-		localRules = localRules.map(r => {
-			if (r.id !== ruleId) return r;
-			return { ...r, actions: [...r.actions, { type: 'markRead' as const }] };
-		});
-	}
-
-	function removeAction(ruleId: string, idx: number) {
-		localRules = localRules.map(r => {
-			if (r.id !== ruleId) return r;
-			return { ...r, actions: r.actions.filter((_, i) => i !== idx) };
-		});
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -418,158 +329,47 @@
 					{/if}
 				</div>
 
-			<!-- FILTERS -->
+			<!-- FILTERS — summary only; the full editor lives at /settings/rules -->
 			{:else if activeCategory === 'filters'}
 				<div class="px-6 py-5 flex flex-col gap-4">
-					<div class="flex items-center justify-between">
+					<div class="flex items-baseline justify-between">
 						<h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide">Rules & Filters</h3>
-						<button onclick={createRule}
-							class="text-xs bg-accent text-white px-3 py-1 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer">
-							+ Rule
-						</button>
+						<p class="text-xs text-text-tertiary">
+							{activeRuleCount} of {rules.length} active
+						</p>
 					</div>
 
-					{#if deployError}
-						<div class="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{deployError}</div>
-					{/if}
-
-					{#if applying}
-						<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20 text-accent text-xs">
-							Applying rules to existing emails...
-						</div>
-					{/if}
-
-					{#if localRules.length === 0}
-						<p class="text-xs text-text-tertiary text-center py-4">No rules yet. Create one above.</p>
+					{#if rules.length === 0}
+						<p class="text-xs text-text-tertiary py-4">
+							You haven't created any rules yet. Rules run server-side via Sieve and can also be
+							applied to your existing mail.
+						</p>
 					{:else}
-						<div class="flex flex-col gap-2">
-							{#each localRules as rule}
-								<div class="border border-border rounded-lg overflow-hidden">
-									<!-- Rule header row -->
-									<div class="flex items-center gap-2 px-3 py-2 bg-surface-hover/50">
-										<button onclick={() => toggleRule(rule.id)} title={rule.enabled ? 'Disable' : 'Enable'}
-											class="w-3 h-3 rounded-full shrink-0 border-2 cursor-pointer transition-colors
-												{rule.enabled ? 'bg-green-400 border-green-400' : 'border-text-tertiary'}"></button>
-										<span class="flex-1 text-sm text-text truncate">{rule.name}</span>
-										<button onclick={() => editingRuleId = editingRuleId === rule.id ? null : rule.id}
-											class="text-xs text-text-tertiary hover:text-text cursor-pointer px-2 py-0.5 rounded hover:bg-surface-hover transition-colors">
-											{editingRuleId === rule.id ? 'Close' : 'Edit'}
-										</button>
-										<button onclick={() => deleteRule(rule.id)}
-											class="text-text-tertiary hover:text-red-400 cursor-pointer p-1">
-											<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75">
-												<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-											</svg>
-										</button>
-									</div>
-
-									<!-- Rule editor (expanded) -->
-									{#if editingRuleId === rule.id}
-										<div class="px-3 py-3 flex flex-col gap-3 border-t border-border">
-											<!-- Rule name -->
-											<input bind:value={rule.name} type="text" placeholder="Rule name"
-												oninput={() => { updateRule(rule.id, { name: rule.name }); }}
-												class="bg-surface-hover border border-border rounded px-2 py-1.5 text-sm text-text outline-none focus:border-accent w-full" />
-
-											<!-- Logic toggle -->
-											<div class="flex items-center gap-2 text-xs text-text-tertiary">
-												<span>Match</span>
-												<div class="flex rounded-lg border border-border overflow-hidden">
-													<button onclick={() => { rule.logic = 'allof'; updateRule(rule.id, { logic: 'allof' }); }}
-														class="px-2.5 py-1 transition-colors cursor-pointer {rule.logic === 'allof' ? 'bg-accent text-white' : 'text-text-tertiary hover:bg-surface-hover'}">ALL</button>
-													<button onclick={() => { rule.logic = 'anyof'; updateRule(rule.id, { logic: 'anyof' }); }}
-														class="px-2.5 py-1 border-l border-border transition-colors cursor-pointer {rule.logic === 'anyof' ? 'bg-accent text-white' : 'text-text-tertiary hover:bg-surface-hover'}">ANY</button>
-												</div>
-												<span>of:</span>
-											</div>
-
-											<!-- Conditions -->
-											{#each rule.conditions as condition}
-												<div class="flex items-center gap-1.5 flex-wrap">
-													<select bind:value={condition.field} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none">
-														<option value="from">From</option>
-														<option value="to">To</option>
-														<option value="subject">Subject</option>
-														<option value="body">Body</option>
-														<option value="size">Size (KB)</option>
-														<option value="hasAttachment">Has attachment</option>
-													</select>
-													{#if condition.field !== 'hasAttachment'}
-														<select bind:value={condition.op} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none">
-															<option value="contains">contains</option>
-															<option value="not_contains">doesn't contain</option>
-															<option value="is">is exactly</option>
-															<option value="starts_with">starts with</option>
-															<option value="ends_with">ends with</option>
-														</select>
-														<input bind:value={condition.value} type={condition.field === 'size' ? 'number' : 'text'}
-															placeholder={condition.field === 'size' ? 'KB' : 'value...'}
-															class="flex-1 min-w-[80px] bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none focus:border-accent" />
-													{/if}
-													<button onclick={() => { condition.negate = !condition.negate; }}
-														class="text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors
-															{condition.negate ? 'border-red-400/50 text-red-400 bg-red-400/10' : 'border-border text-text-tertiary hover:border-text-tertiary'}">NOT</button>
-													<button onclick={() => removeCondition(rule.id, condition.id)}
-														class="text-text-tertiary hover:text-red-400 cursor-pointer p-0.5">
-														<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-													</button>
-												</div>
-											{/each}
-											<button onclick={() => addCondition(rule.id)}
-												class="text-xs text-accent hover:text-accent-hover cursor-pointer self-start">+ Add condition</button>
-
-											<!-- Actions -->
-											<div class="text-xs text-text-tertiary mt-1">Then:</div>
-											{#each rule.actions as action, idx}
-												<div class="flex items-center gap-1.5">
-													<select bind:value={action.type} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none">
-														<option value="moveToFolder">Move to folder</option>
-														<option value="applyLabel">Apply label</option>
-														<option value="markRead">Mark as read</option>
-														<option value="markImportant">Mark important</option>
-														<option value="delete">Delete</option>
-														<option value="stopProcessing">Stop processing</option>
-													</select>
-													{#if action.type === 'moveToFolder'}
-														<select bind:value={action.value} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none flex-1">
-															{#each mailboxes as mb}
-																<option value={mb.name}>{mb.name}</option>
-															{/each}
-														</select>
-													{:else if action.type === 'applyLabel'}
-														<select bind:value={action.value} class="bg-surface-hover border border-border rounded px-2 py-1 text-xs text-text outline-none flex-1">
-															{#each labels as lb}
-																<option value={lb.id}>{lb.name}</option>
-															{/each}
-														</select>
-													{/if}
-													<button onclick={() => removeAction(rule.id, idx)}
-														class="text-text-tertiary hover:text-red-400 cursor-pointer p-0.5">
-														<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-													</button>
-												</div>
-											{/each}
-											<button onclick={() => addAction(rule.id)}
-												class="text-xs text-accent hover:text-accent-hover cursor-pointer self-start">+ Add action</button>
-
-											<!-- Save rule -->
-											<div class="flex items-center justify-between mt-2">
-												<label class="flex items-center gap-2 cursor-pointer select-none">
-													<input type="checkbox" bind:checked={applyToExisting}
-														class="w-3.5 h-3.5 rounded border-border accent-accent cursor-pointer" />
-													<span class="text-xs text-text-tertiary">Apply to existing emails</span>
-												</label>
-												<button onclick={() => { saveAndDeployRules(applyToExisting); editingRuleId = null; applyToExisting = false; }}
-													class="text-xs bg-accent text-white px-4 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer">
-													Save rule
-												</button>
-											</div>
-										</div>
-									{/if}
+						<div class="flex flex-col gap-1">
+							{#each rules.slice(0, 3) as rule (rule.id)}
+								<div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-hover/50 border border-border/60">
+									<span
+										class="w-2 h-2 rounded-full shrink-0 {rule.enabled ? 'bg-green-400' : 'bg-text-tertiary/50'}"
+										title={rule.enabled ? 'Enabled' : 'Disabled'}
+									></span>
+									<span class="flex-1 truncate text-sm text-text">{rule.name || 'Untitled rule'}</span>
+									<span class="text-[10px] text-text-tertiary">{rule.conditions.length} {rule.conditions.length === 1 ? 'condition' : 'conditions'}</span>
 								</div>
 							{/each}
+							{#if rules.length > 3}
+								<p class="text-[11px] text-text-tertiary pl-3">
+									+ {rules.length - 3} more
+								</p>
+							{/if}
 						</div>
 					{/if}
+
+					<button
+						onclick={openRulesPage}
+						class="self-start mt-1 text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer"
+					>
+						{rules.length === 0 ? 'Create your first rule →' : 'Manage all rules →'}
+					</button>
 				</div>
 
 			<!-- COMING SOON -->

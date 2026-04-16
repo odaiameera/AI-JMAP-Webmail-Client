@@ -1,13 +1,28 @@
 import type { Rule, RuleCondition, RuleAction, RuleConditionOp } from '$lib/types/rules';
+import type { Mailbox } from '$lib/jmap/types';
+import { LABEL_PREFIX } from '$lib/types/labels';
 
-export function compileRulesToSieve(rules: Rule[]): string {
-	const activeRules = rules.filter(r => r.enabled);
+export interface SieveContext {
+	mailboxById: Map<string, Mailbox>;
+	mailboxByName: Map<string, Mailbox>;
+}
+
+export function buildSieveContext(mailboxes: Mailbox[]): SieveContext {
+	return {
+		mailboxById: new Map(mailboxes.map((m) => [m.id, m])),
+		mailboxByName: new Map(mailboxes.map((m) => [m.name, m]))
+	};
+}
+
+export function compileRulesToSieve(rules: Rule[], ctx: SieveContext): string {
+	const activeRules = rules.filter((r) => r.enabled);
 	if (activeRules.length === 0) {
 		return `require ["fileinto", "imap4flags", "envelope", "header"];\n\n# No active rules\n`;
 	}
 
 	const lines: string[] = [
-		`require ["fileinto", "imap4flags", "envelope", "header", "body"];`,
+		// `copy` is required for `fileinto :copy` used by applyLabel.
+		`require ["fileinto", "imap4flags", "envelope", "header", "body", "copy"];`,
 		''
 	];
 
@@ -24,7 +39,7 @@ export function compileRulesToSieve(rules: Rule[]): string {
 
 		lines.push(`if ${condBlock} {`);
 		for (const action of rule.actions) {
-			const compiled = compileAction(action);
+			const compiled = compileAction(action, ctx);
 			if (compiled) lines.push(`  ${compiled}`);
 		}
 		lines.push(`}`);
@@ -73,10 +88,31 @@ function opToSieve(type: string, header: string, op: RuleConditionOp, value: str
 	}
 }
 
-function compileAction(a: RuleAction): string {
+/**
+ * Resolve `action.value` to a mailbox — rules created from the new editor
+ * use ids; older rules referenced mailboxes by name. Prefer id, fall back
+ * to name.
+ */
+function resolveMailbox(value: string | undefined, ctx: SieveContext): Mailbox | null {
+	if (!value) return null;
+	return ctx.mailboxById.get(value) ?? ctx.mailboxByName.get(value) ?? null;
+}
+
+function compileAction(a: RuleAction, ctx: SieveContext): string {
 	switch (a.type) {
-		case 'moveToFolder':   return `fileinto "${escSieve(a.value ?? 'INBOX')}"; stop;`;
-		case 'applyLabel':     return `addflag "${escSieve(a.value ?? '')}";`;
+		case 'moveToFolder': {
+			const mb = resolveMailbox(a.value, ctx);
+			if (!mb) return '';
+			// `fileinto` moves by default — no `:copy`.
+			return `fileinto "${escSieve(mb.name)}";`;
+		}
+		case 'applyLabel': {
+			const mb = resolveMailbox(a.value, ctx);
+			if (!mb || !mb.name.startsWith(LABEL_PREFIX)) return '';
+			// `:copy` keeps the message in its original mailbox AND in the
+			// label folder — the multi-mailbox membership model labels use.
+			return `fileinto :copy "${escSieve(mb.name)}";`;
+		}
 		case 'markRead':       return `addflag "\\\\Seen";`;
 		case 'markImportant':  return `addflag "\\\\Flagged";`;
 		case 'delete':         return `discard; stop;`;
