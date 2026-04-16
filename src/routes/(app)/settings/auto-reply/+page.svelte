@@ -74,7 +74,7 @@
 		{#snippet control()}
 			<Toggle
 				checked={enabled}
-				onchange={(v) => { enabled = v; save({ enabled: v }); }}
+				onChange={(v) => { enabled = v; save({ enabled: v }); }}
 				label="Enable auto-reply"
 			/>
 		{/snippet}

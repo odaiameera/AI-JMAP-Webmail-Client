@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
+	import Toggle from '$lib/components/settings/Toggle.svelte';
 	import type { Label } from '$lib/types/labels';
 	import type { Rule } from '$lib/types/rules';
 	import type { Mailbox } from '$lib/jmap/types';
@@ -27,10 +28,10 @@
 	let theme = $state(initialTheme);
 	let density = $state(initialDensity);
 
-	async function toggleTheme() {
-		const next = theme === 'dark' ? 'light' : 'dark';
+	async function setLightTheme(isLight: boolean) {
+		const next = isLight ? 'light' : 'dark';
 		theme = next;
-		document.documentElement.classList.toggle('light', next === 'light');
+		document.documentElement.classList.toggle('light', isLight);
 		await fetch('/api/preferences/theme', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -82,18 +83,10 @@
 		<!-- Theme -->
 		<div class="flex items-center justify-between">
 			<div>
-				<p class="text-sm text-text font-medium">Theme</p>
-				<p class="text-xs text-text-tertiary mt-0.5">{theme === 'light' ? 'Light mode' : 'Dark mode'}</p>
+				<p class="text-sm text-text font-medium">Light mode</p>
+				<p class="text-xs text-text-tertiary mt-0.5">{theme === 'light' ? 'On' : 'Off — dark mode'}</p>
 			</div>
-			<button
-				onclick={toggleTheme}
-				aria-label="Toggle theme"
-				class="relative w-11 h-6 rounded-full transition-colors cursor-pointer
-					{theme === 'light' ? 'bg-accent' : 'bg-surface-hover border border-border'}"
-			>
-				<span class="absolute top-0.5 transition-transform w-5 h-5 rounded-full bg-white shadow-sm
-					{theme === 'light' ? 'translate-x-5' : 'translate-x-0.5'}"></span>
-			</button>
+			<Toggle checked={theme === 'light'} onChange={setLightTheme} label="Light mode" />
 		</div>
 
 		<!-- Density -->

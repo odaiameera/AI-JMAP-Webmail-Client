@@ -49,7 +49,7 @@
 		{#snippet control()}
 			<Toggle
 				checked={conversationView}
-				onchange={(v) => { conversationView = v; save({ conversationView: v }, 'conversationView'); }}
+				onChange={(v) => { conversationView = v; save({ conversationView: v }, 'conversationView'); }}
 				label="Conversation view"
 			/>
 		{/snippet}
@@ -121,7 +121,7 @@
 		{#snippet control()}
 			<Toggle
 				checked={keyboardShortcuts}
-				onchange={(v) => { keyboardShortcuts = v; save({ keyboardShortcuts: v }, 'keyboardShortcuts'); }}
+				onChange={(v) => { keyboardShortcuts = v; save({ keyboardShortcuts: v }, 'keyboardShortcuts'); }}
 				label="Keyboard shortcuts"
 			/>
 		{/snippet}
