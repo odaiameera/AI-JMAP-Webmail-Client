@@ -7,6 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
+	import { get } from 'svelte/store';
 	import type { Email, Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
 
@@ -21,7 +22,10 @@
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
 	const readingPane = getContext<{ subscribe: (fn: (v: boolean) => void) => () => void; toggle: () => void }>('readingPane');
-	let paneOpen = $state(false);
+	// Read the store synchronously so the pane renders in its real state
+	// on first paint instead of flashing closed for ~200ms while waiting
+	// for the subscription effect to mount.
+	let paneOpen = $state(get(readingPane));
 	$effect(() => {
 		const unsub = readingPane.subscribe((v: boolean) => { paneOpen = v; });
 		return unsub;
