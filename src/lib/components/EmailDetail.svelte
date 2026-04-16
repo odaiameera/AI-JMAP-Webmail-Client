@@ -471,17 +471,27 @@
 	</div>
 
 	<!-- Unsubscribe toast — fixed relative to the detail surface so it
-	     floats over the ribbon without affecting its layout. -->
+	     floats over the ribbon without affecting its layout. Solid
+	     bg-surface so it's clearly legible over the mail body. -->
 	{#if unsubToast}
 		<div
 			role="status"
 			aria-live="polite"
-			class="absolute top-16 right-6 z-20 px-3 py-2 rounded-lg border text-xs shadow-lg animate-compose-modal-in
-				{unsubToast.kind === 'success'
-					? 'bg-green-500/10 border-green-500/30 text-green-400'
-					: 'bg-red-500/10 border-red-500/30 text-red-400'}"
+			class="absolute top-16 right-6 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border text-xs shadow-[0_8px_24px_rgba(0,0,0,0.4)] animate-compose-modal-in
+				{unsubToast.kind === 'success' ? 'border-border text-text' : 'border-red-500/40 text-red-400'}"
 		>
-			{unsubToast.message}
+			{#if unsubToast.kind === 'success'}
+				<svg class="text-accent shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="20 6 9 17 4 12"/>
+				</svg>
+			{:else}
+				<svg class="shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="12" cy="12" r="10"/>
+					<line x1="12" y1="8" x2="12" y2="12"/>
+					<line x1="12" y1="16" x2="12.01" y2="16"/>
+				</svg>
+			{/if}
+			<span>{unsubToast.message}</span>
 		</div>
 	{/if}
 </div>
