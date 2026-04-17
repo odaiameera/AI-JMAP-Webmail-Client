@@ -1,10 +1,12 @@
-import { db } from './index';
+import { getDb } from './index';
 
 /**
- * Bundle migration SQL into the build at compile time. `readdirSync` from
- * `src/lib/server/db/migrations/` would only work in dev — the production
- * build ships `build/`, not `src/`. Vite's eager glob with `?raw` inlines
- * each .sql file as a string the runtime can execute directly.
+ * Bundle migration SQL into the build at compile time. Vite's eager glob
+ * with `?raw` inlines each .sql file as a string the runtime can execute
+ * directly — no `readdirSync` from `src/` (the runtime image only ships
+ * `build/`). Keeping this as a pure data import means evaluating the
+ * module is side-effect free; the DB connection only opens inside
+ * {@link runMigrations} below.
  */
 const MIGRATION_SOURCES = import.meta.glob('./migrations/*.sql', {
 	query: '?raw',
@@ -13,6 +15,8 @@ const MIGRATION_SOURCES = import.meta.glob('./migrations/*.sql', {
 }) as Record<string, string>;
 
 export function runMigrations(): void {
+	const db = getDb();
+
 	db.exec(`
 		CREATE TABLE IF NOT EXISTS _migrations (
 			name       TEXT PRIMARY KEY,

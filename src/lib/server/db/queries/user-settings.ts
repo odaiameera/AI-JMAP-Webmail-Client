@@ -1,4 +1,4 @@
-import { db } from '../index';
+import { getDb } from '../index';
 
 export interface UserSettingsRow {
 	displayName: string | null;
@@ -10,43 +10,53 @@ export interface AvatarRow {
 	offset: { x: number; y: number; zoom: number };
 }
 
-const ensureRowStmt = db.prepare(
-	`INSERT INTO user_settings (user_email) VALUES (?)
-	 ON CONFLICT (user_email) DO NOTHING`
-);
-
-const getSettingsStmt = db.prepare(
-	`SELECT display_name AS displayName, settings
-	 FROM user_settings WHERE user_email = ?`
-);
-
-const updateDisplayNameStmt = db.prepare(
-	`UPDATE user_settings SET display_name = ?, updated_at = datetime('now')
-	 WHERE user_email = ?`
-);
-
-const getSettingsJsonStmt = db.prepare(
-	`SELECT settings FROM user_settings WHERE user_email = ?`
-);
-
-const updateSettingsJsonStmt = db.prepare(
-	`UPDATE user_settings SET settings = ?, updated_at = datetime('now')
-	 WHERE user_email = ?`
-);
-
-const getAvatarStmt = db.prepare(
-	`SELECT avatar_data AS data, avatar_offset AS offset
-	 FROM user_settings WHERE user_email = ?`
-);
-
-const setAvatarStmt = db.prepare(
-	`UPDATE user_settings SET avatar_data = ?, avatar_offset = ?, updated_at = datetime('now')
-	 WHERE user_email = ?`
-);
+/**
+ * Lazy-prepared statement bundle. Building the statements at module
+ * top-level would force the DB connection open during `vite build`'s
+ * SSR pass; we prepare on first call instead, which means after
+ * migrations have run.
+ */
+let _stmts: ReturnType<typeof prepareStmts> | null = null;
+function prepareStmts() {
+	const db = getDb();
+	return {
+		ensureRow: db.prepare(
+			`INSERT INTO user_settings (user_email) VALUES (?)
+			 ON CONFLICT (user_email) DO NOTHING`
+		),
+		getSettings: db.prepare(
+			`SELECT display_name AS displayName, settings
+			 FROM user_settings WHERE user_email = ?`
+		),
+		updateDisplayName: db.prepare(
+			`UPDATE user_settings SET display_name = ?, updated_at = datetime('now')
+			 WHERE user_email = ?`
+		),
+		getSettingsJson: db.prepare(
+			`SELECT settings FROM user_settings WHERE user_email = ?`
+		),
+		updateSettingsJson: db.prepare(
+			`UPDATE user_settings SET settings = ?, updated_at = datetime('now')
+			 WHERE user_email = ?`
+		),
+		getAvatar: db.prepare(
+			`SELECT avatar_data AS data, avatar_offset AS offset
+			 FROM user_settings WHERE user_email = ?`
+		),
+		setAvatar: db.prepare(
+			`UPDATE user_settings SET avatar_data = ?, avatar_offset = ?, updated_at = datetime('now')
+			 WHERE user_email = ?`
+		)
+	};
+}
+function stmts() {
+	return (_stmts ??= prepareStmts());
+}
 
 export function getUserSettings(userEmail: string): UserSettingsRow {
-	ensureRowStmt.run(userEmail);
-	const row = getSettingsStmt.get(userEmail) as
+	const s = stmts();
+	s.ensureRow.run(userEmail);
+	const row = s.getSettings.get(userEmail) as
 		| { displayName: string | null; settings: string }
 		| undefined;
 	if (!row) return { displayName: null, settings: {} };
@@ -60,8 +70,9 @@ export function getUserSettings(userEmail: string): UserSettingsRow {
 }
 
 export function setDisplayName(userEmail: string, displayName: string): void {
-	ensureRowStmt.run(userEmail);
-	updateDisplayNameStmt.run(displayName, userEmail);
+	const s = stmts();
+	s.ensureRow.run(userEmail);
+	s.updateDisplayName.run(displayName, userEmail);
 }
 
 /**
@@ -69,8 +80,9 @@ export function setDisplayName(userEmail: string, displayName: string): void {
  * are replaced wholesale — pass an empty object to clear nothing.
  */
 export function patchSettings(userEmail: string, patch: Record<string, unknown>): void {
-	ensureRowStmt.run(userEmail);
-	const row = getSettingsJsonStmt.get(userEmail) as { settings: string } | undefined;
+	const s = stmts();
+	s.ensureRow.run(userEmail);
+	const row = s.getSettingsJson.get(userEmail) as { settings: string } | undefined;
 	let current: Record<string, unknown> = {};
 	if (row) {
 		try {
@@ -80,11 +92,11 @@ export function patchSettings(userEmail: string, patch: Record<string, unknown>)
 		}
 	}
 	const merged = { ...current, ...patch };
-	updateSettingsJsonStmt.run(JSON.stringify(merged), userEmail);
+	s.updateSettingsJson.run(JSON.stringify(merged), userEmail);
 }
 
 export function getAvatar(userEmail: string): AvatarRow | null {
-	const row = getAvatarStmt.get(userEmail) as
+	const row = stmts().getAvatar.get(userEmail) as
 		| { data: string | null; offset: string | null }
 		| undefined;
 	if (!row || !row.data) return null;
@@ -111,11 +123,13 @@ export function setAvatar(
 	data: string,
 	offset: { x: number; y: number; zoom: number }
 ): void {
-	ensureRowStmt.run(userEmail);
-	setAvatarStmt.run(data, JSON.stringify(offset), userEmail);
+	const s = stmts();
+	s.ensureRow.run(userEmail);
+	s.setAvatar.run(data, JSON.stringify(offset), userEmail);
 }
 
 export function clearAvatar(userEmail: string): void {
-	ensureRowStmt.run(userEmail);
-	setAvatarStmt.run(null, null, userEmail);
+	const s = stmts();
+	s.ensureRow.run(userEmail);
+	s.setAvatar.run(null, null, userEmail);
 }
