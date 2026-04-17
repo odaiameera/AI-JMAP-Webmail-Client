@@ -12,12 +12,14 @@ import {
 	removeLabelMeta,
 	updateLabelMeta
 } from '$lib/server/labels';
+import { userEmailFromAuth } from '$lib/server/user';
 import { DEFAULT_LABEL_COLOR } from '$lib/types/labels';
 
-export const GET: RequestHandler = async ({ locals, cookies }) => {
+export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
+	const email = userEmailFromAuth(locals.auth);
 	const client = createClient(locals.auth);
-	const labels = await listLabels(client, locals.auth.accountId, cookies);
+	const labels = await listLabels(client, locals.auth.accountId, email);
 	return json({ labels });
 };
 
@@ -27,9 +29,10 @@ type DeleteBody = { action: 'delete'; id: string };
 type UpdateColorBody = { action: 'updateColor'; id: string; color: string };
 type Body = CreateBody | RenameBody | DeleteBody | UpdateColorBody;
 
-export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
 
+	const email = userEmailFromAuth(locals.auth);
 	const body = (await request.json()) as Body;
 	const client = createClient(locals.auth);
 	const accountId = locals.auth.accountId;
@@ -42,19 +45,19 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 
 			// If a mailbox with the same slug already exists, reuse its id so
 			// the create is effectively idempotent from the user's POV.
-			const existing = getLabelMeta(cookies);
+			const existing = getLabelMeta(email);
 			const result = await createLabelMailbox(client, accountId, name);
 			if ('error' in result) {
 				return json({ success: false, error: result.error }, { status: 400 });
 			}
 
-			updateLabelMeta(cookies, result.id, {
+			updateLabelMeta(email, result.id, {
 				color,
 				displayName: name,
 				createdAt: existing[result.id]?.createdAt ?? Date.now()
 			});
 
-			const labels = await listLabels(client, accountId, cookies);
+			const labels = await listLabels(client, accountId, email);
 			return json({ success: true, id: result.id, labels });
 		}
 
@@ -66,9 +69,9 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 			if (!result.success) {
 				return json({ success: false, error: result.error }, { status: 400 });
 			}
-			updateLabelMeta(cookies, body.id, { displayName: name });
+			updateLabelMeta(email, body.id, { displayName: name });
 
-			const labels = await listLabels(client, accountId, cookies);
+			const labels = await listLabels(client, accountId, email);
 			return json({ success: true, labels });
 		}
 
@@ -79,17 +82,17 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 			if (!result.success) {
 				return json({ success: false, error: result.error }, { status: 400 });
 			}
-			removeLabelMeta(cookies, body.id);
+			removeLabelMeta(email, body.id);
 
-			const labels = await listLabels(client, accountId, cookies);
+			const labels = await listLabels(client, accountId, email);
 			return json({ success: true, labels });
 		}
 
 		case 'updateColor': {
 			if (!body.id || !body.color) return json({ error: 'id and color required' }, { status: 400 });
-			updateLabelMeta(cookies, body.id, { color: body.color });
+			updateLabelMeta(email, body.id, { color: body.color });
 
-			const labels = await listLabels(client, accountId, cookies);
+			const labels = await listLabels(client, accountId, email);
 			return json({ success: true, labels });
 		}
 

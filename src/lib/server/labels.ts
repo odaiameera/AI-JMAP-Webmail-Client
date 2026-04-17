@@ -1,7 +1,6 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { JMAPClient } from '$lib/jmap/client';
 import {
-	LABEL_META_COOKIE,
 	LABEL_MIGRATION_COOKIE,
 	LABEL_PREFIX,
 	LEGACY_LABELS_COOKIE,
@@ -10,6 +9,11 @@ import {
 	type Label
 } from '$lib/types/labels';
 import { createLabelMailbox, listLabelMailboxes } from '$lib/jmap/labels';
+import {
+	deleteLabelMeta,
+	getLabelsForUser,
+	upsertLabelMeta
+} from '$lib/server/db/queries/label-meta';
 
 export interface LabelMetaEntry {
 	color: string;
@@ -27,42 +31,35 @@ const COOKIE_BASE = {
 	secure: true
 } as const;
 
-function readMeta(cookies: Cookies): LabelMeta {
-	const raw = cookies.get(LABEL_META_COOKIE);
-	if (!raw) return {};
-	try {
-		const parsed = JSON.parse(decodeURIComponent(raw));
-		return parsed && typeof parsed === 'object' ? (parsed as LabelMeta) : {};
-	} catch {
-		return {};
+/** Hydrate the per-user label metadata into the legacy `Record<id, …>`
+ *  shape that the rest of the server code expects. The data lives in
+ *  SQLite now (Phase 13); this just reshapes it. */
+export function getLabelMeta(userEmail: string): LabelMeta {
+	const rows = getLabelsForUser(userEmail);
+	const out: LabelMeta = {};
+	for (const r of rows) {
+		out[r.mailboxId] = {
+			color: r.color,
+			displayName: r.displayName,
+			createdAt: r.createdAt
+		};
 	}
-}
-
-function writeMeta(cookies: Cookies, meta: LabelMeta): void {
-	cookies.set(LABEL_META_COOKIE, encodeURIComponent(JSON.stringify(meta)), COOKIE_BASE);
-}
-
-export function getLabelMeta(cookies: Cookies): LabelMeta {
-	return readMeta(cookies);
+	return out;
 }
 
 export function updateLabelMeta(
-	cookies: Cookies,
+	userEmail: string,
 	id: string,
 	patch: Partial<LabelMetaEntry>
-): LabelMeta {
-	const meta = readMeta(cookies);
-	const existing = meta[id] ?? { color: DEFAULT_LABEL_COLOR, displayName: '', createdAt: Date.now() };
-	meta[id] = { ...existing, ...patch };
-	writeMeta(cookies, meta);
-	return meta;
+): void {
+	upsertLabelMeta(userEmail, id, {
+		displayName: patch.displayName ?? null,
+		color: patch.color ?? null
+	});
 }
 
-export function removeLabelMeta(cookies: Cookies, id: string): LabelMeta {
-	const meta = readMeta(cookies);
-	delete meta[id];
-	writeMeta(cookies, meta);
-	return meta;
+export function removeLabelMeta(userEmail: string, id: string): void {
+	deleteLabelMeta(userEmail, id);
 }
 
 /** Pretty-print a mailbox name for users when no meta displayName exists. */
@@ -71,15 +68,15 @@ function fallbackDisplayName(mailboxName: string): string {
 }
 
 /**
- * Merge the JMAP mailbox list with cookie-backed meta (color + user-chosen
+ * Merge the JMAP mailbox list with SQLite-backed meta (color + user-chosen
  * display name) into the Label[] shape the UI consumes.
  */
 export async function listLabels(
 	client: JMAPClient,
 	accountId: string,
-	cookies: Cookies
+	userEmail: string
 ): Promise<Label[]> {
-	const [mailboxes, meta] = [await listLabelMailboxes(client, accountId), readMeta(cookies)];
+	const [mailboxes, meta] = [await listLabelMailboxes(client, accountId), getLabelMeta(userEmail)];
 
 	const labels = mailboxes.map<Label>((m) => {
 		const entry = meta[m.id];
@@ -91,27 +88,26 @@ export async function listLabels(
 		};
 	});
 
-	// Stable, user-friendly order.
 	return labels.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * One-shot, idempotent migration from keyword-based labels (cookie
- * `mail_labels` + `keywords/<id>` on emails) to JMAP mailbox-based labels.
+ * One-shot migration from keyword-based labels (cookie `mail_labels` +
+ * `keywords/<id>` on emails) to JMAP mailbox-based labels.
  *
- * Safe to call on every layout load — returns immediately once the marker
- * cookie is set.
+ * Pre-Phase-13 this also seeded the cookie meta store. Now it writes
+ * straight to SQLite via {@link upsertLabelMeta}.
  */
 export async function migrateKeywordLabelsIfNeeded(
 	client: JMAPClient,
 	accountId: string,
+	userEmail: string,
 	cookies: Cookies
 ): Promise<void> {
 	if (cookies.get(LABEL_MIGRATION_COOKIE) === 'v1') return;
 
 	const rawOld = cookies.get(LEGACY_LABELS_COOKIE);
 	if (!rawOld) {
-		// Nothing to migrate — mark done so we don't re-check.
 		cookies.set(LABEL_MIGRATION_COOKIE, 'v1', COOKIE_BASE);
 		return;
 	}
@@ -131,11 +127,8 @@ export async function migrateKeywordLabelsIfNeeded(
 		return;
 	}
 
-	// Existing label mailboxes — used to dedupe when a retry happens mid-flight.
 	const existing = await listLabelMailboxes(client, accountId);
 	const existingByName = new Map(existing.map((m) => [m.name, m.id]));
-
-	const meta = readMeta(cookies);
 
 	for (const old of oldLabels) {
 		try {
@@ -148,11 +141,10 @@ export async function migrateKeywordLabelsIfNeeded(
 				newId = result.id;
 			}
 
-			meta[newId] = {
-				color: old.color || DEFAULT_LABEL_COLOR,
+			upsertLabelMeta(userEmail, newId, {
 				displayName: old.name,
-				createdAt: old.createdAt ?? Date.now()
-			};
+				color: old.color || DEFAULT_LABEL_COLOR
+			});
 
 			await migrateEmailsForLabel(client, accountId, old.id, newId);
 		} catch {
@@ -160,16 +152,10 @@ export async function migrateKeywordLabelsIfNeeded(
 		}
 	}
 
-	writeMeta(cookies, meta);
 	cookies.set(LABEL_MIGRATION_COOKIE, 'v1', COOKIE_BASE);
 	cookies.delete(LEGACY_LABELS_COOKIE, { path: '/' });
 }
 
-/**
- * Translate messages carrying `keywords/<oldKeyword>=true` so they instead
- * belong to the new label mailbox. Runs in batches to stay under JMAP
- * payload limits.
- */
 async function migrateEmailsForLabel(
 	client: JMAPClient,
 	accountId: string,
@@ -179,7 +165,6 @@ async function migrateEmailsForLabel(
 	const PAGE = 200;
 	let position = 0;
 
-	// Hard cap to avoid an unbounded loop if the server keeps returning items.
 	for (let safety = 0; safety < 100; safety++) {
 		const response = await client.request([
 			[
@@ -210,9 +195,7 @@ async function migrateEmailsForLabel(
 			};
 		}
 
-		await client.request([
-			['Email/set', { accountId, update }, 's']
-		]);
+		await client.request([['Email/set', { accountId, update }, 's']]);
 
 		if (ids.length < PAGE) return;
 		position += ids.length;

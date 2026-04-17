@@ -1,7 +1,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# better-sqlite3 ships a native binary. Alpine doesn't include the build
+# toolchain by default — install python3/make/g++ for the install step,
+# then drop them so the runtime image stays slim.
+RUN apk add --no-cache python3 make g++ \
+	&& npm ci \
+	&& apk del python3 make g++
 COPY . .
 RUN npm run build
 

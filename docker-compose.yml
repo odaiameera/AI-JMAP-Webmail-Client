@@ -8,3 +8,11 @@ services:
     environment:
       - PORT=3001
       - JMAP_URL=https://mx.odaiameera.com
+      - DATABASE_PATH=/data/ameera.db
+    volumes:
+      # Persistent SQLite store for per-user state (avatar, label/folder
+      # metadata, signatures). Survives `docker compose up -d --build`.
+      - webmail_data:/data
+
+volumes:
+  webmail_data:

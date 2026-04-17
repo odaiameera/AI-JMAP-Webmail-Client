@@ -27,8 +27,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 
 		// One-shot migration from keyword-based labels to JMAP mailbox labels.
 		// Idempotent; the marker cookie makes subsequent loads a no-op.
-		await migrateKeywordLabelsIfNeeded(client, locals.auth.accountId, cookies);
-		const labels = await listLabels(client, locals.auth.accountId, cookies);
+		await migrateKeywordLabelsIfNeeded(client, locals.auth.accountId, userEmail, cookies);
+		const labels = await listLabels(client, locals.auth.accountId, userEmail);
 
 		const rawRules = cookies.get('mail_rules');
 		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];

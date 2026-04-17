@@ -1,5 +1,13 @@
 import { writable } from 'svelte/store';
+import { clearAvatar, setAvatar, userState } from './userState';
 
+/**
+ * Thin compatibility layer over the new server-backed `userState.avatar`.
+ * Pre-Phase-13 the profile photo was kept in localStorage with a slightly
+ * different field shape (`url`, `offsetX`, `offsetY`); existing components
+ * still expect that shape, so this store just reflects userState into the
+ * legacy field names and forwards writes to the server.
+ */
 export interface ProfilePhotoState {
 	url: string | null;
 	zoom: number;
@@ -8,66 +16,35 @@ export interface ProfilePhotoState {
 	offsetY: number;
 }
 
-const STORAGE_KEY = 'profile_photo_v2';
-const LEGACY_KEY = 'profile_photo';
-
 const DEFAULT_STATE: ProfilePhotoState = { url: null, zoom: 1, offsetX: 0, offsetY: 0 };
 
-function readFromStorage(): ProfilePhotoState {
-	if (typeof localStorage === 'undefined') return DEFAULT_STATE;
-	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (raw) {
-			const parsed = JSON.parse(raw) as Partial<ProfilePhotoState>;
-			if (parsed && typeof parsed === 'object' && typeof parsed.url === 'string') {
-				return {
-					url: parsed.url,
-					zoom: typeof parsed.zoom === 'number' ? parsed.zoom : 1,
-					offsetX: typeof parsed.offsetX === 'number' ? parsed.offsetX : 0,
-					offsetY: typeof parsed.offsetY === 'number' ? parsed.offsetY : 0
-				};
-			}
-		}
-		// Migrate from legacy key (plain data URL, pre-v2)
-		const legacy = localStorage.getItem(LEGACY_KEY);
-		if (legacy) {
-			const migrated: ProfilePhotoState = { url: legacy, zoom: 1, offsetX: 0, offsetY: 0 };
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-			localStorage.removeItem(LEGACY_KEY);
-			return migrated;
-		}
-	} catch {
-		// ignore
+const { subscribe, set } = writable<ProfilePhotoState>(DEFAULT_STATE);
+
+// Mirror userState.avatar into the legacy field shape. The userState
+// store loads from /api/user-state/avatar in the layout's onMount;
+// every subsequent update flows through here automatically.
+userState.subscribe((s) => {
+	if (s.avatar) {
+		set({
+			url: s.avatar.data,
+			zoom: s.avatar.offset.zoom,
+			offsetX: s.avatar.offset.x,
+			offsetY: s.avatar.offset.y
+		});
+	} else {
+		set(DEFAULT_STATE);
 	}
-	return DEFAULT_STATE;
-}
+});
 
-function createProfilePhotoStore() {
-	const { subscribe, set } = writable<ProfilePhotoState>(DEFAULT_STATE);
-
-	return {
-		subscribe,
-		/** Hydrate from localStorage. Call in onMount. */
-		hydrate() {
-			set(readFromStorage());
-		},
-		/** Commit a new photo + zoom + pan offsets to storage. */
-		save(url: string, zoom: number, offsetX: number, offsetY: number) {
-			const data: ProfilePhotoState = { url, zoom, offsetX, offsetY };
-			set(data);
-			if (typeof localStorage !== 'undefined') {
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-			}
-		},
-		/** Remove the saved photo. */
-		clear() {
-			set(DEFAULT_STATE);
-			if (typeof localStorage !== 'undefined') {
-				localStorage.removeItem(STORAGE_KEY);
-				localStorage.removeItem(LEGACY_KEY);
-			}
-		}
-	};
-}
-
-export const profilePhoto = createProfilePhotoStore();
+export const profilePhoto = {
+	subscribe,
+	/** Kept for ProfileCard's onMount call. The actual hydration happens
+	 *  via `loadUserState()` in the (app) layout — this is now a no-op. */
+	hydrate(): void {},
+	async save(url: string, zoom: number, offsetX: number, offsetY: number): Promise<void> {
+		await setAvatar(url, { x: offsetX, y: offsetY, zoom });
+	},
+	async clear(): Promise<void> {
+		await clearAvatar();
+	}
+};

@@ -13,6 +13,7 @@
 	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import { realtime } from '$lib/stores/realtime';
 	import { showToast } from '$lib/stores/toast';
+	import { loadUserState } from '$lib/stores/userState';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -38,6 +39,27 @@
 	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
 
 	onMount(() => {
+		// Phase 13: avatar / labels / signatures live server-side now.
+		// Wipe leftover localStorage + cookie state from earlier phases on
+		// the first load after deploy so stale browser data can't shadow
+		// the canonical SQLite values.
+		const PHASE_13_CLEARED_KEY = 'ameera.phase13.cleared';
+		try {
+			if (!localStorage.getItem(PHASE_13_CLEARED_KEY)) {
+				localStorage.removeItem('profile_photo_v2');
+				localStorage.removeItem('profile_photo');
+				localStorage.removeItem('ameera_signature');
+				localStorage.removeItem('label_meta');
+				localStorage.removeItem('folder_meta');
+				localStorage.setItem(PHASE_13_CLEARED_KEY, '1');
+			}
+		} catch {
+			// Private mode / quota errors — best-effort.
+		}
+		document.cookie = 'label_meta=; Path=/; Max-Age=0';
+		document.cookie = 'folder_meta=; Path=/; Max-Age=0';
+
+		loadUserState();
 		profilePhoto.hydrate();
 		const handler = () => readingPane.setFromViewport(window.innerWidth);
 		window.addEventListener('resize', handler);

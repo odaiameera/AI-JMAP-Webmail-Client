@@ -21,3 +21,8 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Local SQLite (Phase 13) — production lives in the Docker volume mounted
+# at /data; dev falls back to a repo-relative path that should never be
+# committed.
+local-data/
