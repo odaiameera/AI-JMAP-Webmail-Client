@@ -22,7 +22,16 @@
       "Bash(curl -s https://mx.odaiameera.com/.well-known/jmap)",
       "Bash(curl -s https://mx.odaiameera.com/jmap/session)",
       "Bash(python3 -m json.tool)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('apiUrl:', d.get\\('apiUrl'\\)\\); print\\('state:', d.get\\('state'\\)\\); print\\('accounts:', list\\(d.get\\('accounts',{}\\).keys\\(\\)\\)\\); print\\('primaryAccounts:', d.get\\('primaryAccounts'\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('apiUrl:', d.get\\('apiUrl'\\)\\); print\\('state:', d.get\\('state'\\)\\); print\\('accounts:', list\\(d.get\\('accounts',{}\\).keys\\(\\)\\)\\); print\\('primaryAccounts:', d.get\\('primaryAccounts'\\)\\)\")",
+      "Bash(xargs -I {} sh -c 'if [ -f \"/Users/odai/webmail app/src/routes/\\(app\\)/settings/{}/+page.svelte\" ]; then echo \"{}\"; fi')",
+      "Bash(find . -path \"*/routes/*\" -name \"+layout.svelte\" -exec ls -la {} \\\\;)",
+      "Bash(sqlite3 \"/Users/odai/webmail app/local-data/ameera.db\" \".tables\")",
+      "Bash(sqlite3 \"/Users/odai/webmail app/local-data/ameera.db\" \"SELECT name, applied_at FROM _migrations\")",
+      "Bash(sqlite3 \"/Users/odai/webmail app/local-data/ameera.db\" \".schema label_meta\")",
+      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db')",
+      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'INSERT INTO signatures \\(user_email, name, html, is_default\\) VALUES \\('\\\\''test@example.com'\\\\'', '\\\\''second-default'\\\\'', '\\\\''<p>x</p>'\\\\'', 1\\);')",
+      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'DELETE FROM label_meta WHERE user_email='\\\\''test@example.com'\\\\''; DELETE FROM signatures WHERE user_email='\\\\''test@example.com'\\\\'';')",
+      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'SELECT '\\\\''remaining_labels:'\\\\'' || count\\(*\\) FROM label_meta; SELECT '\\\\''remaining_sigs:'\\\\'' || count\\(*\\) FROM signatures;')"
     ]
   }
 }
