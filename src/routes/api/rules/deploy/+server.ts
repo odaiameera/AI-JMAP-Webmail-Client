@@ -90,12 +90,12 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 		if (existingScript) {
 			methodCalls = [['SieveScript/set', {
 				accountId,
-				update: { [existingScript.id]: { blobId } }
+				update: { [existingScript.id]: { blobId, isActive: true } }
 			}, '0']];
 		} else {
 			methodCalls = [['SieveScript/set', {
 				accountId,
-				create: { script1: { name: 'mailrules', blobId } }
+				create: { script1: { name: 'mailrules', blobId, isActive: true } }
 			}, '0']];
 		}
 
