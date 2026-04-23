@@ -21,14 +21,18 @@ interface StateTokens {
 	EmailDelivery?: string;
 }
 
+// Start optimistically connected so opening the app doesn't flash
+// "Reconnecting" during the ~sub-second SSE handshake (and hides
+// transient drops that resolve within the grace window below).
 const INITIAL: RealtimeState = {
-	connected: false,
+	connected: true,
 	lastEventAt: null,
 	reconnectAttempts: 0
 };
 
 const INVALIDATE_DEBOUNCE_MS = 300;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const DISCONNECT_GRACE_MS = 2_000;
 
 function createRealtimeStore() {
 	const { subscribe, set, update } = writable<RealtimeState>(INITIAL);
@@ -37,6 +41,7 @@ function createRealtimeStore() {
 	const tokens: StateTokens = {};
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let changeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function scheduleInvalidation() {
 		if (changeDebounceTimer) clearTimeout(changeDebounceTimer);
@@ -79,20 +84,36 @@ function createRealtimeStore() {
 		source = new EventSource('/api/events');
 
 		source.onopen = () => {
+			if (disconnectTimer) {
+				clearTimeout(disconnectTimer);
+				disconnectTimer = null;
+			}
 			update((s) => ({ ...s, connected: true, reconnectAttempts: 0 }));
 		};
 
-		source.onmessage = (ev) => {
-			if (!ev.data) return; // empty keepalive ping
+		// Stalwart emits `event: state` per RFC 8620 §7.3, so listen for
+		// the named event instead of the default `message`. Keep-alives
+		// arrive as SSE comment lines (`: ping`) and aren't dispatched
+		// as events at all, so no separate handler is needed.
+		source.addEventListener('state', (ev: MessageEvent) => {
+			if (!ev.data) return;
 			try {
 				handleStateChange(JSON.parse(ev.data));
 			} catch {
 				// ignore malformed events
 			}
-		};
+		});
 
 		source.onerror = () => {
-			update((s) => ({ ...s, connected: false }));
+			// Brief drops (server-side SSE recycle, tab wake-up) reopen within
+			// a second or two. Only flip the UI to "Reconnecting" if we haven't
+			// re-opened by then, so transient blips don't flash the indicator.
+			if (!disconnectTimer) {
+				disconnectTimer = setTimeout(() => {
+					disconnectTimer = null;
+					update((s) => ({ ...s, connected: false }));
+				}, DISCONNECT_GRACE_MS);
+			}
 			scheduleReconnect();
 		};
 	}
@@ -121,6 +142,10 @@ function createRealtimeStore() {
 		if (changeDebounceTimer) {
 			clearTimeout(changeDebounceTimer);
 			changeDebounceTimer = null;
+		}
+		if (disconnectTimer) {
+			clearTimeout(disconnectTimer);
+			disconnectTimer = null;
 		}
 		set(INITIAL);
 	}

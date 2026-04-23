@@ -6,9 +6,10 @@ import type { RequestHandler } from './$types';
  * the stored Basic auth and stream `text/event-stream` straight through.
  *
  * The eventsource endpoint lives next to the regular JMAP API base —
- * `${apiUrl}eventsource/?types=…&closeafter=no&ping=30` — and Stalwart
- * pushes a JSON `StateChange` payload each time a watched data type
- * changes plus a keep-alive every `ping` seconds.
+ * `${apiUrl}eventsource/?types=…&closeafter=no&ping=10` — and Stalwart
+ * emits a named `state` event (RFC 8620 §7.3) with a JSON `StateChange`
+ * payload each time a watched data type changes, plus SSE comment
+ * keep-alives every `ping` seconds.
  */
 export const GET: RequestHandler = async ({ locals, request }) => {
 	if (!locals.auth) {
@@ -16,7 +17,7 @@ export const GET: RequestHandler = async ({ locals, request }) => {
 	}
 
 	const upstreamUrl =
-		`${locals.auth.apiUrl}eventsource/?types=Email,Mailbox,EmailDelivery&closeafter=no&ping=30`;
+		`${locals.auth.apiUrl}eventsource/?types=Email,Mailbox,EmailDelivery&closeafter=no&ping=10`;
 
 	let upstream: Response;
 	try {
