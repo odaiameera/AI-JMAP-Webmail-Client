@@ -31,7 +31,8 @@
       "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db')",
       "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'INSERT INTO signatures \\(user_email, name, html, is_default\\) VALUES \\('\\\\''test@example.com'\\\\'', '\\\\''second-default'\\\\'', '\\\\''<p>x</p>'\\\\'', 1\\);')",
       "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'DELETE FROM label_meta WHERE user_email='\\\\''test@example.com'\\\\''; DELETE FROM signatures WHERE user_email='\\\\''test@example.com'\\\\'';')",
-      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'SELECT '\\\\''remaining_labels:'\\\\'' || count\\(*\\) FROM label_meta; SELECT '\\\\''remaining_sigs:'\\\\'' || count\\(*\\) FROM signatures;')"
+      "Bash(sqlite3 '/Users/odai/webmail app/local-data/ameera.db' 'SELECT '\\\\''remaining_labels:'\\\\'' || count\\(*\\) FROM label_meta; SELECT '\\\\''remaining_sigs:'\\\\'' || count\\(*\\) FROM signatures;')",
+      "Bash(docker exec *)"
     ]
   }
 }
