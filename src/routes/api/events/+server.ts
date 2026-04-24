@@ -41,7 +41,22 @@ export const GET: RequestHandler = async ({ locals, request }) => {
 		return new Response(`Upstream ${upstream.status}`, { status: 502 });
 	}
 
-	return new Response(upstream.body, {
+	const openedAt = Date.now();
+	console.log(`[events] upstream open at ${new Date(openedAt).toISOString()}`);
+
+	const monitored = upstream.body.pipeThrough(
+		new TransformStream({
+			transform(chunk, controller) {
+				controller.enqueue(chunk);
+			},
+			flush() {
+				const elapsed = ((Date.now() - openedAt) / 1000).toFixed(1);
+				console.log(`[events] upstream ended after ${elapsed}s`);
+			}
+		})
+	);
+
+	return new Response(monitored, {
 		status: 200,
 		headers: {
 			'Content-Type': 'text/event-stream',

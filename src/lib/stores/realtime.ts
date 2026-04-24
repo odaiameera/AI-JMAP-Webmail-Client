@@ -81,9 +81,13 @@ function createRealtimeStore() {
 		if (!browser) return;
 		if (source) source.close();
 
+		const startedAt = Date.now();
+		console.log(`[realtime] connecting at ${new Date(startedAt).toISOString()}`);
 		source = new EventSource('/api/events');
 
 		source.onopen = () => {
+			const ms = Date.now() - startedAt;
+			console.log(`[realtime] open after ${ms}ms`);
 			if (disconnectTimer) {
 				clearTimeout(disconnectTimer);
 				disconnectTimer = null;
@@ -105,6 +109,11 @@ function createRealtimeStore() {
 		});
 
 		source.onerror = () => {
+			const livedMs = Date.now() - startedAt;
+			const readyState = source?.readyState;
+			console.log(
+				`[realtime] error after ${(livedMs / 1000).toFixed(1)}s readyState=${readyState}`
+			);
 			// Brief drops (server-side SSE recycle, tab wake-up) reopen within
 			// a second or two. Only flip the UI to "Reconnecting" if we haven't
 			// re-opened by then, so transient blips don't flash the indicator.
