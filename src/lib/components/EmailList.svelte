@@ -1,25 +1,56 @@
 <script lang="ts">
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
-	import FullComposer from './FullComposer.svelte';
 	import FolderPicker from './FolderPicker.svelte';
-	import { openCompose, fullComposeOpen } from '$lib/stores/compose';
-	import { invalidateAll } from '$app/navigation';
+	import { openCompose } from '$lib/stores/compose';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
+	import { getContext, setContext } from 'svelte';
 	import { get } from 'svelte/store';
 	import type { Email, Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
+	import { bucketFor, type DateBucket } from '$lib/utils/date-buckets';
+	import { now } from '$lib/stores/now';
+	import { browser } from '$app/environment';
 
-	let { emails, total, title, mailboxId = '' }: {
+	let {
+		emails,
+		total,
+		title,
+		mailboxId = '',
+		page: currentPage = 1,
+		pageSize = 50,
+		totalPages = 1
+	}: {
 		emails: Email[];
 		total: number;
 		title: string;
 		mailboxId?: string;
+		page?: number;
+		pageSize?: number;
+		totalPages?: number;
 	} = $props();
+
+	const rangeStart = $derived(total === 0 ? 0 : (currentPage - 1) * pageSize + 1);
+	const rangeEnd = $derived(Math.min(currentPage * pageSize, total));
+
+	function goToPage(n: number) {
+		const url = new URL(page.url);
+		if (n <= 1) url.searchParams.delete('page');
+		else url.searchParams.set('page', String(n));
+		goto(url.pathname + url.search, { keepFocus: true, noScroll: true });
+	}
 
 	const mailboxes = $derived<Mailbox[]>(page.data.mailboxes ?? []);
 	const allLabels = getContext<Label[]>('labels') ?? [];
+
+	// Expose the current list's mailbox + reminded-id set to nested
+	// EmailListItems so they can render per-row hover actions without a
+	// long prop chain.
+	setContext('listMailboxId', () => mailboxId);
+	// Getter so callers always see the current page's marker set even
+	// after invalidateAll() refreshes the load data without remounting.
+	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
 
 	const readingPane = getContext<{ subscribe: (fn: (v: boolean) => void) => () => void; toggle: () => void }>('readingPane');
 	// Read the store synchronously so the pane renders in its real state
@@ -124,6 +155,50 @@
 
 	async function refresh() { await invalidateAll(); }
 
+	// --- Date grouping ---
+
+	type EmailGroup = DateBucket & { emails: Email[] };
+
+	const groups = $derived.by<EmailGroup[]>(() => {
+		const byKey = new Map<string, EmailGroup>();
+		for (const email of emails) {
+			const b = bucketFor(email.receivedAt, $now);
+			let g = byKey.get(b.key);
+			if (!g) {
+				g = { ...b, emails: [] };
+				byKey.set(b.key, g);
+			}
+			g.emails.push(email);
+		}
+		return [...byKey.values()].sort((a, b) => b.sortKey - a.sortKey);
+	});
+
+	const COLLAPSE_KEY = 'email-group-collapsed';
+	let collapsedGroups = $state<Set<string>>(new Set());
+	// Load collapsed state on mount; guarded against SSR.
+	if (browser) {
+		try {
+			const raw = localStorage.getItem(COLLAPSE_KEY);
+			if (raw) collapsedGroups = new Set(JSON.parse(raw) as string[]);
+		} catch {
+			// corrupt entry — ignore
+		}
+	}
+
+	function toggleGroup(key: string) {
+		const next = new Set(collapsedGroups);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		collapsedGroups = next;
+		if (browser) {
+			try {
+				localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
+			} catch {
+				// quota / private mode — harmless
+			}
+		}
+	}
+
 	async function handlePaneClick(email: Email) {
 		loadingPreview = true;
 		try {
@@ -138,7 +213,7 @@
 <div class="h-full flex overflow-hidden">
 	<!-- Email list column -->
 	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
-		style={(paneOpen || $fullComposeOpen) ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
+		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
 		<header class="ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="shrink-0">
@@ -237,29 +312,95 @@
 			{#if emails.length === 0}
 				<div class="flex items-center justify-center h-full text-text-tertiary"><p>No messages</p></div>
 			{:else}
-				{#each emails as email (email.id)}
-					<EmailListItem
-						{email}
-						selected={selectedIds.has(email.id)}
-						onSelect={toggleSelect}
-						onClick={paneOpen ? handlePaneClick : undefined}
-						onDragStart={handleRowDragStart}
-						active={paneOpen && previewEmail?.id === email.id}
-					/>
+				{#each groups as group (group.key)}
+					{@const isCollapsed = collapsedGroups.has(group.key)}
+					<button
+						type="button"
+						onclick={() => toggleGroup(group.key)}
+						class="w-full sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-surface/95 backdrop-blur-sm border-b border-border text-left hover:bg-surface-hover transition-colors cursor-pointer"
+					>
+						<span
+							class="inline-flex items-center justify-center w-4 h-4 text-text-tertiary transition-transform"
+							style={isCollapsed ? '' : 'transform: rotate(90deg)'}
+						>
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+								<polyline points="9 18 15 12 9 6" />
+							</svg>
+						</span>
+						<span class="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+							{group.label}
+						</span>
+						<span class="text-[11px] text-text-tertiary">{group.emails.length}</span>
+					</button>
+					{#if !isCollapsed}
+						{#each group.emails as email (email.id)}
+							<EmailListItem
+								{email}
+								selected={selectedIds.has(email.id)}
+								onSelect={toggleSelect}
+								onClick={paneOpen ? handlePaneClick : undefined}
+								onDragStart={handleRowDragStart}
+								active={paneOpen && previewEmail?.id === email.id}
+							/>
+						{/each}
+					{/if}
 				{/each}
 			{/if}
 		</div>
+
+		{#if total > 0}
+			<footer class="flex items-center justify-between px-4 py-2 border-t border-border text-xs text-text-tertiary shrink-0">
+				<span class="tabular-nums">{rangeStart}–{rangeEnd} of {total.toLocaleString()}</span>
+				<div class="flex items-center gap-1">
+					<button
+						onclick={() => goToPage(1)}
+						disabled={currentPage === 1}
+						class="p-1.5 rounded hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+						title="First page"
+						aria-label="First page"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+					</button>
+					<button
+						onclick={() => goToPage(currentPage - 1)}
+						disabled={currentPage === 1}
+						class="p-1.5 rounded hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+						title="Previous page"
+						aria-label="Previous page"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+					</button>
+					<span class="px-2 tabular-nums">Page {currentPage} of {totalPages}</span>
+					<button
+						onclick={() => goToPage(currentPage + 1)}
+						disabled={currentPage >= totalPages}
+						class="p-1.5 rounded hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+						title="Next page"
+						aria-label="Next page"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+					</button>
+					<button
+						onclick={() => goToPage(totalPages)}
+						disabled={currentPage >= totalPages}
+						class="p-1.5 rounded hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+						title="Last page"
+						aria-label="Last page"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+					</button>
+				</div>
+			</footer>
+		{/if}
 	</div>
 
-	{#if paneOpen || $fullComposeOpen}
+	{#if paneOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
 
 		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
-			{#if $fullComposeOpen}
-				<FullComposer />
-			{:else if loadingPreview}
+			{#if loadingPreview}
 				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading...</div>
 			{:else if previewEmail?.bodyValues}
 				<EmailDetail email={previewEmail} compact />

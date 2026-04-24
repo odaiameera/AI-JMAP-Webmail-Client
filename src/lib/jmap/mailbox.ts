@@ -24,6 +24,35 @@ export async function getMailboxes(client: JMAPClient, accountId: string): Promi
 	});
 }
 
+export const REMIND_ME_LATER_NAME = 'Remind Me Later';
+
+export async function ensureRemindMeLaterMailbox(
+	client: JMAPClient,
+	accountId: string
+): Promise<string> {
+	const mailboxes = await getMailboxes(client, accountId);
+	const existing = mailboxes.find(
+		(m) => m.name === REMIND_ME_LATER_NAME && m.parentId === null
+	);
+	if (existing) return existing.id;
+
+	const response = await client.request([
+		[
+			'Mailbox/set',
+			{
+				accountId,
+				create: { rml1: { name: REMIND_ME_LATER_NAME, parentId: null } }
+			},
+			'0'
+		]
+	]);
+
+	const result = response.methodResponses[0][1] as {
+		created?: Record<string, { id: string }>;
+	};
+	return result.created?.rml1?.id ?? '';
+}
+
 export async function ensureArchiveMailbox(client: JMAPClient, accountId: string): Promise<string> {
 	const mailboxes = await getMailboxes(client, accountId);
 	const archive = mailboxes.find((m) => m.role === 'archive');

@@ -2,8 +2,12 @@
 	import type { Email } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
 	import { getContext } from 'svelte';
+	import { formatTimeOfDay } from '$lib/utils/date-buckets';
+	import EmailRowActions from './EmailRowActions.svelte';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
+	const getRemindedIds = getContext<() => Set<string>>('remindedIds');
+	const listMailboxId = getContext<() => string>('listMailboxId');
 
 	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
@@ -13,6 +17,12 @@
 		onDragStart?: (email: Email, e: DragEvent) => void;
 		active?: boolean;
 	} = $props();
+
+	const wasReminded = $derived(getRemindedIds?.().has(email.id) ?? false);
+	const isUnread = $derived(!('$seen' in email.keywords));
+	const sourceMailboxId = $derived(
+		listMailboxId?.() || Object.keys(email.mailboxIds)[0] || ''
+	);
 
 	const isRead = $derived('$seen' in email.keywords);
 	const senderName = $derived(
@@ -34,22 +44,6 @@
 		return luminance > 0.55 ? '#000000' : '#ffffff';
 	}
 
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		const diffHours = Math.floor(diffMs / 3600000);
-		const diffDays = Math.floor(diffMs / 86400000);
-
-		if (diffMins < 1) return 'now';
-		if (diffMins < 60) return `${diffMins}m`;
-		if (diffHours < 24) return `${diffHours}h`;
-		if (diffDays < 7) return `${diffDays}d`;
-
-		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-	}
-
 	function handleRowClick(e: MouseEvent) {
 		if (onClick) {
 			e.preventDefault();
@@ -63,7 +57,7 @@
 	onclick={handleRowClick}
 	draggable="true"
 	ondragstart={(e) => onDragStart?.(email, e)}
-	class="email-row flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
+	class="email-row relative flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
 		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -92,14 +86,19 @@
 			<span class="truncate text-sm {isRead ? 'text-text-secondary font-normal' : 'text-text font-semibold'}">
 				{senderName}
 			</span>
-			<span class="text-xs text-text-tertiary shrink-0">
-				{formatDate(email.receivedAt)}
+			<span class="text-xs text-text-tertiary shrink-0" title={new Date(email.receivedAt).toLocaleString()}>
+				{formatTimeOfDay(email.receivedAt)}
 			</span>
 		</div>
-		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5">
-			{email.subject || '(no subject)'}
+		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5 flex items-center gap-1.5">
+			{#if wasReminded}
+				<span class="inline-flex items-center text-accent shrink-0" title="Returned from Remind Me Later">
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+				</span>
+			{/if}
+			<span class="truncate">{email.subject || '(no subject)'}</span>
 			{#if email.hasAttachment}
-				<span class="text-text-tertiary">📎</span>
+				<span class="text-text-tertiary shrink-0">📎</span>
 			{/if}
 		</div>
 		{#if appliedLabels.length > 0}
@@ -117,4 +116,6 @@
 			{preview}
 		</div>
 	</div>
+
+	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} />
 </a>
