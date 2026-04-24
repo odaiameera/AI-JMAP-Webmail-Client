@@ -11,12 +11,14 @@ export interface ComposeData {
 	references?: string;
 	draftId?: string;
 	isForward?: boolean;
+	fromIdentityId?: string | null;
 }
 
 export interface ComposerState extends ComposeData {
 	mode: ComposerMode;
 	signatureId: number | null;
 	signatureManuallyChosen: boolean;
+	fromIdentityId: string | null;
 }
 
 const defaultState: ComposerState = {
@@ -26,7 +28,8 @@ const defaultState: ComposerState = {
 	body: '',
 	mode: 'closed',
 	signatureId: null,
-	signatureManuallyChosen: false
+	signatureManuallyChosen: false,
+	fromIdentityId: null
 };
 
 export const composer = writable<ComposerState>(defaultState);
@@ -37,7 +40,8 @@ export function openCompose(init: Partial<ComposeData> = {}) {
 		...init,
 		mode: 'popup',
 		signatureId: null,
-		signatureManuallyChosen: false
+		signatureManuallyChosen: false,
+		fromIdentityId: init.fromIdentityId ?? null
 	});
 }
 
@@ -51,4 +55,8 @@ export function setMode(mode: ComposerMode) {
 
 export function setSignature(id: number | null, manual = true) {
 	composer.update((s) => ({ ...s, signatureId: id, signatureManuallyChosen: manual }));
+}
+
+export function setFromIdentity(identityId: string | null) {
+	composer.update((s) => ({ ...s, fromIdentityId: identityId }));
 }

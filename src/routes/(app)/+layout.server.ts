@@ -2,9 +2,11 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
+import { getIdentities } from '$lib/jmap/identities';
 import { JMAPAuthError } from '$lib/jmap/client';
 import { deleteSession } from '$lib/server/session';
 import { listLabels, migrateKeywordLabelsIfNeeded } from '$lib/server/labels';
+import { syncIdentities } from '$lib/server/db/queries/identities';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	if (!locals.auth) {
@@ -22,13 +24,35 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const theme = cookies.get('theme') ?? 'dark';
 		const density = cookies.get('density') ?? 'comfortable';
 		const displayName = cookies.get('display_name') ?? 'Odai Ameera';
-		const rawSignature = cookies.get('signature');
-		const signature = rawSignature ? decodeURIComponent(rawSignature) : '';
 
 		// One-shot migration from keyword-based labels to JMAP mailbox labels.
 		// Idempotent; the marker cookie makes subsequent loads a no-op.
 		await migrateKeywordLabelsIfNeeded(client, locals.auth.accountId, userEmail, cookies);
 		const labels = await listLabels(client, locals.auth.accountId, userEmail);
+
+		// Refresh the identity cache on every navigation. Single Identity/get
+		// round-trip; the user picked "always refresh" over stale-while-
+		// revalidate so the cache is never older than one page load. Failures
+		// are non-fatal — a stale cache is better than a broken page.
+		try {
+			const remote = await getIdentities(client, locals.auth.accountId);
+			const primaryByEmail = remote.find(
+				(r) => r.email.toLowerCase() === userEmail.toLowerCase()
+			);
+			const primaryId = primaryByEmail?.id ?? remote[0]?.id;
+			syncIdentities(
+				userEmail,
+				remote.map((r) => ({
+					jmapId: r.id,
+					email: r.email,
+					name: r.name,
+					replyTo: r.replyTo,
+					isPrimary: r.id === primaryId
+				}))
+			);
+		} catch (err) {
+			console.warn('[identities] sync failed; using cached values', err);
+		}
 
 		const rawRules = cookies.get('mail_rules');
 		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];
@@ -59,7 +83,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			theme,
 			density,
 			displayName,
-			signature,
 			labels,
 			rules,
 			folderExpanded,

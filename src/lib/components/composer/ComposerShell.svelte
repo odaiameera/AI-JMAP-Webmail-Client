@@ -19,16 +19,23 @@
 	import Image from '@tiptap/extension-image';
 	import { SignatureNode } from '$lib/tiptap/signature-node';
 
-	import { composer, setMode, setSignature, closeCompose } from '$lib/stores/compose';
+	import {
+		composer,
+		setMode,
+		setSignature,
+		setFromIdentity,
+		closeCompose
+	} from '$lib/stores/compose';
 	import { userState } from '$lib/stores/userState';
 	import {
-		resolveSignatureForFrom,
+		resolveSignatureForIdentity,
 		getSignatureById,
 		applySignature
 	} from '$lib/utils/signatures';
 	import { compressImageForBody } from '$lib/utils/image-compress';
 	import { showToast } from '$lib/stores/toast';
 	import SignaturePicker from './SignaturePicker.svelte';
+	import FromPicker from './FromPicker.svelte';
 
 	let to = $state('');
 	let cc = $state('');
@@ -142,7 +149,16 @@
 		const res = await fetch(endpoint, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ to, cc, subject, body, inReplyTo, references, draftId })
+			body: JSON.stringify({
+				to,
+				cc,
+				subject,
+				body,
+				inReplyTo,
+				references,
+				draftId,
+				fromIdentityId: $composer.fromIdentityId
+			})
 		});
 		const result = await res.json();
 		if (result.success) return { ok: true, draftId: result.draftId };
@@ -257,18 +273,31 @@
 		initEditor(body);
 	});
 
-	// Auto-resolve signature once userState has loaded, unless the user has
-	// manually chosen one this session.
+	// Pick a default From identity (primary, or the first one we have) the
+	// first time the composer opens with no explicit fromIdentityId set.
+	$effect(() => {
+		if ($composer.mode === 'closed') return;
+		if (!$userState.loaded) return;
+		if ($composer.fromIdentityId !== null) return;
+		const ids = $userState.identities;
+		if (ids.length === 0) return;
+		const primary = ids.find((i) => i.isPrimary) ?? ids[0];
+		setFromIdentity(primary.jmapId);
+	});
+
+	// Auto-resolve signature based on the current From identity. Re-runs
+	// whenever fromIdentityId changes (so switching aliases swaps to the
+	// per-identity override) UNLESS the user has manually picked one — in
+	// which case their choice is respected for the rest of the session.
 	$effect(() => {
 		if ($composer.mode === 'closed') return;
 		if (!$userState.loaded) return;
 		if ($composer.signatureManuallyChosen) return;
-		if ($composer.signatureId !== null) return;
 		// New conversations only — don't bury an existing reply/draft body
 		// under an auto-signature.
 		if (inReplyTo || draftId || isForward) return;
-		const id = resolveSignatureForFrom('');
-		if (id !== null) setSignature(id, false);
+		const id = resolveSignatureForIdentity($composer.fromIdentityId);
+		if (id !== $composer.signatureId) setSignature(id, false);
 	});
 
 	// Whenever the resolved signatureId changes, rewrite the body so the
@@ -362,6 +391,7 @@
 
 		<!-- Recipient fields -->
 		<div class="shrink-0 border-b border-border" class:hidden={$composer.mode === 'minimized'}>
+			<FromPicker />
 			<div class="flex items-center px-3 py-1.5 border-b border-border/50">
 				<span class="text-xs text-text-tertiary w-8 shrink-0">To</span>
 				<input bind:value={to} type="text" placeholder="recipient@example.com" class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary" />

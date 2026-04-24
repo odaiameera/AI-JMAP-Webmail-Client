@@ -114,9 +114,13 @@ export async function sendEmail(
 	client: JMAPClient,
 	accountId: string,
 	compose: ComposeEmail,
-	sentMailboxId: string
+	sentMailboxId: string,
+	identity: { id: string; email: string }
 ): Promise<{ success: boolean; error?: string }> {
-	// Step 1: Create the email in Sent + get identity
+	// Step 1: Create the email in Sent. We no longer fetch Identity/get
+	// here — the API endpoint resolves the user's chosen identity from
+	// the SQLite cache and passes it in. That cache is refreshed by the
+	// (app) layout on every navigation.
 	const emailCreate = buildEmailCreate(compose);
 	emailCreate.mailboxIds = { [sentMailboxId]: true };
 	emailCreate.keywords = { '$seen': true };
@@ -129,14 +133,6 @@ export async function sendEmail(
 				create: { draft1: emailCreate }
 			},
 			'0'
-		],
-		[
-			'Identity/get',
-			{
-				accountId,
-				ids: null
-			},
-			'1'
 		]
 	]);
 
@@ -155,16 +151,7 @@ export async function sendEmail(
 		return { success: false, error: 'Email created but no ID returned' };
 	}
 
-	const identityResult = createResponse.methodResponses[1][1] as {
-		list?: Array<{ id: string; email: string }>;
-	};
-
-	const identity = identityResult.list?.[0];
-	if (!identity) {
-		return { success: false, error: 'No sending identity found' };
-	}
-
-	// Step 2: Submit the email — use identity email for mailFrom
+	// Step 2: Submit the email — use identity email for mailFrom envelope.
 	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc];
 
 	const submitResponse = await client.request([

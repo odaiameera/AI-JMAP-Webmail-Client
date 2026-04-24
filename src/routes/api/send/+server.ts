@@ -4,6 +4,8 @@ import { createClient } from '$lib/jmap/auth';
 import { sendEmail, destroyEmail } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { EmailAddress } from '$lib/jmap/types';
+import { userEmailFromAuth } from '$lib/server/user';
+import { resolveIdentity } from '$lib/server/identity-resolve';
 
 function parseAddresses(input: string): EmailAddress[] {
 	if (!input.trim()) return [];
@@ -12,11 +14,6 @@ function parseAddresses(input: string): EmailAddress[] {
 		.map((s) => s.trim())
 		.filter(Boolean)
 		.map((email) => ({ name: null, email }));
-}
-
-function getSenderEmail(authHeader: string): string {
-	const decoded = atob(authHeader.replace('Basic ', ''));
-	return decoded.split(':')[0];
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -32,7 +29,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'At least one recipient is required' }, { status: 400 });
 	}
 
-	const senderEmail = getSenderEmail(locals.auth.authHeader);
+	const userEmail = userEmailFromAuth(locals.auth);
+	const identity = resolveIdentity(
+		userEmail,
+		typeof body.fromIdentityId === 'string' ? body.fromIdentityId : null,
+		userEmail
+	);
+	if (!identity || !identity.id) {
+		return json({ error: 'No sending identity available' }, { status: 500 });
+	}
 
 	try {
 		const client = createClient(locals.auth);
@@ -43,15 +48,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Sent folder not found' }, { status: 500 });
 		}
 
-		const result = await sendEmail(client, locals.auth.accountId, {
-			from: { name: null, email: senderEmail },
-			to,
-			cc,
-			subject: body.subject ?? '',
-			body: body.body ?? '',
-			...(body.inReplyTo && { inReplyTo: body.inReplyTo }),
-			...(body.references && { references: body.references })
-		}, sentMailbox.id);
+		const result = await sendEmail(
+			client,
+			locals.auth.accountId,
+			{
+				from: { name: identity.name, email: identity.email },
+				to,
+				cc,
+				subject: body.subject ?? '',
+				body: body.body ?? '',
+				...(body.inReplyTo && { inReplyTo: body.inReplyTo }),
+				...(body.references && { references: body.references })
+			},
+			sentMailbox.id,
+			{ id: identity.id, email: identity.email }
+		);
 
 		if (!result.success) {
 			return json({ error: result.error ?? 'Failed to send' }, { status: 500 });

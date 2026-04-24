@@ -1,26 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { setPref } from '$lib/server/prefs';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-	const { displayName, signature } = await request.json();
+	const { displayName } = (await request.json()) as { displayName?: string };
 
-	if (displayName !== undefined) {
-		cookies.set('display_name', displayName, {
-			path: '/',
-			maxAge: 60 * 60 * 24 * 365,
-			httpOnly: false,
-			sameSite: 'strict',
-			secure: true
-		});
-	}
-	if (signature !== undefined) {
-		cookies.set('signature', encodeURIComponent(signature), {
-			path: '/',
-			maxAge: 60 * 60 * 24 * 365,
-			httpOnly: false,
-			sameSite: 'strict',
-			secure: true
-		});
+	if (typeof displayName === 'string') {
+		setPref(cookies, 'display_name', displayName);
 	}
 
 	return json({ success: true });

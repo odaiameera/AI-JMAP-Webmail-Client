@@ -100,9 +100,10 @@ body {
 	min-height: 300px;
 	height: auto;
 	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
-	font-size: 14px; line-height: 1.6; color: var(--color-text);
+	font-size: 14px; line-height: 1.5; color: var(--color-text);
 }
 .full-composer-editor :global(.ProseMirror p) { margin: 0 0 0.5em; }
+.full-composer-editor :global(.ProseMirror p:last-child) { margin-bottom: 0; }
 .full-composer-editor :global(.ProseMirror ul) { list-style: disc; padding-left: 1.5em; margin: 0.25em 0; }
 .full-composer-editor :global(.ProseMirror ol) { list-style: decimal; padding-left: 1.5em; margin: 0.25em 0; }
 .full-composer-editor :global(.ProseMirror h1) { font-size: 1.5em; font-weight: 700; margin: 0.5em 0; }

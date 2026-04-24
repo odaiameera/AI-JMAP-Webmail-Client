@@ -54,7 +54,6 @@
 	// one-line edit with no server import.
 	const exportedKeys: Array<{ key: string; description: string }> = [
 		{ key: 'display_name',          description: 'Display name shown on outgoing mail' },
-		{ key: 'signature',             description: 'Plain-text signature (legacy single-string)' },
 		{ key: 'theme',                 description: 'Light / dark theme' },
 		{ key: 'density',               description: 'Comfortable / compact row density' },
 		{ key: 'reading_pane',          description: 'Reading pane on / off' },

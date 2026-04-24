@@ -28,7 +28,6 @@ export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 	return {
 		// Account / identity
 		displayName: cookies.get('display_name') ?? '',
-		signature: decodeURIComponent(cookies.get('signature') ?? ''),
 		// Appearance
 		theme: cookies.get('theme') ?? 'dark',
 		density: cookies.get('density') ?? 'comfortable',

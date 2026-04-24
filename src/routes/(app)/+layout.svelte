@@ -22,7 +22,6 @@
 	let { readingPaneDefault } = data;
 	const readingPane = createReadingPaneStore(readingPaneDefault);
 	setContext('readingPane', readingPane);
-	setContext('userSignature', data.signature ?? '');
 	setContext('labels', data.labels ?? []);
 	setContext('rules', data.rules ?? []);
 
@@ -64,6 +63,10 @@
 		}
 		document.cookie = 'label_meta=; Path=/; Max-Age=0';
 		document.cookie = 'folder_meta=; Path=/; Max-Age=0';
+		// Phase 15a: legacy plain-text signature cookie is replaced by the
+		// SQLite-backed Signatures page. Wipe it so stale browser data
+		// can't reappear in any future export.
+		document.cookie = 'signature=; Path=/; Max-Age=0';
 
 		loadUserState();
 		profilePhoto.hydrate();

@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { sendEmail } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
+import { userEmailFromAuth } from '$lib/server/user';
+import { resolveIdentity } from '$lib/server/identity-resolve';
 
 interface UnsubscribeBody {
 	mode: 'one-click' | 'mailto';
@@ -71,19 +73,28 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 			const sent = mailboxes.find((m) => m.role === 'sent');
 			if (!sent) return json({ error: 'Sent folder missing' }, { status: 500 });
 
-			const senderEmail = getSenderEmail(locals.auth.authHeader);
+			const userEmail = userEmailFromAuth(locals.auth);
+			// Unsubscribe always sends from the primary identity. Picking
+			// the right identity here would require tracking which one the
+			// user was reading the message under, and isn't worth the
+			// complexity for an out-of-band unsubscribe action.
+			const identity = resolveIdentity(userEmail, null, userEmail);
+			if (!identity || !identity.id) {
+				return json({ error: 'No sending identity available' }, { status: 500 });
+			}
 
 			const result = await sendEmail(
 				client,
 				accountId,
 				{
-					from: { name: null, email: senderEmail },
+					from: { name: identity.name, email: identity.email },
 					to: [{ name: null, email: parsed.to }],
 					cc: [],
 					subject: parsed.subject ?? 'unsubscribe',
 					body: parsed.body ?? ''
 				},
-				sent.id
+				sent.id,
+				{ id: identity.id, email: identity.email }
 			);
 
 			if (!result.success) {
@@ -133,8 +144,3 @@ function parseMailto(mailto: string): { to: string; subject?: string; body?: str
 	};
 }
 
-/** Decode the Basic auth header to extract the user's email address. */
-function getSenderEmail(authHeader: string): string {
-	const decoded = Buffer.from(authHeader.replace(/^Basic\s+/i, ''), 'base64').toString();
-	return decoded.split(':')[0];
-}

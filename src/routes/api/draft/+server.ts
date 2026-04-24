@@ -4,6 +4,8 @@ import { createClient } from '$lib/jmap/auth';
 import { saveDraft } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { EmailAddress } from '$lib/jmap/types';
+import { userEmailFromAuth } from '$lib/server/user';
+import { resolveIdentity } from '$lib/server/identity-resolve';
 
 function parseAddresses(input: string): EmailAddress[] {
 	if (!input.trim()) return [];
@@ -14,18 +16,18 @@ function parseAddresses(input: string): EmailAddress[] {
 		.map((email) => ({ name: null, email }));
 }
 
-function getSenderEmail(authHeader: string): string {
-	const decoded = atob(authHeader.replace('Basic ', ''));
-	return decoded.split(':')[0];
-}
-
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) {
 		return json({ error: 'Not authenticated' }, { status: 401 });
 	}
 
 	const body = await request.json();
-	const senderEmail = getSenderEmail(locals.auth.authHeader);
+	const userEmail = userEmailFromAuth(locals.auth);
+	const identity = resolveIdentity(
+		userEmail,
+		typeof body.fromIdentityId === 'string' ? body.fromIdentityId : null,
+		userEmail
+	);
 
 	try {
 		const client = createClient(locals.auth);
@@ -37,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		const result = await saveDraft(client, locals.auth.accountId, draftsMailbox.id, {
-			from: { name: null, email: senderEmail },
+			from: { name: identity?.name ?? null, email: identity?.email ?? userEmail },
 			to: parseAddresses(body.to ?? ''),
 			cc: parseAddresses(body.cc ?? ''),
 			subject: body.subject ?? '',

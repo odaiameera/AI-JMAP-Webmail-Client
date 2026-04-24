@@ -36,7 +36,6 @@ export function deletePref(cookies: Cookies, key: string): void {
 export const PREF_COOKIE_KEYS = [
 	// Account
 	'display_name',
-	'signature',
 	// Appearance
 	'theme',
 	'density',

@@ -2,6 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { userEmailFromAuth } from '$lib/server/user';
 import { deleteSignature, updateSignature } from '$lib/server/db/queries/signatures';
+import { sanitizeSignatureHtml } from '$lib/utils/sanitize-signature';
+
+const MAX_NAME = 80;
+const MAX_HTML = 10_000;
 
 function parseId(raw: string): number | null {
 	const id = Number.parseInt(raw, 10);
@@ -19,7 +23,23 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		| null;
 	if (!body) return json({ error: 'Invalid body' }, { status: 400 });
 
-	const updated = updateSignature(email, id, body);
+	const patch: { name?: string; html?: string; isDefault?: boolean } = {};
+	if (typeof body.name === 'string') {
+		const name = body.name.trim().slice(0, MAX_NAME);
+		if (name.length === 0) return json({ error: 'name required' }, { status: 400 });
+		patch.name = name;
+	}
+	if (typeof body.html === 'string') {
+		if (body.html.length > MAX_HTML) {
+			return json({ error: 'Signature HTML exceeds size limit' }, { status: 413 });
+		}
+		patch.html = sanitizeSignatureHtml(body.html);
+	}
+	if (typeof body.isDefault === 'boolean') {
+		patch.isDefault = body.isDefault;
+	}
+
+	const updated = updateSignature(email, id, patch);
 	if (!updated) return json({ error: 'Not found' }, { status: 404 });
 	return json(updated);
 };
