@@ -10,4 +10,12 @@
 	<title>{pageTitle({ page: data.mailboxName, count: data.unreadCount })}</title>
 </svelte:head>
 
-<EmailList emails={data.emails} total={data.total} title={data.mailboxName} mailboxId={data.mailboxId} />
+<EmailList
+	emails={data.emails}
+	total={data.total}
+	title={data.mailboxName}
+	mailboxId={data.mailboxId}
+	page={data.page}
+	pageSize={data.pageSize}
+	totalPages={data.totalPages}
+/>

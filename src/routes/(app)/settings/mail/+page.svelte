@@ -4,6 +4,7 @@
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Toggle from '$lib/components/settings/Toggle.svelte';
 	import Select from '$lib/components/settings/Select.svelte';
+	import { userState, updateSettings } from '$lib/stores/userState';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
@@ -13,6 +14,24 @@
 	let autoLoadImages = $state(data.autoLoadImages);
 	let defaultSort = $state(data.defaultSort);
 	let keyboardShortcuts = $state(data.keyboardShortcuts);
+
+	const defaultPageSize = $derived(
+		typeof $userState.settings.defaultPageSize === 'number'
+			? ($userState.settings.defaultPageSize as number)
+			: 50
+	);
+	let pageSizeState = $state<SaveState>('idle');
+
+	async function savePageSize(v: string) {
+		pageSizeState = 'saving';
+		try {
+			await updateSettings({ settings: { defaultPageSize: parseInt(v) } });
+			pageSizeState = 'saved';
+			setTimeout(() => { if (pageSizeState === 'saved') pageSizeState = 'idle'; }, 1800);
+		} catch {
+			pageSizeState = 'error';
+		}
+	}
 
 	const states = $state<Record<string, SaveState>>({});
 	function flash(key: string, ok: boolean) {
@@ -110,6 +129,26 @@
 					{ value: 'never', label: 'Never' },
 					{ value: 'contacts_only', label: 'Contacts only' },
 					{ value: 'always', label: 'Always' }
+				]}
+			/>
+		{/snippet}
+	</SettingRow>
+
+	<SettingRow
+		title="Messages per page"
+		description="How many messages to show per page in the inbox, folders, and search. Follows you across browsers."
+		state={pageSizeState}
+	>
+		{#snippet control()}
+			<Select
+				value={String(defaultPageSize)}
+				ariaLabel="Messages per page"
+				onchange={savePageSize}
+				options={[
+					{ value: '10', label: '10 per page' },
+					{ value: '25', label: '25 per page' },
+					{ value: '50', label: '50 per page' },
+					{ value: '100', label: '100 per page' }
 				]}
 			/>
 		{/snippet}

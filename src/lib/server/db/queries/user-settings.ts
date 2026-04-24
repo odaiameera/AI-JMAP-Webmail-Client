@@ -133,3 +133,12 @@ export function clearAvatar(userEmail: string): void {
 	s.ensureRow.run(userEmail);
 	s.setAvatar.run(null, null, userEmail);
 }
+
+const ALLOWED_PAGE_SIZES = [10, 25, 50, 100] as const;
+
+export function getDefaultPageSize(userEmail: string): number {
+	const { settings } = getUserSettings(userEmail);
+	const raw = settings?.defaultPageSize;
+	const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+	return (ALLOWED_PAGE_SIZES as readonly number[]).includes(n) ? n : 50;
+}
