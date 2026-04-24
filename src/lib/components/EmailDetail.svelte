@@ -150,17 +150,17 @@
 		iframeHeight = Math.max(200, iframeEl.contentDocument.body.scrollHeight + 32);
 	}
 
-	onMount(() => {
-		if (isDraft) {
-			openCompose({
-				to: email.to?.map((a) => a.email).join(', ') ?? '',
-				cc: email.cc?.map((a) => a.email).join(', ') ?? '',
-				subject: email.subject ?? '',
-				body: getBodyHtml(),
-				draftId: email.id
-			});
-		}
+	function handleEditDraft() {
+		openCompose({
+			to: email.to?.map((a) => a.email).join(', ') ?? '',
+			cc: email.cc?.map((a) => a.email).join(', ') ?? '',
+			subject: email.subject ?? '',
+			body: getBodyHtml(),
+			draftId: email.id
+		});
+	}
 
+	onMount(() => {
 		if (!email.keywords['$seen']) {
 			const timer = setTimeout(async () => {
 				await fetch(`/api/email/${email.id}`, {
@@ -402,15 +402,22 @@
 	<!-- Ribbon -->
 	<div class="ribbon flex items-center justify-between {compact ? 'px-4' : 'px-6'} py-2 border-b border-border shrink-0">
 		<div class="flex items-center gap-1">
-			<button onclick={handleReply} title="Reply" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-			</button>
-			<button onclick={handleReplyAll} title="Reply All" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
-			</button>
-			<button onclick={handleForward} title="Forward" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
-			</button>
+			{#if isDraft}
+				<button onclick={handleEditDraft} class="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-3 py-1 transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+					Edit draft
+				</button>
+			{:else}
+				<button onclick={handleReply} title="Reply" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+				</button>
+				<button onclick={handleReplyAll} title="Reply All" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
+				</button>
+				<button onclick={handleForward} title="Forward" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+				</button>
+			{/if}
 		</div>
 		<div class="flex items-center gap-1">
 			<button onclick={() => doAction(isRead ? 'markUnread' : 'markRead')} title={isRead ? 'Mark Unread' : 'Mark Read'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">

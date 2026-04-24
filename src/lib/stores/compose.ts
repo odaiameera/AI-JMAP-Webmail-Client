@@ -1,5 +1,7 @@
 import { writable } from 'svelte/store';
 
+export type ComposerMode = 'popup' | 'fullscreen' | 'minimized' | 'closed';
+
 export interface ComposeData {
 	to: string;
 	cc: string;
@@ -11,38 +13,42 @@ export interface ComposeData {
 	isForward?: boolean;
 }
 
-export const composeOpen = writable(false);
-export const composeData = writable<ComposeData | null>(null);
+export interface ComposerState extends ComposeData {
+	mode: ComposerMode;
+	signatureId: number | null;
+	signatureManuallyChosen: boolean;
+}
 
-export function openCompose(data?: ComposeData) {
-	composeData.set(data ?? null);
-	composeOpen.set(true);
+const defaultState: ComposerState = {
+	to: '',
+	cc: '',
+	subject: '',
+	body: '',
+	mode: 'closed',
+	signatureId: null,
+	signatureManuallyChosen: false
+};
+
+export const composer = writable<ComposerState>(defaultState);
+
+export function openCompose(init: Partial<ComposeData> = {}) {
+	composer.set({
+		...defaultState,
+		...init,
+		mode: 'popup',
+		signatureId: null,
+		signatureManuallyChosen: false
+	});
 }
 
 export function closeCompose() {
-	composeOpen.set(false);
-	composeData.set(null);
+	composer.set(defaultState);
 }
 
-// Full composer (reading pane slot)
-export const fullComposeOpen = writable(false);
-export const fullComposeData = writable<ComposeData | null>(null);
-
-export function openFullCompose(data?: ComposeData) {
-	fullComposeData.set(data ?? null);
-	fullComposeOpen.set(true);
+export function setMode(mode: ComposerMode) {
+	composer.update((s) => ({ ...s, mode }));
 }
 
-export function closeFullCompose() {
-	fullComposeOpen.set(false);
-	fullComposeData.set(null);
-}
-
-export function minimizeFullCompose() {
-	let data: ComposeData | null = null;
-	fullComposeData.subscribe((v) => { data = v; })();
-	fullComposeOpen.set(false);
-	fullComposeData.set(null);
-	composeData.set(data);
-	composeOpen.set(true);
+export function setSignature(id: number | null, manual = true) {
+	composer.update((s) => ({ ...s, signatureId: id, signatureManuallyChosen: manual }));
 }
