@@ -311,7 +311,7 @@
 		const sig = getSignatureById(sigId);
 		const next = applySignature(body, sig?.html ?? null);
 		if (next !== body) {
-			editor.commands.setContent(next, false);
+			editor.commands.setContent(next, { emitUpdate: false });
 			body = next;
 		}
 		lastAppliedSignatureId = sigId;

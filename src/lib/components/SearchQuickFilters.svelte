@@ -86,7 +86,7 @@
 
 	type FolderOption = { kind: 'role' | 'folder' | 'label'; label: string; token: string; id: string };
 
-	const folderOptions = $derived<FolderOption[]>(() => {
+	const folderOptions = $derived.by<FolderOption[]>(() => {
 		const byRole = new Map(mailboxes.filter((m) => m.role).map((m) => [m.role as string, m]));
 		const roleOrder: [string, string][] = [
 			['inbox', 'Inbox'],
@@ -102,7 +102,7 @@
 
 		const userFolders: FolderOption[] = mailboxes
 			.filter((m) => !m.role && !m.name.startsWith(LABEL_PREFIX))
-			.map((m) => ({ kind: 'folder', label: m.name, token: `in:${quoteIfNeeded(m.name)}`, id: m.id }))
+			.map((m) => ({ kind: 'folder' as const, label: m.name, token: `in:${quoteIfNeeded(m.name)}`, id: m.id }))
 			.sort((a, b) => a.label.localeCompare(b.label));
 
 		const labels: FolderOption[] = mailboxes
@@ -122,7 +122,7 @@
 
 	function activeFolderLabel(): string | null {
 		if (!activeInToken || activeInToken.kind !== 'field') return null;
-		const opt = folderOptions().find((o) => {
+		const opt = folderOptions.find((o) => {
 			if (activeInToken.field === 'in') {
 				return o.token === `in:${activeInToken.value}` || o.token === `in:${quoteIfNeeded(activeInToken.value)}`;
 			}
@@ -243,8 +243,8 @@
 					</button>
 					<div class="border-t border-border my-1"></div>
 				{/if}
-				{#each folderOptions() as opt, i}
-					{@const prev = folderOptions()[i - 1]}
+				{#each folderOptions as opt, i}
+					{@const prev = folderOptions[i - 1]}
 					{#if prev && prev.kind !== opt.kind}
 						<div class="border-t border-border my-1"></div>
 					{/if}
