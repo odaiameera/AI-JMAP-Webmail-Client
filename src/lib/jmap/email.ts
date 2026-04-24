@@ -24,7 +24,8 @@ export async function queryAndFetchEmails(
 				filter: { inMailbox: mailboxId },
 				sort: [{ property: 'receivedAt', isAscending: false }],
 				position,
-				limit
+				limit,
+				calculateTotal: true
 			},
 			'q'
 		],
@@ -430,6 +431,19 @@ export async function markManyAsNotSpam(
 
 export const forwardEmail = sendEmail;
 
+/**
+ * Like `searchEmails` but takes a pre-built JMAP filter tree. Used by the
+ * operator-based search parser (Phase 12) which constructs its own tree.
+ */
+export async function queryAndFetchEmailsWithFilter(
+	client: JMAPClient,
+	accountId: string,
+	filter: Record<string, unknown>,
+	options: { position?: number; limit?: number } = {}
+): Promise<EmailQueryResult> {
+	return searchEmails(client, accountId, filter, options);
+}
+
 export async function searchEmails(
 	client: JMAPClient,
 	accountId: string,
@@ -446,7 +460,8 @@ export async function searchEmails(
 				filter,
 				sort: [{ property: 'receivedAt', isAscending: false }],
 				position,
-				limit
+				limit,
+				calculateTotal: true
 			},
 			'q'
 		],

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
-	import ComposeModal from '$lib/components/ComposeModal.svelte';
+	import ComposerShell from '$lib/components/composer/ComposerShell.svelte';
 	import SettingsIsland from '$lib/components/SettingsIsland.svelte';
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount, setContext } from 'svelte';
@@ -26,10 +27,18 @@
 	setContext('labels', data.labels ?? []);
 	setContext('rules', data.rules ?? []);
 
-	let searchQuery = $state('');
-	let searchFocused = $state(false);
-	let activeFilters = $state(new Set(['from', 'to', 'subject', 'body']));
+	let searchQuery = $state(page.url.searchParams.get('q') ?? '');
 	let settingsOpen = $state(false);
+
+	$effect(() => {
+		// Keep the search box in sync with the URL. Navigating to /inbox,
+		// /folder/*, etc. clears the chips; /search hydrates them from `q`.
+		if (page.url.pathname === '/search') {
+			searchQuery = page.url.searchParams.get('q') ?? '';
+		} else {
+			searchQuery = '';
+		}
+	});
 	let settingsEl = $state<HTMLDivElement | undefined>(undefined);
 	let profileOpen = $state(false);
 	let profileCardEl = $state<HTMLDivElement | undefined>(undefined);
@@ -123,25 +132,8 @@
 		lastInboxUnread = current;
 	});
 
-	function toggleFilter(f: string) {
-		const next = new Set(activeFilters);
-		if (next.has(f)) {
-			if (next.size > 1) next.delete(f);
-		} else {
-			next.add(f);
-		}
-		activeFilters = next;
-	}
-
-	function handleSearch(e?: Event) {
-		e?.preventDefault();
-		if (!searchQuery.trim()) return;
-		const params = new URLSearchParams({
-			q: searchQuery.trim(),
-			in: [...activeFilters].join(',')
-		});
-		goto(`/search?${params}`);
-		searchFocused = false;
+	function submitSearch(raw: string) {
+		goto(`/search?q=${encodeURIComponent(raw)}`);
 	}
 
 	function handleClickOutside(e: MouseEvent) {
@@ -166,33 +158,7 @@
 		<h1 class="text-lg font-bold text-text tracking-tight leading-none shrink-0 {sidebarCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
 			{sidebarCollapsed ? '' : 'ameera.'}
 		</h1>
-		<form onsubmit={handleSearch} class="relative w-[420px]">
-			<input
-				type="text"
-				bind:value={searchQuery}
-				onfocus={() => searchFocused = true}
-				onblur={() => setTimeout(() => searchFocused = false, 200)}
-				placeholder="Search mail..."
-				class="w-full bg-bg/50 border border-border rounded-lg px-3.5 py-1.5 text-sm text-text placeholder-text-tertiary
-					focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-colors"
-			/>
-			{#if searchFocused || searchQuery}
-				<div class="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg p-2 flex items-center gap-1.5 z-10">
-					{#each ['from', 'to', 'subject', 'body'] as filter}
-						<button
-							type="button"
-							onmousedown={(e) => { e.preventDefault(); toggleFilter(filter); }}
-							class="px-2 py-0.5 rounded text-xs transition-colors cursor-pointer
-								{activeFilters.has(filter)
-									? 'bg-accent/15 text-accent'
-									: 'text-text-tertiary hover:text-text-secondary'}"
-						>
-							{filter.charAt(0).toUpperCase() + filter.slice(1)}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</form>
+		<SearchInput bind:value={searchQuery} onSubmit={submitSearch} mailboxes={data.mailboxes} />
 		<div class="flex-1"></div>
 		<ConnectionStatus />
 		<div class="w-px h-5 bg-border shrink-0"></div>
@@ -264,5 +230,5 @@
 	</div>
 {/if}
 
-<ComposeModal />
+<ComposerShell />
 <ToastContainer />
