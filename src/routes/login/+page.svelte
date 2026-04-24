@@ -36,17 +36,16 @@
 			{/if}
 
 			<div>
-				<label for="email" class="block text-sm text-text-secondary mb-1.5">Email</label>
+				<label for="email" class="block text-sm text-text-secondary mb-1.5">Username or email</label>
 				<input
 					id="email"
 					name="email"
-					type="email"
-					autocomplete="email"
+					type="text"
+					autocomplete="username"
 					required
 					value={form?.email ?? ''}
-					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text placeholder-text-tertiary
+					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text
 						focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
-					placeholder="odai@odaiameera.com"
 				/>
 			</div>
 
@@ -58,9 +57,8 @@
 					type="password"
 					autocomplete="current-password"
 					required
-					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text placeholder-text-tertiary
+					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text
 						focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
-					placeholder="Enter your password"
 				/>
 			</div>
 
