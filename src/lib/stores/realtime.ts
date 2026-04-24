@@ -81,6 +81,15 @@ function createRealtimeStore() {
 		if (!browser) return;
 		if (source) source.close();
 
+		// Stalwart doesn't replay state changes that arrived while the SSE
+		// was down (we don't send Last-Event-ID), so any tokens cached from
+		// the previous connection are stale. Wipe them so the first
+		// `state` event after the new open is always treated as a change
+		// and triggers `invalidateAll()`.
+		for (const key of Object.keys(tokens) as (keyof StateTokens)[]) {
+			delete tokens[key];
+		}
+
 		const startedAt = Date.now();
 		console.log(`[realtime] connecting at ${new Date(startedAt).toISOString()}`);
 		source = new EventSource('/api/events');
@@ -123,7 +132,14 @@ function createRealtimeStore() {
 					update((s) => ({ ...s, connected: false }));
 				}, DISCONNECT_GRACE_MS);
 			}
-			scheduleReconnect();
+			// EventSource auto-reconnects on its own when readyState === 0
+			// (CONNECTING). Scheduling our own reconnect in that window
+			// races the native retry — when our timer fires, `connect()`
+			// closes the freshly-reopened source. Only step in when the
+			// browser has given up (readyState === 2 / CLOSED).
+			if (source?.readyState === 2) {
+				scheduleReconnect();
+			}
 		};
 	}
 

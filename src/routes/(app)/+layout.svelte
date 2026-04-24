@@ -73,19 +73,16 @@
 		const handler = () => readingPane.setFromViewport(window.innerWidth);
 		window.addEventListener('resize', handler);
 
-		// Real-time push: open the SSE connection and pause it whenever the
-		// tab is hidden so a backgrounded window doesn't keep a long-lived
-		// upstream socket alive needlessly.
+		// Real-time push: keep the SSE connection open for the lifetime of
+		// the (app) layout. We deliberately don't disconnect on
+		// `document.hidden` — screen lock, App Nap, Spaces switch, or just
+		// looking away can flip visibility for arbitrary durations, and
+		// the user expects new mail to be live the moment they look back,
+		// not after a fresh handshake.
 		realtime.connect();
-		const handleVisibility = () => {
-			if (document.hidden) realtime.disconnect();
-			else realtime.connect();
-		};
-		document.addEventListener('visibilitychange', handleVisibility);
 
 		return () => {
 			window.removeEventListener('resize', handler);
-			document.removeEventListener('visibilitychange', handleVisibility);
 			realtime.disconnect();
 		};
 	});

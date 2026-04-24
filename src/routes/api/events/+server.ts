@@ -46,6 +46,14 @@ export const GET: RequestHandler = async ({ locals, request }) => {
 
 	const monitored = upstream.body.pipeThrough(
 		new TransformStream({
+			start(controller) {
+				// adapter-node only flushes the response headers on the first
+				// `res.write()`. Without a primer byte, headers sit queued
+				// until Stalwart sends its first chunk (~30s in practice),
+				// so the browser's `onopen` doesn't fire and the UI looks
+				// disconnected. An SSE comment is a no-op for the client.
+				controller.enqueue(new TextEncoder().encode(': ready\n\n'));
+			},
 			transform(chunk, controller) {
 				controller.enqueue(chunk);
 			},
