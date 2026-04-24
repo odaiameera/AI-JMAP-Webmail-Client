@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
-import { markEmail, trashEmail, archiveEmail, moveEmail, markAsSpam, markAsNotSpam } from '$lib/jmap/email';
+import { markEmail, trashEmail, archiveEmail, moveEmail, markAsSpam, markAsNotSpam, destroyEmail } from '$lib/jmap/email';
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
 
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
@@ -27,7 +27,11 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
 				const mailboxes = await getMailboxes(client, accountId);
 				const trash = mailboxes.find((m) => m.role === 'trash');
 				if (!trash) return json({ error: 'Trash folder not found' }, { status: 500 });
-				await trashEmail(client, accountId, emailId, sourceMailboxId ?? '', trash.id);
+				if (sourceMailboxId === trash.id) {
+					await destroyEmail(client, accountId, emailId);
+				} else {
+					await trashEmail(client, accountId, emailId, sourceMailboxId ?? '', trash.id);
+				}
 				break;
 			}
 			case 'archive': {
