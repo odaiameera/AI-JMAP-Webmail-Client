@@ -9,7 +9,6 @@
 
 	let font = $state(data.composerFont);
 	let fontSize = $state(data.composerFontSize);
-	let undoSend = $state(String(data.undoSendSeconds));
 	let autoSaveInterval = $state(String(data.autoSaveInterval));
 
 	const states = $state<Record<string, SaveState>>({});
@@ -65,27 +64,6 @@
 				ariaLabel="Default font size"
 				onchange={(v) => { fontSize = v; save('/api/preferences/composer', { fontSize: v }, 'fontSize'); }}
 				options={['8', '9', '10', '11', '12', '14', '16', '18', '20', '24'].map((v) => ({ value: v, label: `${v} pt` }))}
-			/>
-		{/snippet}
-	</SettingRow>
-
-	<SettingRow
-		title="Undo send window"
-		description="Seconds to delay send so you can undo. 0 disables. (Client-side delay; takes effect in a future update.)"
-		state={states.undoSend ?? 'idle'}
-	>
-		{#snippet control()}
-			<Select
-				value={undoSend}
-				ariaLabel="Undo send window"
-				onchange={(v) => { undoSend = v; save('/api/preferences/undo-send', { seconds: parseInt(v) }, 'undoSend'); }}
-				options={[
-					{ value: '0', label: 'Off' },
-					{ value: '5', label: '5 seconds' },
-					{ value: '10', label: '10 seconds' },
-					{ value: '20', label: '20 seconds' },
-					{ value: '30', label: '30 seconds' }
-				]}
 			/>
 		{/snippet}
 	</SettingRow>

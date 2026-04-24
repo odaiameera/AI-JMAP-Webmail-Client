@@ -1,5 +1,4 @@
 import type { LayoutServerLoad } from './$types';
-import { env } from '$env/dynamic/private';
 
 function num(value: string | undefined, fallback: number): number {
 	if (value === undefined) return fallback;
@@ -8,10 +7,9 @@ function num(value: string | undefined, fallback: number): number {
 }
 
 /**
- * Load every preference cookie the settings pages care about, plus the
- * Stalwart self-service portal URL used by the "Security" section.
- * `parent()` gives us the mailboxes/labels/rules already loaded by the
- * (app) layout so child sections don't re-fetch.
+ * Load every preference cookie the settings pages care about. `parent()`
+ * gives us the mailboxes/labels/rules already loaded by the (app) layout
+ * so child sections don't re-fetch.
  */
 export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 	const { mailboxes, labels, rules } = await parent();
@@ -38,7 +36,6 @@ export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 		// Composer
 		composerFont: cookies.get('composer_font') ?? 'Calibri',
 		composerFontSize: cookies.get('composer_font_size') ?? '12',
-		undoSendSeconds: num(cookies.get('undo_send'), 0),
 		autoSaveInterval: num(cookies.get('autosave_interval'), 10),
 		// Mail
 		conversationView: cookies.get('conversation_view') === 'on',
@@ -53,8 +50,6 @@ export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 		autoReplyEnabled: cookies.get('auto_reply_enabled') === 'on',
 		autoReplySubject: decodeURIComponent(cookies.get('auto_reply_subject') ?? ''),
 		autoReplyBody: decodeURIComponent(cookies.get('auto_reply_body') ?? ''),
-		// Link-out
-		stalwartPortalUrl: env.STALWART_PORTAL_URL ?? 'https://mx.odaiameera.com/webadmin',
 		// Piped through for section pages that need them
 		mailboxes,
 		labels,

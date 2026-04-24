@@ -2,7 +2,6 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import ComposerShell from '$lib/components/composer/ComposerShell.svelte';
-	import SettingsIsland from '$lib/components/SettingsIsland.svelte';
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
@@ -20,7 +19,7 @@
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
 	// eslint-disable-next-line -- intentionally capturing initial values from server cookies
-	let { readingPaneDefault, theme: initialTheme } = data;
+	let { readingPaneDefault } = data;
 	const readingPane = createReadingPaneStore(readingPaneDefault);
 	setContext('readingPane', readingPane);
 	setContext('userSignature', data.signature ?? '');
@@ -28,7 +27,6 @@
 	setContext('rules', data.rules ?? []);
 
 	let searchQuery = $state(page.url.searchParams.get('q') ?? '');
-	let settingsOpen = $state(false);
 
 	$effect(() => {
 		// Keep the search box in sync with the URL. Navigating to /inbox,
@@ -39,7 +37,6 @@
 			searchQuery = '';
 		}
 	});
-	let settingsEl = $state<HTMLDivElement | undefined>(undefined);
 	let profileOpen = $state(false);
 	let profileCardEl = $state<HTMLDivElement | undefined>(undefined);
 	let sidebarCollapsed = $state(false);
@@ -137,9 +134,6 @@
 	}
 
 	function handleClickOutside(e: MouseEvent) {
-		if (settingsOpen && settingsEl && !settingsEl.contains(e.target as Node)) {
-			settingsOpen = false;
-		}
 		if (profileOpen && profileCardEl && !profileCardEl.contains(e.target as Node)) {
 			profileOpen = false;
 		}
@@ -202,7 +196,7 @@
 	</main>
 
 	<!-- Row 2, Col 3: App rail -->
-	<AppRail settingsOpen={settingsOpen} onToggleSettings={() => { settingsOpen = !settingsOpen; }} />
+	<AppRail />
 </div>
 
 {#if profileOpen}
@@ -213,19 +207,6 @@
 			displayName={data.displayName}
 			email={data.userEmail}
 			onClose={() => { profileOpen = false; }}
-		/>
-	</div>
-{/if}
-
-{#if settingsOpen}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="fixed inset-0 bg-black/40 z-40 animate-compose-backdrop-in" onclick={() => settingsOpen = false}></div>
-	<div bind:this={settingsEl} onclick={(e) => e.stopPropagation()}>
-		<SettingsIsland
-			onClose={() => settingsOpen = false}
-			initialTheme={initialTheme}
-			density={data.density ?? 'comfortable'}
 		/>
 	</div>
 {/if}

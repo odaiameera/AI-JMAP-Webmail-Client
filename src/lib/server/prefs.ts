@@ -44,7 +44,6 @@ export const PREF_COOKIE_KEYS = [
 	// Composer
 	'composer_font',
 	'composer_font_size',
-	'undo_send',
 	'autosave_interval',
 	// Mail
 	'conversation_view',

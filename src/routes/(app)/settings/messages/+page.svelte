@@ -55,10 +55,10 @@
 	}
 </script>
 
-<svelte:head><title>{pageTitle({ page: 'Mail', subtitle: 'Settings' })}</title></svelte:head>
+<svelte:head><title>{pageTitle({ page: 'Messages', subtitle: 'Settings' })}</title></svelte:head>
 
 <header class="mb-6">
-	<h1 class="text-xl font-semibold text-text">Mail</h1>
+	<h1 class="text-xl font-semibold text-text">Messages</h1>
 	<p class="text-sm text-text-tertiary mt-1">How messages are displayed and treated.</p>
 </header>
 

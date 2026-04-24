@@ -8,10 +8,7 @@
 		icon: string; // inline SVG
 	};
 
-	let { settingsOpen = false, onToggleSettings }: {
-		settingsOpen?: boolean;
-		onToggleSettings?: () => void;
-	} = $props();
+	const SETTINGS_HREF = '/settings/account';
 
 	// All icons share the same visual language: 20×20, stroke-width 1.75,
 	// no fill, round linecaps/joins, currentColor stroke.
@@ -62,6 +59,8 @@
 		}
 		return path.startsWith(href);
 	}
+
+	const settingsActive = $derived(page.url.pathname.startsWith('/settings'));
 </script>
 
 <div class="w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden">
@@ -86,14 +85,15 @@
 	<!-- Separator -->
 	<div class="h-px w-6 bg-border/30 my-1"></div>
 
-	<!-- Settings (toggle, not a link) -->
-	<button
-		onclick={(e) => { e.stopPropagation(); onToggleSettings?.(); }}
+	<!-- Settings -->
+	<a
+		href={SETTINGS_HREF}
+		data-sveltekit-preload-data="hover"
 		title="Settings"
 		aria-label="Settings"
-		aria-expanded={settingsOpen}
+		aria-current={settingsActive ? 'page' : undefined}
 		class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
-			{settingsOpen
+			{settingsActive
 				? 'text-accent bg-accent/10'
 				: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
 	>
@@ -101,5 +101,5 @@
 			<circle cx="12" cy="12" r="3"/>
 			<path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
 		</svg>
-	</button>
+	</a>
 </div>
