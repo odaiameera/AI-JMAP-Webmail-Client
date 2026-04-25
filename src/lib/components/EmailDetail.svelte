@@ -78,8 +78,6 @@
 	);
 
 	let actionLoading = $state('');
-	let iframeEl = $state<HTMLIFrameElement | null>(null);
-	let iframeHeight = $state(400);
 	let showLabelMenu = $state(false);
 	let showMovePicker = $state(false);
 	let moveTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
@@ -145,10 +143,6 @@
 		</style>
 	</head><body>${getBodyHtml()}</body></html>`);
 
-	function handleIframeLoad() {
-		if (!iframeEl?.contentDocument?.body) return;
-		iframeHeight = Math.max(200, iframeEl.contentDocument.body.scrollHeight + 32);
-	}
 
 	function handleEditDraft() {
 		openCompose({
@@ -517,16 +511,17 @@
 
 	<AttachmentBar emailId={email.id} attachments={email.attachments ?? []} />
 
-	<!-- Email body in sandboxed iframe -->
-	<div class="flex-1 overflow-y-auto {compact ? 'px-4 py-3' : 'px-6 py-4'}">
+	<!-- Email body in sandboxed iframe. The iframe always fills the
+	     remaining vertical space of the reading pane, regardless of the
+	     email's content height — short emails no longer collapse the
+	     pane, and long ones scroll inside the iframe instead of the
+	     wrapper. -->
+	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4'}">
 		<iframe
-			bind:this={iframeEl}
 			srcdoc={iframeContent}
 			sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
 			title="Email content"
-			class="w-full border-none rounded"
-			style="min-height: 200px; height: {iframeHeight}px;"
-			onload={handleIframeLoad}
+			class="w-full h-full border-none rounded"
 		></iframe>
 	</div>
 
