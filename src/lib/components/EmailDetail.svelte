@@ -7,6 +7,7 @@
 	import { onMount, getContext } from 'svelte';
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
+	import CreatePlaneWorkItemModal from './modals/CreatePlaneWorkItemModal.svelte';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
@@ -81,6 +82,35 @@
 	let showLabelMenu = $state(false);
 	let showMovePicker = $state(false);
 	let moveTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
+	let showPlaneModal = $state(false);
+	let planePrefillTitle = $state('');
+	let planePrefillDescription = $state('');
+	let planeToast = $state<
+		{ kind: 'success' | 'error'; message: string; url?: string } | null
+	>(null);
+	let planeToastTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function showPlaneToast(
+		kind: 'success' | 'error',
+		message: string,
+		opts: { url?: string; ms?: number } = {}
+	) {
+		planeToast = { kind, message, url: opts.url };
+		if (planeToastTimer) clearTimeout(planeToastTimer);
+		planeToastTimer = setTimeout(() => { planeToast = null; }, opts.ms ?? 5000);
+	}
+
+	function openPlaneModal() {
+		const sender = email.from?.[0];
+		const fromStr = sender?.name
+			? `${sender.name} &lt;${sender.email}&gt;`
+			: (sender?.email ?? 'Unknown');
+		const dateStr = formatDate(email.receivedAt);
+		const subject = email.subject ?? '(no subject)';
+		planePrefillTitle = subject;
+		planePrefillDescription = `<p><strong>From:</strong> ${fromStr}<br><strong>Date:</strong> ${dateStr}<br><strong>Subject:</strong> ${subject}</p><blockquote>${getBodyHtml()}</blockquote>`;
+		showPlaneModal = true;
+	}
 
 	/**
 	 * Destination to navigate to after a move/trash/archive. If the email
@@ -479,6 +509,14 @@
 			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
 			</button>
+			<button onclick={openPlaneModal} title="Create Plane work item" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-accent transition-colors cursor-pointer">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/>
+					<rect x="9" y="2" width="6" height="6" rx="1"/>
+					<path d="M9 5H4a2 2 0 0 0-2 2"/>
+					<path d="M15 5h5a2 2 0 0 1 2 2"/>
+				</svg>
+			</button>
 			{#if unsubInfo.mode !== 'none'}
 				<div class="w-px h-4 bg-border mx-0.5"></div>
 				{#if isUnsubscribed}
@@ -524,6 +562,48 @@
 			class="w-full h-full border-none rounded"
 		></iframe>
 	</div>
+
+	<CreatePlaneWorkItemModal
+		open={showPlaneModal}
+		initialTitle={planePrefillTitle}
+		initialDescriptionHtml={planePrefillDescription}
+		onClose={() => { showPlaneModal = false; }}
+		onCreated={(issue) => {
+			showPlaneToast('success', `Created work item #${issue.sequence_id}`, { url: issue.url });
+		}}
+	/>
+
+	{#if planeToast}
+		<div
+			role="status"
+			aria-live="polite"
+			class="absolute top-16 right-6 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border text-xs shadow-[0_8px_24px_rgba(0,0,0,0.4)] animate-compose-modal-in
+				{planeToast.kind === 'success' ? 'border-border text-text' : 'border-red-500/40 text-red-400'}"
+		>
+			{#if planeToast.kind === 'success'}
+				<svg class="text-accent shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="20 6 9 17 4 12"/>
+				</svg>
+			{:else}
+				<svg class="shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="12" cy="12" r="10"/>
+					<line x1="12" y1="8" x2="12" y2="12"/>
+					<line x1="12" y1="16" x2="12.01" y2="16"/>
+				</svg>
+			{/if}
+			<span>{planeToast.message}</span>
+			{#if planeToast.url}
+				<a
+					href={planeToast.url}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="underline text-accent hover:text-accent-hover ml-1"
+				>
+					Open
+				</a>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Unsubscribe toast — fixed relative to the detail surface so it
 	     floats over the ribbon without affecting its layout. Solid
