@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import sanitizeHtml from 'sanitize-html';
 import type { RequestHandler } from './$types';
 import { createIssue, PlaneError } from '$lib/server/plane';
+import { markdownToSafeHtml, markdownToText } from '$lib/server/markdown';
 
 const ALLOWED_PRIORITIES = ['urgent', 'high', 'medium', 'low', 'none'] as const;
 type Priority = (typeof ALLOWED_PRIORITIES)[number];
@@ -12,7 +12,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = (await request.json().catch(() => null)) as {
 		projectId?: string;
 		title?: string;
-		descriptionHtml?: string;
+		descriptionMd?: string;
 		priority?: string;
 	} | null;
 
@@ -25,25 +25,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			? (body.priority as Priority)
 			: undefined;
 
-	// Sanitize the description HTML before forwarding — clients can pass
-	// quoted email bodies which may contain hostile markup. We intentionally
-	// strip scripts, styles, event handlers, and dangerous URL schemes.
-	const cleanHtml = body.descriptionHtml
-		? sanitizeHtml(body.descriptionHtml, {
-				allowedTags: [
-					'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote',
-					'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'a', 'hr', 'span', 'div'
-				],
-				allowedAttributes: { a: ['href', 'title'], span: ['style'], div: ['style'] },
-				allowedSchemes: ['http', 'https', 'mailto']
-			})
-		: undefined;
-
-	const cleanStripped = body.descriptionHtml
-		? sanitizeHtml(body.descriptionHtml, { allowedTags: [], allowedAttributes: {} })
-				.replace(/\s+/g, ' ')
-				.trim()
-		: undefined;
+	const md = body.descriptionMd?.trim();
+	const cleanHtml = md ? markdownToSafeHtml(md) : undefined;
+	const cleanStripped = md ? markdownToText(md) : undefined;
 
 	try {
 		const issue = await createIssue({

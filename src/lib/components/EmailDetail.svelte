@@ -8,6 +8,7 @@
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import CreatePlaneWorkItemModal from './modals/CreatePlaneWorkItemModal.svelte';
+	import { buildPlaneSummary } from '$lib/utils/plane-summary';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 
@@ -103,12 +104,17 @@
 	function openPlaneModal() {
 		const sender = email.from?.[0];
 		const fromStr = sender?.name
-			? `${sender.name} &lt;${sender.email}&gt;`
+			? `${sender.name} <${sender.email}>`
 			: (sender?.email ?? 'Unknown');
 		const dateStr = formatDate(email.receivedAt);
 		const subject = email.subject ?? '(no subject)';
 		planePrefillTitle = subject;
-		planePrefillDescription = `<p><strong>From:</strong> ${fromStr}<br><strong>Date:</strong> ${dateStr}<br><strong>Subject:</strong> ${subject}</p><blockquote>${getBodyHtml()}</blockquote>`;
+		planePrefillDescription = buildPlaneSummary({
+			from: fromStr,
+			date: dateStr,
+			subject,
+			bodyHtml: getBodyHtml()
+		});
 		showPlaneModal = true;
 	}
 
@@ -204,12 +210,24 @@
 		});
 	}
 
+	// Some senders (e.g. freeCodeCamp newsletters) ship an HTML body that is
+	// really just plaintext wrapped in <html><body>…</body></html> with no
+	// structural tags. Browsers collapse the embedded newlines and the result
+	// is one unbroken wall of text. If the body has \n characters but none of
+	// the tags that would already express structure, promote those newlines.
+	const STRUCTURE_TAGS = /<(p|div|br|h[1-6]|li|tr|blockquote|pre|table|style)\b/i;
 	function getBodyHtml(): string {
 		if (!email.bodyValues) return '';
 		if (email.htmlBody?.length) {
 			const partId = email.htmlBody[0].partId;
 			const body = email.bodyValues[partId];
-			if (body) return body.value;
+			if (body) {
+				const value = body.value;
+				if (/\n/.test(value) && !STRUCTURE_TAGS.test(value)) {
+					return value.replace(/\n/g, '<br>\n');
+				}
+				return value;
+			}
 		}
 		if (email.textBody?.length) {
 			const partId = email.textBody[0].partId;
@@ -566,7 +584,7 @@
 	<CreatePlaneWorkItemModal
 		open={showPlaneModal}
 		initialTitle={planePrefillTitle}
-		initialDescriptionHtml={planePrefillDescription}
+		initialDescriptionMd={planePrefillDescription}
 		onClose={() => { showPlaneModal = false; }}
 		onCreated={(issue) => {
 			showPlaneToast('success', `Created work item #${issue.sequence_id}`, { url: issue.url });

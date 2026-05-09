@@ -20,6 +20,7 @@
 		"@types/node": "^25.6.0",
 		"@types/node-cron": "^3.0.11",
 		"@types/sanitize-html": "^2.16.1",
+		"@types/turndown": "^5.0.6",
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"tailwindcss": "^4.2.2",
@@ -48,8 +49,10 @@
 		"@tiptap/starter-kit": "^3.22.3",
 		"better-sqlite3": "^12.9.0",
 		"mammoth": "^1.12.0",
+		"marked": "^18.0.3",
 		"node-cron": "^3.0.3",
 		"sanitize-html": "^2.17.3",
+		"turndown": "^7.2.4",
 		"xlsx": "^0.18.5"
 	}
 }

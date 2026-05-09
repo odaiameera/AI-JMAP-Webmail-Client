@@ -4,6 +4,8 @@
  * `/api/plane/*`, which call into here.
  */
 
+import { env } from '$env/dynamic/private';
+
 interface PlaneConfig {
 	baseUrl: string;
 	apiKey: string;
@@ -38,9 +40,9 @@ export class PlaneError extends Error {
 }
 
 function getConfig(): PlaneConfig {
-	const baseUrl = process.env.PLANE_BASE_URL;
-	const apiKey = process.env.PLANE_API_KEY;
-	const workspaceSlug = process.env.PLANE_WORKSPACE_SLUG;
+	const baseUrl = env.PLANE_BASE_URL;
+	const apiKey = env.PLANE_API_KEY;
+	const workspaceSlug = env.PLANE_WORKSPACE_SLUG;
 	if (!baseUrl || !apiKey || !workspaceSlug) {
 		throw new PlaneError(
 			'Plane integration is not configured. Set PLANE_BASE_URL, PLANE_API_KEY, and PLANE_WORKSPACE_SLUG.',

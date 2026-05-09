@@ -10,19 +10,19 @@
 	let {
 		open,
 		initialTitle = '',
-		initialDescriptionHtml = '',
+		initialDescriptionMd = '',
 		onClose,
 		onCreated
 	}: {
 		open: boolean;
 		initialTitle?: string;
-		initialDescriptionHtml?: string;
+		initialDescriptionMd?: string;
 		onClose: () => void;
 		onCreated?: (issue: { id: string; sequence_id: number; url: string }) => void;
 	} = $props();
 
 	let title = $state('');
-	let descriptionHtml = $state('');
+	let descriptionMd = $state('');
 	let priority = $state<Priority>('none');
 	let projectId = $state<string>('');
 	let projects = $state<PlaneProject[]>([]);
@@ -52,7 +52,7 @@
 	$effect(() => {
 		if (open && !previousOpen) {
 			title = initialTitle;
-			descriptionHtml = initialDescriptionHtml;
+			descriptionMd = initialDescriptionMd;
 			priority = 'none';
 			error = null;
 			projectId = '';
@@ -82,7 +82,7 @@
 				body: JSON.stringify({
 					projectId,
 					title: trimmed,
-					descriptionHtml,
+					descriptionMd,
 					priority: priority === 'none' ? undefined : priority
 				})
 			});
@@ -199,13 +199,13 @@
 					</label>
 					<textarea
 						id="plane-description"
-						bind:value={descriptionHtml}
-						rows={6}
+						bind:value={descriptionMd}
+						rows={10}
 						class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text placeholder-text-tertiary outline-none transition-colors font-mono"
 						placeholder="Notes, context, links…"
 					></textarea>
 					<p class="text-[11px] text-text-tertiary mt-1">
-						HTML is allowed; scripts and styles are stripped server-side.
+						Markdown supported. Rendered as rich text in Plane.
 					</p>
 				</div>
 
