@@ -18,4 +18,5 @@
 	page={data.page}
 	pageSize={data.pageSize}
 	totalPages={data.totalPages}
+	showFilters
 />

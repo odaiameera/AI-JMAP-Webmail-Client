@@ -2,6 +2,7 @@
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
 	import FolderPicker from './FolderPicker.svelte';
+	import ListFilterBar from './ListFilterBar.svelte';
 	import { openCompose } from '$lib/stores/compose';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -20,7 +21,8 @@
 		mailboxId = '',
 		page: currentPage = 1,
 		pageSize = 50,
-		totalPages = 1
+		totalPages = 1,
+		showFilters = false
 	}: {
 		emails: Email[];
 		total: number;
@@ -29,6 +31,7 @@
 		page?: number;
 		pageSize?: number;
 		totalPages?: number;
+		showFilters?: boolean;
 	} = $props();
 
 	const rangeStart = $derived(total === 0 ? 0 : (currentPage - 1) * pageSize + 1);
@@ -307,6 +310,10 @@
 				</button>
 			{/if}
 		</header>
+
+		{#if showFilters && selectedIds.size === 0}
+			<ListFilterBar />
+		{/if}
 
 		<div class="flex-1 overflow-y-auto">
 			{#if emails.length === 0}

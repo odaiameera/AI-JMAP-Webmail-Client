@@ -1,5 +1,5 @@
 import type { JMAPClient } from './client';
-import type { ComposeEmail, Email, EmailAddress, EmailQueryResult } from './types';
+import type { ComposeAttachment, ComposeEmail, Email, EmailAddress, EmailQueryResult } from './types';
 
 const LIST_PROPERTIES = [
 	'id', 'blobId', 'threadId', 'mailboxIds',
@@ -12,16 +12,21 @@ export async function queryAndFetchEmails(
 	client: JMAPClient,
 	accountId: string,
 	mailboxId: string,
-	options: { position?: number; limit?: number } = {}
+	options: { position?: number; limit?: number; extraFilter?: Record<string, unknown> | null } = {}
 ): Promise<EmailQueryResult> {
-	const { position = 0, limit = 50 } = options;
+	const { position = 0, limit = 50, extraFilter = null } = options;
+
+	// AND the quick-filter condition (if any) with the mailbox constraint.
+	const filter = extraFilter
+		? { operator: 'AND', conditions: [{ inMailbox: mailboxId }, extraFilter] }
+		: { inMailbox: mailboxId };
 
 	const response = await client.request([
 		[
 			'Email/query',
 			{
 				accountId,
-				filter: { inMailbox: mailboxId },
+				filter,
 				sort: [{ property: 'receivedAt', isAscending: false }],
 				position,
 				limit,
@@ -97,8 +102,21 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 	if (compose.cc.length > 0) {
 		emailCreate.cc = compose.cc;
 	}
+	if (compose.bcc && compose.bcc.length > 0) {
+		emailCreate.bcc = compose.bcc;
+	}
 
 	emailCreate.htmlBody = [{ partId: 'body', type: 'text/html' }];
+
+	if (compose.attachments && compose.attachments.length > 0) {
+		emailCreate.attachments = compose.attachments.map((a: ComposeAttachment) => ({
+			blobId: a.blobId,
+			type: a.type,
+			name: a.name,
+			size: a.size,
+			disposition: 'attachment'
+		}));
+	}
 
 	if (compose.inReplyTo) {
 		emailCreate.inReplyTo = [compose.inReplyTo];
@@ -152,7 +170,9 @@ export async function sendEmail(
 	}
 
 	// Step 2: Submit the email — use identity email for mailFrom envelope.
-	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc];
+	// Bcc recipients are included in the envelope so they receive the message,
+	// but the `bcc` header was already stripped by the server on the stored copy.
+	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc, ...(compose.bcc ?? [])];
 
 	const submitResponse = await client.request([
 		[

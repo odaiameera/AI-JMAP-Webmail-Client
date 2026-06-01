@@ -34,11 +34,15 @@
 	} from '$lib/utils/signatures';
 	import { compressImageForBody } from '$lib/utils/image-compress';
 	import { showToast } from '$lib/stores/toast';
+	import { rememberRecipients } from '$lib/utils/recent-recipients';
+	import type { ComposeAttachment } from '$lib/jmap/types';
 	import SignaturePicker from './SignaturePicker.svelte';
 	import FromPicker from './FromPicker.svelte';
+	import RecipientInput from './RecipientInput.svelte';
 
 	let to = $state('');
 	let cc = $state('');
+	let bcc = $state('');
 	let subject = $state('');
 	let body = $state('');
 	let inReplyTo = $state('');
@@ -46,12 +50,30 @@
 	let draftId = $state<string | undefined>(undefined);
 	let isForward = $state(false);
 	let showCc = $state(false);
+	let showBcc = $state(false);
 	let sending = $state(false);
 	let savingDraft = $state(false);
 	let discarding = $state(false);
 	let error = $state('');
 	let importance = $state<'high' | 'normal' | 'low'>('normal');
 	let showEmojiPicker = $state(false);
+
+	// --- Attachments ---
+	let attachments = $state<ComposeAttachment[]>([]);
+	let pendingUploads = $state<{ name: string; size: number }[]>([]);
+	let fileInputEl = $state<HTMLInputElement | undefined>();
+
+	// --- Inline link popover (replaces window.prompt) ---
+	let showLinkPopover = $state(false);
+	let linkUrl = $state('');
+
+	const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+	function formatBytes(n: number): string {
+		if (n < 1024) return `${n} B`;
+		if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+		return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+	}
 
 	let editorEl = $state<HTMLDivElement | undefined>();
 	let editor: Editor | null = $state(null);
@@ -133,17 +155,81 @@
 		return editor?.isActive(name, attrs) ?? false;
 	}
 
-	function setLink() {
-		const url = window.prompt('URL:', editor?.getAttributes('link').href ?? 'https://');
-		if (url === null) return;
-		if (url === '') editor?.chain().focus().extendMarkRange('link').unsetLink().run();
-		else editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+	function openLinkPopover() {
+		linkUrl = (editor?.getAttributes('link').href as string) ?? '';
+		showEmojiPicker = false;
+		showLinkPopover = true;
+	}
+
+	function applyLink() {
+		const url = linkUrl.trim();
+		if (!url) {
+			editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+		} else {
+			const href = /^[a-z]+:|^\//i.test(url) ? url : `https://${url}`;
+			editor?.chain().focus().extendMarkRange('link').setLink({ href }).run();
+		}
+		showLinkPopover = false;
 	}
 
 	function insertEmoji(emoji: string) {
 		editor?.chain().focus().insertContent(emoji).run();
 		showEmojiPicker = false;
 	}
+
+	// --- Attachment upload ---
+	function triggerFilePick() {
+		fileInputEl?.click();
+	}
+
+	async function handleFiles(list: FileList | null) {
+		if (!list || list.length === 0) return;
+		for (const file of Array.from(list)) {
+			if (file.size > MAX_ATTACHMENT_BYTES) {
+				showToast({ message: `"${file.name}" exceeds the 25MB limit` });
+				continue;
+			}
+			const marker = { name: file.name, size: file.size };
+			pendingUploads = [...pendingUploads, marker];
+			try {
+				const fd = new FormData();
+				fd.append('file', file);
+				const res = await fetch('/api/upload', { method: 'POST', body: fd });
+				const data = await res.json();
+				if (res.ok && data.blobId) {
+					attachments = [...attachments, data as ComposeAttachment];
+				} else {
+					showToast({ message: data.error ?? `Could not upload "${file.name}"` });
+				}
+			} catch {
+				showToast({ message: `Could not upload "${file.name}"` });
+			} finally {
+				pendingUploads = pendingUploads.filter((p) => p !== marker);
+			}
+		}
+		if (fileInputEl) fileInputEl.value = '';
+	}
+
+	function removeAttachment(blobId: string) {
+		attachments = attachments.filter((a) => a.blobId !== blobId);
+	}
+
+	let dragOver = $state(false);
+
+	function handleDragOver(e: DragEvent) {
+		if (!e.dataTransfer?.types.includes('Files')) return;
+		e.preventDefault();
+		dragOver = true;
+	}
+
+	function handleDrop(e: DragEvent) {
+		if (!e.dataTransfer?.types.includes('Files')) return;
+		e.preventDefault();
+		dragOver = false;
+		handleFiles(e.dataTransfer.files);
+	}
+
+	const totalAttachmentBytes = $derived(attachments.reduce((sum, a) => sum + (a.size ?? 0), 0));
 
 	async function postApi(endpoint: string): Promise<{ ok: boolean; error?: string; draftId?: string }> {
 		const res = await fetch(endpoint, {
@@ -152,12 +238,14 @@
 			body: JSON.stringify({
 				to,
 				cc,
+				bcc,
 				subject,
 				body,
 				inReplyTo,
 				references,
 				draftId,
-				fromIdentityId: $composer.fromIdentityId
+				fromIdentityId: $composer.fromIdentityId,
+				attachments
 			})
 		});
 		const result = await res.json();
@@ -170,12 +258,22 @@
 			error = 'Recipient is required';
 			return;
 		}
+		if (pendingUploads.length > 0) {
+			error = 'Wait for attachments to finish uploading';
+			return;
+		}
 		sending = true;
 		error = '';
 		try {
 			const result = await postApi('/api/send');
-			if (result.ok) closeCompose();
-			else error = result.error ?? 'Failed to send';
+			if (result.ok) {
+				rememberRecipients([
+					...to.split(','),
+					...cc.split(','),
+					...bcc.split(',')
+				]);
+				closeCompose();
+			} else error = result.error ?? 'Failed to send';
 		} catch {
 			error = 'Network error';
 		} finally {
@@ -230,8 +328,25 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && showLinkPopover) {
+			showLinkPopover = false;
+			return;
+		}
 		if (e.key === 'Escape' && $composer.mode === 'fullscreen') {
 			setMode('popup');
+			return;
+		}
+		// Cmd/Ctrl+Enter sends from anywhere in the composer.
+		if (
+			(e.metaKey || e.ctrlKey) &&
+			e.key === 'Enter' &&
+			$composer.mode !== 'closed' &&
+			$composer.mode !== 'minimized' &&
+			!sending &&
+			!savingDraft
+		) {
+			e.preventDefault();
+			handleSend();
 		}
 	}
 
@@ -244,6 +359,7 @@
 			const s = $composer;
 			to = s.to;
 			cc = s.cc;
+			bcc = s.bcc;
 			subject = s.subject;
 			body = s.body;
 			inReplyTo = s.inReplyTo ?? '';
@@ -251,8 +367,12 @@
 			draftId = s.draftId;
 			isForward = !!s.isForward;
 			showCc = !!s.cc;
+			showBcc = !!s.bcc;
 			error = '';
 			importance = 'normal';
+			attachments = [];
+			pendingUploads = [];
+			showLinkPopover = false;
 			lastAppliedSignatureId = 'unset';
 		} else if (lastMode !== 'closed' && mode === 'closed') {
 			// Tear down Tiptap when the composer fully closes — its mount node
@@ -320,14 +440,53 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+{#snippet attachButton()}
+	<button type="button" onclick={triggerFilePick} class="fc-btn" title="Attach file">
+		<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+	</button>
+{/snippet}
+
+{#snippet linkButton()}
+	<div class="relative">
+		<button type="button" onclick={openLinkPopover} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
+			<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+		</button>
+		{#if showLinkPopover}
+			<div class="absolute top-full left-0 mt-1 z-50 w-72 bg-surface border border-border rounded-lg shadow-xl p-2">
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					bind:value={linkUrl}
+					type="text"
+					placeholder="https://example.com"
+					autofocus
+					onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } }}
+					class="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent placeholder-text-tertiary"
+				/>
+				<div class="flex items-center justify-end gap-1.5 mt-2">
+					<button type="button" onclick={() => (showLinkPopover = false)} class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded cursor-pointer">Cancel</button>
+					<button type="button" onclick={applyLink} class="text-xs bg-accent hover:bg-accent-hover text-white px-2.5 py-1 rounded cursor-pointer">Apply</button>
+				</div>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
 {#if $composer.mode === 'fullscreen'}
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 bg-black/60 z-40" onclick={() => setMode('popup')}></div>
+	<div class="fixed inset-0 bg-black/60 z-40 animate-compose-backdrop-in" onclick={() => setMode('popup')}></div>
 {/if}
 
 {#if $composer.mode !== 'closed'}
+	<!-- Single hidden file input drives every attach button across modes. -->
+	<input
+		bind:this={fileInputEl}
+		type="file"
+		multiple
+		class="hidden"
+		onchange={(e) => handleFiles((e.target as HTMLInputElement).files)}
+	/>
 	<div
-		class="composer-shell bg-bg border border-border shadow-2xl flex flex-col z-50"
+		class="composer-shell animate-compose-modal-in bg-bg border border-border shadow-2xl flex flex-col z-50"
 		class:composer--popup={$composer.mode === 'popup'}
 		class:composer--fullscreen={$composer.mode === 'fullscreen'}
 		class:composer--minimized={$composer.mode === 'minimized'}
@@ -392,19 +551,23 @@
 		<!-- Recipient fields -->
 		<div class="shrink-0 border-b border-border" class:hidden={$composer.mode === 'minimized'}>
 			<FromPicker />
-			<div class="flex items-center px-3 py-1.5 border-b border-border/50">
-				<span class="text-xs text-text-tertiary w-8 shrink-0">To</span>
-				<input bind:value={to} type="text" placeholder="recipient@example.com" class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary" />
-				{#if !showCc}<button onclick={() => (showCc = true)} class="text-xs text-text-tertiary hover:text-text cursor-pointer">Cc</button>{/if}
+			<div class="relative">
+				<RecipientInput bind:value={to} label="To" placeholder="recipient@example.com" />
+				{#if !showCc || !showBcc}
+					<div class="absolute right-3 top-1.5 flex items-center gap-2">
+						{#if !showCc}<button type="button" onclick={() => (showCc = true)} class="text-xs text-text-tertiary hover:text-text cursor-pointer">Cc</button>{/if}
+						{#if !showBcc}<button type="button" onclick={() => (showBcc = true)} class="text-xs text-text-tertiary hover:text-text cursor-pointer">Bcc</button>{/if}
+					</div>
+				{/if}
 			</div>
 			{#if showCc}
-				<div class="flex items-center px-3 py-1.5 border-b border-border/50">
-					<span class="text-xs text-text-tertiary w-8 shrink-0">Cc</span>
-					<input bind:value={cc} type="text" placeholder="cc@example.com" class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary" />
-				</div>
+				<RecipientInput bind:value={cc} label="Cc" placeholder="cc@example.com" />
+			{/if}
+			{#if showBcc}
+				<RecipientInput bind:value={bcc} label="Bcc" placeholder="bcc@example.com" />
 			{/if}
 			<div class="flex items-center px-3 py-1.5">
-				<span class="text-xs text-text-tertiary w-8 shrink-0">Sub</span>
+				<span class="text-xs text-text-tertiary w-12 shrink-0">Subject</span>
 				<input bind:value={subject} type="text" placeholder="Subject" class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary" />
 			</div>
 		</div>
@@ -423,9 +586,7 @@
 					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/></svg>
 				</button>
 				<div class="fc-sep"></div>
-				<button type="button" onclick={setLink} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-				</button>
+				{@render linkButton()}
 				<div class="relative">
 					<button type="button" onclick={() => (showEmojiPicker = !showEmojiPicker)} class="fc-btn {showEmojiPicker ? 'fc-active' : ''}" title="Insert emoji">
 						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
@@ -438,6 +599,11 @@
 						</div>
 					{/if}
 				</div>
+				{@render attachButton()}
+				<div class="fc-sep"></div>
+				<button type="button" onclick={() => (importance = importance === 'high' ? 'normal' : 'high')} class="fc-btn {importance === 'high' ? 'fc-active-red' : ''}" title="High importance">
+					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+				</button>
 				<div class="flex-1"></div>
 				<SignaturePicker />
 			</div>
@@ -519,9 +685,7 @@
 					<option value="3">Heading 3</option>
 				</select>
 				<div class="fc-sep"></div>
-				<button type="button" onclick={setLink} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-				</button>
+				{@render linkButton()}
 				<div class="relative">
 					<button type="button" onclick={() => (showEmojiPicker = !showEmojiPicker)} class="fc-btn {showEmojiPicker ? 'fc-active' : ''}" title="Insert emoji">
 						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
@@ -534,6 +698,7 @@
 						</div>
 					{/if}
 				</div>
+				{@render attachButton()}
 				<button type="button" onclick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} class="fc-btn" title="Insert 3x3 table">
 					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
 				</button>
@@ -562,9 +727,51 @@
 		{/if}
 
 		<!-- Editor body — always rendered, height clipped when minimized -->
-		<div class="flex-1 overflow-y-auto px-4 py-3 min-h-0" class:hidden={$composer.mode === 'minimized'}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="relative flex-1 overflow-y-auto px-4 py-3 min-h-0"
+			class:hidden={$composer.mode === 'minimized'}
+			ondragover={handleDragOver}
+			ondragleave={() => (dragOver = false)}
+			ondrop={handleDrop}
+		>
 			<div bind:this={editorEl} class="min-h-full full-composer-editor"></div>
+			{#if dragOver}
+				<div class="absolute inset-2 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
+					<span class="text-sm font-medium text-accent">Drop files to attach</span>
+				</div>
+			{/if}
 		</div>
+
+		<!-- Attachment tray -->
+		{#if attachments.length > 0 || pendingUploads.length > 0}
+			<div class="shrink-0 border-t border-border bg-surface px-3 py-2" class:hidden={$composer.mode === 'minimized'}>
+				<div class="flex items-center justify-between mb-1.5">
+					<span class="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">
+						{attachments.length} attachment{attachments.length === 1 ? '' : 's'}
+						{#if totalAttachmentBytes > 0}<span class="normal-case tracking-normal">· {formatBytes(totalAttachmentBytes)}</span>{/if}
+					</span>
+				</div>
+				<div class="flex flex-wrap gap-1.5">
+					{#each attachments as a (a.blobId)}
+						<span class="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-md bg-bg border border-border text-xs text-text-secondary max-w-[220px]">
+							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" class="shrink-0 text-text-tertiary"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+							<span class="truncate" title={a.name}>{a.name}</span>
+							<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
+							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded hover:bg-surface-hover hover:text-red-400 cursor-pointer" aria-label={`Remove ${a.name}`}>
+								<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+							</button>
+						</span>
+					{/each}
+					{#each pendingUploads as p (p.name + p.size)}
+						<span class="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-bg border border-border text-xs text-text-tertiary max-w-[220px]">
+							<svg viewBox="0 0 24 24" width="13" height="13" class="shrink-0 animate-spin" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+							<span class="truncate">{p.name}</span>
+						</span>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		<!-- Footer -->
 		<div
@@ -575,6 +782,7 @@
 				<button
 					onclick={handleSend}
 					disabled={sending || savingDraft}
+					title="Send (⌘↵)"
 					class="bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
 				>
 					{sending ? 'Sending...' : 'Send'}

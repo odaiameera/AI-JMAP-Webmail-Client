@@ -6,6 +6,7 @@ import { mailboxDisplayName } from '$lib/utils/mailbox-display';
 import { userEmailFromAuth } from '$lib/server/user';
 import { getDefaultPageSize } from '$lib/server/db/queries/user-settings';
 import { listMarkedIds, listReminders } from '$lib/server/db/queries/reminders';
+import { parseListFilter, listFilterCondition } from '$lib/email-filters';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
 
@@ -38,16 +39,19 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 			pageSize: 50,
 			totalPages: 1,
 			remindedIds: [],
-			reminders: []
+			reminders: [],
+			filter: parseListFilter(url.searchParams.get('filter'))
 		};
 	}
 
 	const userEmail = userEmailFromAuth(locals.auth);
 	const { page, pageSize } = parsePagination(url, userEmail);
+	const filter = parseListFilter(url.searchParams.get('filter'));
 
 	const result = await queryAndFetchEmails(client, locals.auth.accountId, mailbox.id, {
 		position: (page - 1) * pageSize,
-		limit: pageSize
+		limit: pageSize,
+		extraFilter: listFilterCondition(filter)
 	});
 
 	const totalPages = Math.max(1, Math.ceil(result.total / pageSize));
@@ -73,6 +77,7 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 		pageSize,
 		totalPages,
 		remindedIds: listMarkedIds(userEmail),
-		reminders
+		reminders,
+		filter
 	};
 };

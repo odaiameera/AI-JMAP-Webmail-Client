@@ -82,14 +82,24 @@ export interface EmailQueryResult {
 	total: number;
 }
 
+/** A blob already uploaded to the server, ready to attach to an email. */
+export interface ComposeAttachment {
+	blobId: string;
+	name: string;
+	type: string;
+	size: number;
+}
+
 export interface ComposeEmail {
 	from: EmailAddress;
 	to: EmailAddress[];
 	cc: EmailAddress[];
+	bcc?: EmailAddress[];
 	subject: string;
 	body: string;
 	inReplyTo?: string;
 	references?: string;
+	attachments?: ComposeAttachment[];
 }
 
 export interface AuthState {

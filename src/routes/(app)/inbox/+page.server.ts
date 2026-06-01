@@ -5,6 +5,7 @@ import { queryAndFetchEmails } from '$lib/jmap/email';
 import { userEmailFromAuth } from '$lib/server/user';
 import { getDefaultPageSize } from '$lib/server/db/queries/user-settings';
 import { listMarkedIds } from '$lib/server/db/queries/reminders';
+import { parseListFilter, listFilterCondition } from '$lib/email-filters';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
 
@@ -34,16 +35,19 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 			page: 1,
 			pageSize: 50,
 			totalPages: 1,
-			remindedIds: []
+			remindedIds: [],
+			filter: parseListFilter(url.searchParams.get('filter'))
 		};
 	}
 
 	const userEmail = userEmailFromAuth(locals.auth);
 	const { page, pageSize } = parsePagination(url, userEmail);
+	const filter = parseListFilter(url.searchParams.get('filter'));
 
 	const result = await queryAndFetchEmails(client, locals.auth.accountId, inbox.id, {
 		position: (page - 1) * pageSize,
-		limit: pageSize
+		limit: pageSize,
+		extraFilter: listFilterCondition(filter)
 	});
 
 	const totalPages = Math.max(1, Math.ceil(result.total / pageSize));
@@ -60,6 +64,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 		page,
 		pageSize,
 		totalPages,
-		remindedIds: listMarkedIds(userEmail)
+		remindedIds: listMarkedIds(userEmail),
+		filter
 	};
 };

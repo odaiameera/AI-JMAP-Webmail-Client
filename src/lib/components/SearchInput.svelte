@@ -2,6 +2,7 @@
 	import { parseSearch, type Token } from '$lib/search/parse';
 	import SearchHelp from './SearchHelp.svelte';
 	import SearchQuickFilters from './SearchQuickFilters.svelte';
+	import { getRecentSearches, rememberSearch, clearRecentSearches } from '$lib/utils/recent-searches';
 	import type { Mailbox } from '$lib/jmap/types';
 
 	let {
@@ -21,6 +22,44 @@
 	let inputEl = $state<HTMLInputElement | undefined>(undefined);
 	let focused = $state(false);
 	let helpOpen = $state(false);
+
+	// Recent searches, loaded lazily when the panel needs them so we always
+	// reflect the latest localStorage state without a subscription.
+	let recents = $state<string[]>([]);
+
+	function focusSearch() {
+		inputEl?.focus();
+		inputEl?.select();
+	}
+
+	/**
+	 * Global shortcut: `/` or ⌘/Ctrl-K focuses search from anywhere, as long
+	 * as the user isn't already typing into a field.
+	 */
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		const target = e.target as HTMLElement | null;
+		const typing =
+			!!target &&
+			(target.tagName === 'INPUT' ||
+				target.tagName === 'TEXTAREA' ||
+				target.isContentEditable);
+
+		if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+			e.preventDefault();
+			focusSearch();
+			return;
+		}
+		if (e.key === '/' && !typing) {
+			e.preventDefault();
+			focusSearch();
+		}
+	}
+
+	function runRecent(q: string) {
+		value = q;
+		onSubmit(q);
+		inputEl?.blur();
+	}
 
 	/**
 	 * Keywords that should convert to an operator pill when the user types
@@ -45,7 +84,9 @@
 		e.preventDefault();
 		const trimmed = value.trim();
 		if (!trimmed) return;
-		onSubmit(closePendingQuote(trimmed));
+		const finalized = closePendingQuote(trimmed);
+		rememberSearch(finalized);
+		onSubmit(finalized);
 	}
 
 	/**
@@ -162,6 +203,7 @@
 
 	function handleFocus() {
 		focused = true;
+		recents = getRecentSearches();
 	}
 
 	function handleFocusOut(e: FocusEvent) {
@@ -172,15 +214,14 @@
 	}
 
 	$effect(() => {
-		// Panel only opens once the user actually starts typing; it stays
-		// visible while the input has content and we still have focus.
-		if (focused && value.length > 0) panelOpen = true;
-		else if (value.length === 0) panelOpen = false;
+		// Panel opens whenever the field is focused: with content it shows the
+		// quick filters; empty, it shows recent searches (if any).
+		panelOpen = focused;
 	});
 
 	function pillClass(token: Token): string {
 		if (token.kind === 'field') return 'bg-accent/15 text-accent';
-		if (token.kind === 'flag') return 'bg-purple-500/15 text-purple-300';
+		if (token.kind === 'flag') return 'bg-emerald-500/15 text-emerald-400';
 		if (token.kind === 'error') return 'bg-red-500/15 text-red-400';
 		return '';
 	}
@@ -193,15 +234,21 @@
 	}
 </script>
 
-<form onsubmit={handleSubmit} onfocusout={handleFocusOut} class="relative w-[420px]">
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+<form onsubmit={handleSubmit} onfocusout={handleFocusOut} class="relative flex-1 min-w-[240px] max-w-[520px]">
 	<div class="relative">
+		<!-- Leading search glyph -->
+		<span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+		</span>
 		<!-- Underlay: rendered tokens. Mirrors the input's typography so the
 		     pills sit where the text actually is. Hidden when the caret is
 		     active so the user sees what they're typing without double-text. -->
 		{#if !focused && tokens.length > 0}
 			<div
 				aria-hidden="true"
-				class="absolute inset-y-0 left-0 right-9 flex items-center gap-1 pl-3 pr-1 pointer-events-none overflow-hidden whitespace-nowrap"
+				class="absolute inset-y-0 left-0 right-16 flex items-center gap-1 pl-9 pr-1 pointer-events-none overflow-hidden whitespace-nowrap"
 			>
 				{#each tokens as t (t.start)}
 					{#if t.kind === 'text'}
@@ -226,10 +273,17 @@
 			onkeydown={handleKeydown}
 			type="text"
 			{placeholder}
-			class="w-full bg-bg/50 border border-border rounded-lg pl-3.5 pr-9 py-1.5 text-sm text-text placeholder-text-tertiary
+			class="w-full bg-bg/50 border border-border rounded-lg pl-9 pr-16 py-1.5 text-sm text-text placeholder-text-tertiary
 				focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-colors
 				{!focused && tokens.length > 0 ? 'text-transparent caret-text' : ''}"
 		/>
+
+		<!-- Keyboard hint, hidden once the field is engaged. -->
+		{#if !focused && value.length === 0}
+			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded border border-border bg-surface text-[10px] font-medium text-text-tertiary pointer-events-none select-none">
+				⌘K
+			</kbd>
+		{/if}
 
 		<button
 			type="button"
@@ -248,7 +302,30 @@
 
 	{#if panelOpen && !helpOpen}
 		<div class="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg shadow-lg p-2 z-30">
-			<SearchQuickFilters {mailboxes} />
+			{#if value.trim().length === 0 && recents.length > 0}
+				<div class="flex items-center justify-between px-1 pb-1.5">
+					<span class="text-[11px] uppercase tracking-wider text-text-tertiary">Recent searches</span>
+					<button
+						type="button"
+						onmousedown={(e) => { e.preventDefault(); clearRecentSearches(); recents = []; }}
+						class="text-[11px] text-text-tertiary hover:text-text cursor-pointer"
+					>
+						Clear
+					</button>
+				</div>
+				{#each recents as r}
+					<button
+						type="button"
+						onmousedown={(e) => { e.preventDefault(); runRecent(r); }}
+						class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm text-text-secondary hover:bg-surface-hover hover:text-text cursor-pointer"
+					>
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-text-tertiary"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+						<span class="truncate">{r}</span>
+					</button>
+				{/each}
+			{:else}
+				<SearchQuickFilters {mailboxes} />
+			{/if}
 		</div>
 	{/if}
 </form>

@@ -28,7 +28,7 @@
 
 {#if identities.length > 1}
 	<div class="flex items-center px-3 py-1.5 border-b border-border/50">
-		<span class="text-xs text-text-tertiary w-8 shrink-0">From</span>
+		<span class="text-xs text-text-tertiary w-12 shrink-0">From</span>
 		<select
 			value={currentIdentity?.jmapId ?? ''}
 			onchange={handleChange}

@@ -5,6 +5,7 @@ export type ComposerMode = 'popup' | 'fullscreen' | 'minimized' | 'closed';
 export interface ComposeData {
 	to: string;
 	cc: string;
+	bcc: string;
 	subject: string;
 	body: string;
 	inReplyTo?: string;
@@ -24,6 +25,7 @@ export interface ComposerState extends ComposeData {
 const defaultState: ComposerState = {
 	to: '',
 	cc: '',
+	bcc: '',
 	subject: '',
 	body: '',
 	mode: 'closed',
