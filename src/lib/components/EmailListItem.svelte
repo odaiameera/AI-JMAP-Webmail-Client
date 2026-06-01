@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { Email } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { formatTimeOfDay } from '$lib/utils/date-buckets';
 	import EmailRowActions from './EmailRowActions.svelte';
 
@@ -44,10 +45,51 @@
 		return luminance > 0.55 ? '#000000' : '#ffffff';
 	}
 
+	// Double-click marks the row read without opening it (quick triage). To
+	// tell a single click from the first click of a double-click we defer the
+	// open by one double-click window; a dblclick cancels that timer.
+	const DBLCLICK_MS = 220;
+	let openTimer: ReturnType<typeof setTimeout> | null = null;
+	onDestroy(() => { if (openTimer) clearTimeout(openTimer); });
+
+	function openRow() {
+		if (onClick) onClick(email);
+		else goto(`/email/${email.id}`);
+	}
+
 	function handleRowClick(e: MouseEvent) {
-		if (onClick) {
-			e.preventDefault();
-			onClick(email);
+		// Leave modifier / non-left clicks to the browser (open in new tab etc.).
+		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+		e.preventDefault();
+		if (e.detail > 1) return; // second click of a double-click — handled below
+		if (openTimer) clearTimeout(openTimer);
+		openTimer = setTimeout(() => {
+			openTimer = null;
+			openRow();
+		}, DBLCLICK_MS);
+	}
+
+	function handleRowDblClick(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		if (openTimer) {
+			clearTimeout(openTimer);
+			openTimer = null;
+		}
+		void markRead();
+	}
+
+	async function markRead() {
+		if (!isUnread) return;
+		try {
+			await fetch(`/api/email/${email.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'markRead', sourceMailboxId })
+			});
+			await invalidateAll();
+		} catch {
+			// Best effort — a failed mark-read shouldn't disrupt the list.
 		}
 	}
 </script>
@@ -55,6 +97,7 @@
 <a
 	href="/email/{email.id}"
 	onclick={handleRowClick}
+	ondblclick={handleRowDblClick}
 	draggable="true"
 	ondragstart={(e) => onDragStart?.(email, e)}
 	class="email-row relative flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
