@@ -7,6 +7,7 @@ import { JMAPAuthError } from '$lib/jmap/client';
 import { deleteSession } from '$lib/server/session';
 import { listLabels, migrateKeywordLabelsIfNeeded } from '$lib/server/labels';
 import { syncIdentities } from '$lib/server/db/queries/identities';
+import { loadRules } from '$lib/server/rules-store';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	if (!locals.auth) {
@@ -54,8 +55,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			console.warn('[identities] sync failed; using cached values', err);
 		}
 
-		const rawRules = cookies.get('mail_rules');
-		const rules = rawRules ? JSON.parse(decodeURIComponent(rawRules)) : [];
+		// Rules live in SQLite now (device-independent). loadRules also performs
+		// the one-time import from the legacy per-browser `mail_rules` cookie.
+		const rules = loadRules(userEmail, cookies);
 
 		// Sidebar expand/collapse state — Record<id, boolean>. Absence means
 		// "default": section headers expanded, individual folders collapsed.
