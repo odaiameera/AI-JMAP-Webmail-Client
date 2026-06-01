@@ -30,7 +30,7 @@
 			class="space-y-4"
 		>
 			{#if form?.error}
-				<div class="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
+				<div class="bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg px-4 py-3">
 					{form.error}
 				</div>
 			{/if}
@@ -44,7 +44,7 @@
 					autocomplete="username"
 					required
 					value={form?.email ?? ''}
-					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text
+					class="w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-text
 						focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
 				/>
 			</div>
@@ -57,7 +57,7 @@
 					type="password"
 					autocomplete="current-password"
 					required
-					class="w-full bg-white/5 border border-border rounded-lg px-3.5 py-2.5 text-text
+					class="w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-text
 						focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
 				/>
 			</div>

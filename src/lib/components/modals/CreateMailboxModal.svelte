@@ -282,7 +282,7 @@
 				</div>
 
 				{#if error}
-					<div class="text-sm text-red-400" aria-live="polite">{error}</div>
+					<div class="text-sm text-danger" aria-live="polite">{error}</div>
 				{/if}
 			</div>
 

@@ -8,7 +8,7 @@
 >
 	<span
 		class="w-1.5 h-1.5 rounded-full transition-colors
-			{$realtime.connected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}"
+			{$realtime.connected ? 'bg-success' : 'bg-warning animate-pulse'}"
 	></span>
 	<span class="hidden md:inline">
 		{$realtime.connected ? 'Live' : 'Reconnecting'}

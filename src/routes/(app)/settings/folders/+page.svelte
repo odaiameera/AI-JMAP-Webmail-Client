@@ -125,7 +125,7 @@
 							<button
 								type="button"
 								onclick={() => deleteFolder(folder)}
-								class="text-xs text-text-tertiary hover:text-red-400 px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
+								class="text-xs text-text-tertiary hover:text-danger px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
 							>Delete</button>
 						</div>
 					{/if}

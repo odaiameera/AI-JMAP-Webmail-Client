@@ -329,7 +329,7 @@
 	</header>
 
 	{#if deployError}
-		<div class="mx-6 mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{deployError}</div>
+		<div class="mx-6 mt-3 px-3 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs">{deployError}</div>
 	{/if}
 
 	<div class="flex-1 flex min-h-0 overflow-hidden">
@@ -354,14 +354,14 @@
 								onclick={(e) => { e.stopPropagation(); toggleEnabled(rule.id); }}
 								title={rule.enabled ? 'Disable rule' : 'Enable rule'}
 								class="w-2.5 h-2.5 rounded-full shrink-0 border cursor-pointer transition-colors
-									{rule.enabled ? 'bg-green-400 border-green-400' : 'bg-transparent border-text-tertiary/50'}"
+									{rule.enabled ? 'bg-success border-success' : 'bg-transparent border-text-tertiary/50'}"
 								aria-label={rule.enabled ? 'Disable rule' : 'Enable rule'}
 							></button>
 							<span class="flex-1 truncate text-sm">{rule.name || 'Untitled rule'}</span>
 							<button
 								onclick={(e) => { e.stopPropagation(); deleteRule(rule.id); }}
 								title="Delete rule"
-								class="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 p-1 rounded cursor-pointer transition-opacity"
+								class="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-danger p-1 rounded cursor-pointer transition-opacity"
 							>
 								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 							</button>
@@ -438,12 +438,12 @@
 								<button
 									onclick={() => { condition.negate = !condition.negate; }}
 									class="text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors
-										{condition.negate ? 'border-red-400/50 text-red-400 bg-red-400/10' : 'border-border text-text-tertiary hover:border-text-tertiary'}"
+										{condition.negate ? 'border-danger/50 text-danger bg-danger/10' : 'border-border text-text-tertiary hover:border-text-tertiary'}"
 								>NOT</button>
 								<button
 									onclick={() => removeCondition(condition.id)}
 									title="Remove condition"
-									class="text-text-tertiary hover:text-red-400 cursor-pointer p-1 rounded"
+									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded"
 									aria-label="Remove condition"
 								>
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -498,7 +498,7 @@
 								<button
 									onclick={() => removeAction(idx)}
 									title="Remove action"
-									class="text-text-tertiary hover:text-red-400 cursor-pointer p-1 rounded"
+									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded"
 									aria-label="Remove action"
 								>
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -523,7 +523,7 @@
 								<span class="w-3 h-3 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
 								<span class="text-xs text-text-tertiary">Counting…</span>
 							{:else if previewError}
-								<span class="text-xs text-red-400">{previewError}</span>
+								<span class="text-xs text-danger">{previewError}</span>
 							{:else if previewCount !== null}
 								<span class="text-sm font-semibold text-text">{previewCount.toLocaleString()}</span>
 								<span class="text-xs text-text-tertiary">
@@ -578,10 +578,10 @@
 					<span class="w-3 h-3 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
 					<h2 class="text-sm font-semibold text-text">Applying rule…</h2>
 				{:else if progress.status === 'done'}
-					<svg class="text-green-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+					<svg class="text-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 					<h2 class="text-sm font-semibold text-text">Applied</h2>
 				{:else if progress.status === 'error'}
-					<svg class="text-red-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					<svg class="text-danger" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
 					<h2 class="text-sm font-semibold text-text">Failed</h2>
 				{/if}
 			</div>
@@ -605,7 +605,7 @@
 			</div>
 
 			{#if progress.status === 'error' && progress.error}
-				<p class="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-4">
+				<p class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs mb-4">
 					{progress.error}
 				</p>
 			{/if}
@@ -620,7 +620,7 @@
 					</button>
 					<button
 						onclick={closeOrCancel}
-						class="text-xs text-red-400 hover:text-red-300 border border-red-400/30 hover:border-red-400/60 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+						class="text-xs text-danger hover:text-danger border border-danger/30 hover:border-danger/60 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
 					>
 						Cancel
 					</button>

@@ -117,7 +117,7 @@
 					class="inline-flex items-center gap-1 h-6 pl-2 pr-1 rounded-md text-xs max-w-full
 						{valid
 						? 'bg-accent/15 text-accent'
-						: 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30'}"
+						: 'bg-danger/15 text-danger ring-1 ring-danger/30'}"
 					title={valid ? chip : `${chip} — not a valid address`}
 				>
 					<span class="truncate">{chip}</span>

@@ -428,9 +428,9 @@
 					<span
 						class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full
 							{isFlaggedSpam
-								? 'bg-red-500/10 text-red-400'
+								? 'bg-danger/10 text-danger'
 								: spamScore > 3
-									? 'bg-yellow-500/10 text-yellow-400'
+									? 'bg-warning/10 text-warning'
 									: 'bg-text-tertiary/10 text-text-tertiary'}"
 						title={isFlaggedSpam ? 'Flagged as spam by the classifier' : 'Spam classifier score'}
 					>
@@ -503,7 +503,7 @@
 					onclick={() => doAction('notSpam')}
 					title="Not spam — move back to Inbox and train the classifier"
 					disabled={actionLoading === 'notSpam'}
-					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-green-400 transition-colors cursor-pointer disabled:opacity-50"
+					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-success transition-colors cursor-pointer disabled:opacity-50"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -520,7 +520,7 @@
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
 				</button>
 			{/if}
-			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50">
+			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 			</button>
 			<div class="w-px h-4 bg-border mx-0.5"></div>
@@ -538,7 +538,7 @@
 			{#if unsubInfo.mode !== 'none'}
 				<div class="w-px h-4 bg-border mx-0.5"></div>
 				{#if isUnsubscribed}
-					<span class="inline-flex items-center gap-1 px-2 py-1 text-xs text-green-400" title="Unsubscribed">
+					<span class="inline-flex items-center gap-1 px-2 py-1 text-xs text-success" title="Unsubscribed">
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 						Unsubscribed
 					</span>
@@ -551,10 +551,10 @@
 							: unsubInfo.mode === 'mailto'
 								? 'Send unsubscribe email'
 								: 'Open sender\'s unsubscribe page'}
-						class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 					>
 						{#if unsubLoading}
-							<span class="w-3 h-3 rounded-full border-2 border-red-400/40 border-t-red-400 animate-spin"></span>
+							<span class="w-3 h-3 rounded-full border-2 border-danger/40 border-t-red-400 animate-spin"></span>
 							Unsubscribing…
 						{:else}
 							Unsubscribe
@@ -596,7 +596,7 @@
 			role="status"
 			aria-live="polite"
 			class="absolute top-16 right-6 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border text-xs shadow-[0_8px_24px_rgba(0,0,0,0.4)] animate-compose-modal-in
-				{planeToast.kind === 'success' ? 'border-border text-text' : 'border-red-500/40 text-red-400'}"
+				{planeToast.kind === 'success' ? 'border-border text-text' : 'border-danger/40 text-danger'}"
 		>
 			{#if planeToast.kind === 'success'}
 				<svg class="text-accent shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -631,7 +631,7 @@
 			role="status"
 			aria-live="polite"
 			class="absolute top-16 right-6 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border text-xs shadow-[0_8px_24px_rgba(0,0,0,0.4)] animate-compose-modal-in
-				{unsubToast.kind === 'success' ? 'border-border text-text' : 'border-red-500/40 text-red-400'}"
+				{unsubToast.kind === 'success' ? 'border-border text-text' : 'border-danger/40 text-danger'}"
 		>
 			{#if unsubToast.kind === 'success'}
 				<svg class="text-accent shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

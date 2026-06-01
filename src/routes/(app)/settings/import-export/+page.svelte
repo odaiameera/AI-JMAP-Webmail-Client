@@ -129,7 +129,7 @@
 				or mis-typed fields are ignored so a bad file can't break anything.
 			</p>
 			{#if importResult}
-				<p class="text-xs mt-2 {importResult.ok ? 'text-accent' : 'text-red-400'}">{importResult.message}</p>
+				<p class="text-xs mt-2 {importResult.ok ? 'text-accent' : 'text-danger'}">{importResult.message}</p>
 			{/if}
 		</div>
 		<input

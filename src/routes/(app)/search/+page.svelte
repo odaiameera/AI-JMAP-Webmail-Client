@@ -9,8 +9,8 @@
 
 	function pillClass(kind: string): string {
 		if (kind === 'field') return 'bg-accent/15 text-accent ring-1 ring-accent/30';
-		if (kind === 'flag') return 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30';
-		if (kind === 'error') return 'bg-red-500/15 text-red-400 ring-1 ring-red-500/30';
+		if (kind === 'flag') return 'bg-success/15 text-success ring-1 ring-success/30';
+		if (kind === 'error') return 'bg-danger/15 text-danger ring-1 ring-danger/30';
 		return 'bg-surface-hover text-text-secondary ring-1 ring-border';
 	}
 

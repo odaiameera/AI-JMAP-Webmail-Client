@@ -221,8 +221,8 @@
 
 	function pillClass(token: Token): string {
 		if (token.kind === 'field') return 'bg-accent/15 text-accent';
-		if (token.kind === 'flag') return 'bg-emerald-500/15 text-emerald-400';
-		if (token.kind === 'error') return 'bg-red-500/15 text-red-400';
+		if (token.kind === 'flag') return 'bg-success/15 text-success';
+		if (token.kind === 'error') return 'bg-danger/15 text-danger';
 		return '';
 	}
 

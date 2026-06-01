@@ -513,7 +513,7 @@
 					<button
 						onclick={(e) => { e.stopPropagation(); handleDiscard(); }}
 						aria-label="Close"
-						class="text-text-tertiary hover:text-red-400 w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover"
+						class="text-text-tertiary hover:text-danger w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover"
 					>
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 					</button>
@@ -712,7 +712,7 @@
 					<button type="button" onclick={() => editor?.chain().focus().deleteRow().run()} class="fc-btn" title="Delete row">−Row</button>
 					<button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()} class="fc-btn" title="Add column">+Col</button>
 					<button type="button" onclick={() => editor?.chain().focus().deleteColumn().run()} class="fc-btn" title="Delete column">−Col</button>
-					<button type="button" onclick={() => editor?.chain().focus().deleteTable().run()} class="fc-btn text-red-400" title="Delete table">×Table</button>
+					<button type="button" onclick={() => editor?.chain().focus().deleteTable().run()} class="fc-btn text-danger" title="Delete table">×Table</button>
 				{/if}
 				<div class="fc-sep"></div>
 				<SignaturePicker />
@@ -721,8 +721,8 @@
 		{/if}
 
 		{#if error}
-			<div class="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 shrink-0" class:hidden={$composer.mode === 'minimized'}>
-				<p class="text-xs text-red-400">{error}</p>
+			<div class="px-3 py-1.5 bg-danger/10 border-b border-danger/20 shrink-0" class:hidden={$composer.mode === 'minimized'}>
+				<p class="text-xs text-danger">{error}</p>
 			</div>
 		{/if}
 
@@ -758,7 +758,7 @@
 							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" class="shrink-0 text-text-tertiary"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
 							<span class="truncate" title={a.name}>{a.name}</span>
 							<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
-							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded hover:bg-surface-hover hover:text-red-400 cursor-pointer" aria-label={`Remove ${a.name}`}>
+							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded hover:bg-surface-hover hover:text-danger cursor-pointer" aria-label={`Remove ${a.name}`}>
 								<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 							</button>
 						</span>
@@ -798,7 +798,7 @@
 			<button
 				onclick={handleDiscard}
 				disabled={sending || savingDraft || discarding}
-				class="text-text-tertiary hover:text-red-400 text-sm px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
+				class="text-text-tertiary hover:text-danger text-sm px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
 			>
 				{discarding ? 'Discarding...' : 'Discard'}
 			</button>
@@ -879,12 +879,12 @@
 		color: var(--color-accent);
 	}
 	:global(.fc-active-red) {
-		background: rgb(248 113 113 / 0.15);
-		color: rgb(248 113 113);
+		background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+		color: var(--color-danger);
 	}
 	:global(.fc-active-blue) {
-		background: rgb(96 165 250 / 0.15);
-		color: rgb(96 165 250);
+		background: color-mix(in srgb, var(--color-info) 15%, transparent);
+		color: var(--color-info);
 	}
 	:global(.fc-sep) {
 		width: 1px;

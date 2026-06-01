@@ -120,7 +120,7 @@
 		disabled={!!loading}
 		title="Delete"
 		aria-label="Delete"
-		class="p-1.5 rounded hover:bg-surface text-text-secondary hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50"
+		class="p-1.5 rounded hover:bg-surface text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
 	>
 		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 	</button>

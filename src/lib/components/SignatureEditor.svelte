@@ -203,9 +203,9 @@
 	const WARN_CHARS = 4500;
 	const counterClass = $derived(
 		charCount > MAX_CHARS
-			? 'text-red-400'
+			? 'text-danger'
 			: charCount > WARN_CHARS
-				? 'text-amber-400'
+				? 'text-warning'
 				: 'text-text-tertiary'
 	);
 </script>

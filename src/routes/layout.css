@@ -12,6 +12,16 @@
 	--color-accent: #6366F1;
 	--color-accent-hover: #818CF8;
 	--color-unread: #3B82F6;
+	/*
+	 * Semantic status colors. Dark-mode defaults use the bright -400 shades
+	 * that read well on the near-black canvas; html.light swaps them for
+	 * darker -600/-700 shades that keep contrast on a light background.
+	 * Use these (text-danger, bg-danger/10, …) instead of raw red-400 etc.
+	 */
+	--color-danger: #f87171;
+	--color-success: #34d399;
+	--color-warning: #fbbf24;
+	--color-info: #60a5fa;
 	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
 }
 
@@ -23,14 +33,21 @@ html {
 html.light {
 	--color-bg: #F4F4F5;
 	--color-surface: #FFFFFF;
-	--color-surface-hover: #F4F4F5;
+	/* Must stay distinct from --color-bg or hover states on bg-colored areas
+	   (list rows, toolbar buttons, pagination) become invisible. */
+	--color-surface-hover: #E8E8EB;
 	--color-border: #E4E4E7;
 	--color-text: #09090B;
 	--color-text-secondary: #52525B;
 	--color-text-tertiary: #A1A1AA;
 	--color-accent: #6366F1;
-	--color-accent-hover: #818CF8;
+	/* Hover should darken on light, not lighten — keeps white text legible. */
+	--color-accent-hover: #4F46E5;
 	--color-unread: #3B82F6;
+	--color-danger: #DC2626;
+	--color-success: #059669;
+	--color-warning: #D97706;
+	--color-info: #2563EB;
 }
 
 body {
@@ -65,12 +82,12 @@ body {
 	color: var(--color-accent);
 }
 .fc-active-red {
-	background: color-mix(in srgb, #f87171 15%, transparent);
-	color: #f87171;
+	background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+	color: var(--color-danger);
 }
 .fc-active-blue {
-	background: color-mix(in srgb, #60a5fa 15%, transparent);
-	color: #60a5fa;
+	background: color-mix(in srgb, var(--color-info) 15%, transparent);
+	color: var(--color-info);
 }
 .fc-select {
 	height: 26px;

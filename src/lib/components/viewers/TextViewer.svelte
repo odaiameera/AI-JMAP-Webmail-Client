@@ -43,7 +43,7 @@
 	{#if loading}
 		<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading…</div>
 	{:else if error}
-		<div class="flex items-center justify-center h-full text-red-400 text-sm">{error}</div>
+		<div class="flex items-center justify-center h-full text-danger text-sm">{error}</div>
 	{:else if tabularRows && tabularRows.length > 0}
 		<table class="text-sm text-text border-collapse">
 			<thead class="sticky top-0 bg-surface">

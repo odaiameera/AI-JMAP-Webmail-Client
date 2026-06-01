@@ -25,7 +25,7 @@
 			<p class="text-xs text-text-tertiary mt-1">{description}</p>
 		{/if}
 		{#if state === 'error' && errorMessage}
-			<p class="text-xs text-red-400 mt-1">{errorMessage}</p>
+			<p class="text-xs text-danger mt-1">{errorMessage}</p>
 		{/if}
 	</div>
 

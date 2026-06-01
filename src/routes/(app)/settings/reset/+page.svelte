@@ -28,9 +28,9 @@
 </header>
 
 <section>
-	<div class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-4">
+	<div class="rounded-xl border border-danger/30 bg-danger/5 p-4 flex items-start gap-4">
 		<div class="flex-1">
-			<p class="text-sm font-medium text-red-400">Reset all preferences</p>
+			<p class="text-sm font-medium text-danger">Reset all preferences</p>
 			<p class="text-xs text-text-tertiary mt-1">
 				Clears theme, density, reading-pane, composer defaults, mail display options, notification
 				toggles, auto-reply text, folder-expand state, and rule definitions back to their defaults.
@@ -40,7 +40,7 @@
 		<button
 			onclick={resetAll}
 			disabled={resetting}
-			class="text-sm bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+			class="text-sm bg-danger/10 border border-danger/40 text-danger hover:bg-danger/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
 		>
 			{resetting ? 'Resetting…' : 'Reset'}
 		</button>

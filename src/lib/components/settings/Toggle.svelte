@@ -28,7 +28,7 @@
 	class="relative inline-flex items-center w-12 h-7 rounded-full p-0.5 shrink-0
 		transition-colors duration-200 ease-out cursor-pointer
 		disabled:opacity-50 disabled:cursor-not-allowed
-		{checked ? 'bg-green-500' : 'bg-zinc-700'}"
+		{checked ? 'bg-success' : 'bg-zinc-700'}"
 >
 	<span
 		class="block w-6 h-6 rounded-full bg-white shadow-sm

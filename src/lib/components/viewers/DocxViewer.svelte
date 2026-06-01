@@ -41,7 +41,7 @@
 		{#if loading}
 			<div class="flex items-center justify-center py-16 text-text-tertiary text-sm">Rendering document…</div>
 		{:else if error}
-			<div class="flex items-center justify-center py-16 text-red-400 text-sm">{error}</div>
+			<div class="flex items-center justify-center py-16 text-danger text-sm">{error}</div>
 		{:else}
 			<div class="docx-preview bg-white text-zinc-900 p-10 rounded-lg shadow-sm">
 				{@html html}

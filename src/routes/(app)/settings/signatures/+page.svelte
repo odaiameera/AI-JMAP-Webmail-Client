@@ -236,7 +236,7 @@
 					<span class="text-xs font-medium text-text-secondary block mb-1.5">Content</span>
 					<SignatureEditor bind:html={draftHtml} disabled={saving} />
 					{#if overLimit}
-						<p class="text-xs text-red-400 mt-1.5">
+						<p class="text-xs text-danger mt-1.5">
 							Signature is over the {MAX_CHARS.toLocaleString()}-character limit. Trim it before saving.
 						</p>
 					{/if}
@@ -280,7 +280,7 @@
 						<button
 							type="button"
 							onclick={remove}
-							class="text-sm bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+							class="text-sm bg-danger/10 border border-danger/40 text-danger hover:bg-danger/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
 						>
 							Delete
 						</button>

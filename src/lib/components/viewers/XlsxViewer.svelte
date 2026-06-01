@@ -75,7 +75,7 @@
 	{#if loading}
 		<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Rendering spreadsheet…</div>
 	{:else if error}
-		<div class="flex items-center justify-center h-full text-red-400 text-sm">{error}</div>
+		<div class="flex items-center justify-center h-full text-danger text-sm">{error}</div>
 	{:else if sheets.length === 0}
 		<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Empty workbook</div>
 	{:else}
