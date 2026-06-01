@@ -102,7 +102,7 @@ body {
 	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
 	font-size: 14px; line-height: 1.5; color: var(--color-text);
 }
-.full-composer-editor :global(.ProseMirror p) { margin: 0 0 0.5em; }
+.full-composer-editor :global(.ProseMirror p) { margin: 0; }
 .full-composer-editor :global(.ProseMirror p:last-child) { margin-bottom: 0; }
 .full-composer-editor :global(.ProseMirror ul) { list-style: disc; padding-left: 1.5em; margin: 0.25em 0; }
 .full-composer-editor :global(.ProseMirror ol) { list-style: decimal; padding-left: 1.5em; margin: 0.25em 0; }
@@ -136,6 +136,19 @@ body {
 }
 .animate-compose-modal-in {
 	animation: compose-modal-in 0.2s ease-out both;
+}
+/*
+ * Shell entrance. Opacity-only on purpose: the composer's positioning
+ * relies on `transform` (fullscreen is centered via translate(-50%,-50%)),
+ * so animating transform here would clobber that and shove the panel
+ * off-center. Keep this fade free of any transform.
+ */
+@keyframes compose-shell-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+.animate-compose-shell-in {
+	animation: compose-shell-in 0.15s ease-out both;
 }
 .animate-compose-backdrop-in {
 	animation: compose-backdrop-in 0.15s ease-out both;

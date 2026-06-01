@@ -486,7 +486,7 @@
 		onchange={(e) => handleFiles((e.target as HTMLInputElement).files)}
 	/>
 	<div
-		class="composer-shell animate-compose-modal-in bg-bg border border-border shadow-2xl flex flex-col z-50"
+		class="composer-shell animate-compose-shell-in bg-bg border border-border shadow-2xl flex flex-col z-50"
 		class:composer--popup={$composer.mode === 'popup'}
 		class:composer--fullscreen={$composer.mode === 'fullscreen'}
 		class:composer--minimized={$composer.mode === 'minimized'}
@@ -908,11 +908,15 @@
 		min-height: 200px;
 		font-family: Calibri, 'Segoe UI', Arial, sans-serif;
 		font-size: 14px;
-		line-height: 1.6;
+		line-height: 1.5;
 		color: var(--color-text);
 	}
+	/* Outlook-style single-spacing: Enter starts a new paragraph that sits
+	   directly below the previous one. No per-paragraph bottom margin, so the
+	   text doesn't read as double-spaced. An explicit blank line still creates
+	   a real gap. */
 	:global(.full-composer-editor .ProseMirror p) {
-		margin: 0 0 0.5em;
+		margin: 0;
 	}
 	:global(.full-composer-editor .ProseMirror ul) {
 		list-style: disc;
