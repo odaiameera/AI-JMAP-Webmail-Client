@@ -3,8 +3,8 @@ import type { Token } from './parse';
 export interface FilterContext {
 	/** role (e.g. 'inbox') → JMAP mailbox id */
 	mailboxesByRole: Record<string, string>;
-	/** label slug (slugified displayName) → JMAP mailbox id */
-	labelsBySlug: Record<string, string>;
+	/** lowercased label name → JMAP mailbox id */
+	labelsByName: Record<string, string>;
 	/** lowercased user folder name → JMAP mailbox id */
 	foldersByName: Record<string, string>;
 }
@@ -21,17 +21,6 @@ const MATCHES_NOTHING: JmapFilter = {
 	operator: 'AND',
 	conditions: [{ hasKeyword: '$seen' }, { notKeyword: '$seen' }]
 };
-
-function slugify(displayName: string): string {
-	return (
-		displayName
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9]+/g, '_')
-			.replace(/^_+|_+$/g, '')
-			.slice(0, 64) || 'untitled'
-	);
-}
 
 function dayStartIso(date: string): string {
 	return `${date}T00:00:00Z`;
@@ -74,7 +63,7 @@ function tokenToFilter(token: Token, ctx: FilterContext): JmapFilter | null {
 				return id ? { inMailbox: id } : MATCHES_NOTHING;
 			}
 			if (field === 'label') {
-				const id = ctx.labelsBySlug[slugify(value)];
+				const id = ctx.labelsByName[value.toLowerCase()];
 				return id ? { inMailbox: id } : MATCHES_NOTHING;
 			}
 			return null;

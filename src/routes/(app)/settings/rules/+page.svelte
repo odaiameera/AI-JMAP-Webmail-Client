@@ -5,7 +5,7 @@
 	import { onDestroy } from 'svelte';
 	import type { PageData } from './$types';
 	import type { Rule, RuleAction } from '$lib/types/rules';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,9 +16,10 @@
 	const selectedIdx = $derived(localRules.findIndex((r) => r.id === selectedId));
 
 	// Sort user folders (moveToFolder targets) and labels once.
+	const labelsParentId = $derived(findLabelsParentId(data.mailboxes));
 	const folderOptions = $derived(
 		data.mailboxes
-			.filter((m) => m.role === null && !m.name.startsWith(LABEL_PREFIX))
+			.filter((m) => m.role === null && !isLabelMailbox(m, labelsParentId) && !isLabelsParent(m, labelsParentId))
 			.sort((a, b) => a.name.localeCompare(b.name))
 	);
 	const systemFolderOptions = $derived(

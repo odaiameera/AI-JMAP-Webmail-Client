@@ -11,7 +11,7 @@
 	} from '$lib/stores/folderExpanded';
 	import type { Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 	import { userState } from '$lib/stores/userState';
 	import { REMIND_ME_LATER_NAME } from '$lib/jmap/mailbox';
 
@@ -67,11 +67,14 @@
 			})
 	);
 
+	const labelsParentId = $derived(findLabelsParentId(mailboxes));
+
 	const userFolders = $derived(
 		mailboxes.filter(
 			(m) =>
 				m.role === null &&
-				!m.name.startsWith(LABEL_PREFIX) &&
+				!isLabelMailbox(m, labelsParentId) &&
+				!isLabelsParent(m, labelsParentId) &&
 				!(m.name === REMIND_ME_LATER_NAME && m.parentId === null)
 		)
 	);

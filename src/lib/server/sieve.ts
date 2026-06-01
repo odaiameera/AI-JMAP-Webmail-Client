@@ -1,6 +1,6 @@
 import type { Rule, RuleCondition, RuleAction, RuleConditionOp } from '$lib/types/rules';
 import type { Mailbox } from '$lib/jmap/types';
-import { LABEL_PREFIX } from '$lib/types/labels';
+import { findLabelsParentId, isLabelMailbox } from '$lib/types/labels';
 
 export interface AutoReplyConfig {
 	enabled: boolean;
@@ -11,13 +11,56 @@ export interface AutoReplyConfig {
 export interface SieveContext {
 	mailboxById: Map<string, Mailbox>;
 	mailboxByName: Map<string, Mailbox>;
+	/** id of the "Labels" container, so applyLabel can verify its target. */
+	labelsParentId: string | null;
 }
 
 export function buildSieveContext(mailboxes: Mailbox[]): SieveContext {
 	return {
 		mailboxById: new Map(mailboxes.map((m) => [m.id, m])),
-		mailboxByName: new Map(mailboxes.map((m) => [m.name, m]))
+		mailboxByName: new Map(mailboxes.map((m) => [m.name, m])),
+		labelsParentId: findLabelsParentId(mailboxes)
 	};
+}
+
+/**
+ * Build the full IMAP mailbox path for `fileinto`, walking the parentId chain
+ * and joining with the `/` hierarchy separator. A top-level "Code" stays
+ * "Code"; a label child "Work Stuff" under "Labels" becomes "Labels/Work
+ * Stuff" — which is exactly how the mailbox is named over IMAP.
+ */
+function mailboxImapPath(mb: Mailbox, ctx: SieveContext): string {
+	const parts: string[] = [];
+	let cur: Mailbox | undefined = mb;
+	const seen = new Set<string>();
+	while (cur && !seen.has(cur.id)) {
+		seen.add(cur.id);
+		parts.unshift(cur.name);
+		cur = cur.parentId ? ctx.mailboxById.get(cur.parentId) : undefined;
+	}
+	return parts.join('/');
+}
+
+/**
+ * A condition is usable only if it would produce a real test. An empty text
+ * value would compile to `:contains "Header" ""` — which matches EVERY
+ * message — so we drop such conditions, and skip any rule left with none.
+ * This prevents a half-finished rule from becoming a match-everything filter.
+ */
+function isUsableCondition(c: RuleCondition): boolean {
+	switch (c.field) {
+		case 'from':
+		case 'to':
+		case 'subject':
+		case 'body':
+			return c.value.trim().length > 0;
+		case 'size':
+			return Number.isFinite(parseInt(c.value, 10));
+		case 'hasAttachment':
+			return true;
+		default:
+			return false;
+	}
 }
 
 export function compileRulesToSieve(
@@ -54,11 +97,16 @@ export function compileRulesToSieve(
 	}
 
 	for (const rule of activeRules) {
+		// Drop empty/unusable conditions; skip the rule entirely if none
+		// remain so we never emit a filter that matches every message.
+		const usableConditions = rule.conditions.filter(isUsableCondition);
+		if (usableConditions.length === 0) continue;
+
 		lines.push(`# Rule: ${rule.name}`);
 
-		const conditions = rule.conditions.map(compileCondition);
+		const conditions = usableConditions.map(compileCondition);
 		let condBlock: string;
-		if (rule.conditions.length === 1) {
+		if (usableConditions.length === 1) {
 			condBlock = conditions[0];
 		} else {
 			condBlock = `${rule.logic} (\n  ${conditions.join(',\n  ')}\n)`;
@@ -130,15 +178,18 @@ function compileAction(a: RuleAction, ctx: SieveContext): string {
 		case 'moveToFolder': {
 			const mb = resolveMailbox(a.value, ctx);
 			if (!mb) return '';
-			// `fileinto` moves by default — no `:copy`.
-			return `fileinto "${escSieve(mb.name)}";`;
+			// `fileinto` moves by default — no `:copy`. Use the full IMAP path
+			// so nested folders resolve correctly.
+			return `fileinto "${escSieve(mailboxImapPath(mb, ctx))}";`;
 		}
 		case 'applyLabel': {
 			const mb = resolveMailbox(a.value, ctx);
-			if (!mb || !mb.name.startsWith(LABEL_PREFIX)) return '';
-			// `:copy` keeps the message in its original mailbox AND in the
-			// label folder — the multi-mailbox membership model labels use.
-			return `fileinto :copy "${escSieve(mb.name)}";`;
+			// Target must be an actual label (a child of the Labels container).
+			if (!mb || !isLabelMailbox(mb, ctx.labelsParentId)) return '';
+			// `:copy` keeps the message in its original mailbox AND files it
+			// into the label folder — the multi-mailbox membership labels use.
+			// The path is `Labels/<name>` so it lands in the right place.
+			return `fileinto :copy "${escSieve(mailboxImapPath(mb, ctx))}";`;
 		}
 		case 'markRead':       return `addflag "\\\\Seen";`;
 		case 'markImportant':  return `addflag "\\\\Flagged";`;

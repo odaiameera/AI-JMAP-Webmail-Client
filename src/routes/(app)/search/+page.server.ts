@@ -6,7 +6,7 @@ import { userEmailFromAuth } from '$lib/server/user';
 import { getDefaultPageSize } from '$lib/server/db/queries/user-settings';
 import { parseSearch } from '$lib/search/parse';
 import { buildJmapFilter, type FilterContext } from '$lib/search/build-filter';
-import { LABEL_PREFIX, slugifyLabel } from '$lib/types/labels';
+import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
 
@@ -33,21 +33,19 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	}
 
 	const { mailboxes } = await parent();
+	const labelsParentId = findLabelsParentId(mailboxes);
 	const ctx: FilterContext = {
 		mailboxesByRole: Object.fromEntries(
 			mailboxes.filter((m) => m.role).map((m) => [m.role as string, m.id])
 		),
-		labelsBySlug: Object.fromEntries(
+		labelsByName: Object.fromEntries(
 			mailboxes
-				.filter((m) => m.name.startsWith(LABEL_PREFIX))
-				.map((m) => {
-					const displayName = m.name.slice(LABEL_PREFIX.length);
-					return [slugifyLabel(displayName), m.id];
-				})
+				.filter((m) => isLabelMailbox(m, labelsParentId))
+				.map((m) => [m.name.toLowerCase(), m.id])
 		),
 		foldersByName: Object.fromEntries(
 			mailboxes
-				.filter((m) => !m.role && !m.name.startsWith(LABEL_PREFIX))
+				.filter((m) => !m.role && !isLabelMailbox(m, labelsParentId) && !isLabelsParent(m, labelsParentId))
 				.map((m) => [m.name.toLowerCase(), m.id])
 		)
 	};

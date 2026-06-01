@@ -2,7 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import type { Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 	let {
 		mailboxes,
@@ -40,6 +40,7 @@
 
 	const labelById = $derived(new Map(labels.map((l) => [l.id, l])));
 	const excludeSet = $derived(new Set(excludeIds));
+	const labelsParentId = $derived(findLabelsParentId(mailboxes));
 
 	const items = $derived.by<PickerItem[]>(() => {
 		const list: PickerItem[] = [];
@@ -48,12 +49,14 @@
 			if (m.role === 'drafts') continue;
 			if (m.role === 'sent') continue;
 			if (m.name === 'Sent Messages') continue;
+			// The "Labels" container itself is never a destination.
+			if (isLabelsParent(m, labelsParentId)) continue;
 
-			if (m.name.startsWith(LABEL_PREFIX)) {
+			if (isLabelMailbox(m, labelsParentId)) {
 				const lbl = labelById.get(m.id);
 				list.push({
 					id: m.id,
-					name: lbl?.name ?? m.name.slice(LABEL_PREFIX.length),
+					name: lbl?.name ?? m.name,
 					kind: 'label',
 					color: lbl?.color,
 					unread: m.unreadEmails

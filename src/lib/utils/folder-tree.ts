@@ -1,5 +1,5 @@
 import type { Mailbox } from '$lib/jmap/types';
-import { LABEL_PREFIX } from '$lib/types/labels';
+import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 export type FolderTreeNode = Mailbox & { children: FolderTreeNode[] };
 
@@ -10,11 +10,18 @@ export type FolderOption = {
 };
 
 /**
- * Keep only user-created, non-label mailboxes. Labels live under the
- * `labels/` prefix and system folders have a non-null role.
+ * Keep only user-created, non-label mailboxes. Labels are children of the
+ * "Labels" container; both the container and its children are excluded, as
+ * are system folders (non-null role).
  */
 export function filterUserFolders(mailboxes: Mailbox[]): Mailbox[] {
-	return mailboxes.filter((m) => m.role === null && !m.name.startsWith(LABEL_PREFIX));
+	const labelsParentId = findLabelsParentId(mailboxes);
+	return mailboxes.filter(
+		(m) =>
+			m.role === null &&
+			!isLabelMailbox(m, labelsParentId) &&
+			!isLabelsParent(m, labelsParentId)
+	);
 }
 
 /**

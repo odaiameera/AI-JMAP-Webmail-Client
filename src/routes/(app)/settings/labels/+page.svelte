@@ -62,7 +62,7 @@
 	<div>
 		<h1 class="text-xl font-semibold text-text">Labels</h1>
 		<p class="text-sm text-text-tertiary mt-1 max-w-prose">
-			Labels are JMAP mailboxes under <code class="text-xs bg-surface-hover rounded px-1 py-0.5">labels/</code>.
+			Labels sync to Apple Mail and Thunderbird as folders under <code class="text-xs bg-surface-hover rounded px-1 py-0.5">Labels/</code>.
 			Apply them to emails from anywhere in the app; create, rename, recolor, and delete them here.
 		</p>
 	</div>

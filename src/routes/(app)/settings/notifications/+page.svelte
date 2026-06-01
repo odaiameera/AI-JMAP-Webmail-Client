@@ -3,7 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Toggle from '$lib/components/settings/Toggle.svelte';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
@@ -56,8 +56,15 @@
 		save({ folders: [...next] }, `folder:${id}`);
 	}
 
+	const labelsParentId = $derived(findLabelsParentId(data.mailboxes));
 	const notifiableFolders = $derived(
-		data.mailboxes.filter((m) => !m.name.startsWith(LABEL_PREFIX) && m.role !== 'drafts' && m.role !== 'sent')
+		data.mailboxes.filter(
+			(m) =>
+				!isLabelMailbox(m, labelsParentId) &&
+				!isLabelsParent(m, labelsParentId) &&
+				m.role !== 'drafts' &&
+				m.role !== 'sent'
+		)
 	);
 </script>
 

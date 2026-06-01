@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { parseSearch, type Token } from '$lib/search/parse';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 	import type { Mailbox } from '$lib/jmap/types';
 
 	let { mailboxes }: { mailboxes: Mailbox[] } = $props();
@@ -100,17 +100,16 @@
 			.filter(([r]) => byRole.has(r))
 			.map(([r, label]) => ({ kind: 'role', label, token: `in:${r}`, id: byRole.get(r)!.id }));
 
+		const labelsParentId = findLabelsParentId(mailboxes);
+
 		const userFolders: FolderOption[] = mailboxes
-			.filter((m) => !m.role && !m.name.startsWith(LABEL_PREFIX))
+			.filter((m) => !m.role && !isLabelMailbox(m, labelsParentId) && !isLabelsParent(m, labelsParentId))
 			.map((m) => ({ kind: 'folder' as const, label: m.name, token: `in:${quoteIfNeeded(m.name)}`, id: m.id }))
 			.sort((a, b) => a.label.localeCompare(b.label));
 
 		const labels: FolderOption[] = mailboxes
-			.filter((m) => m.name.startsWith(LABEL_PREFIX))
-			.map((m) => {
-				const display = m.name.slice(LABEL_PREFIX.length);
-				return { kind: 'label' as const, label: display, token: `label:${quoteIfNeeded(display)}`, id: m.id };
-			})
+			.filter((m) => isLabelMailbox(m, labelsParentId))
+			.map((m) => ({ kind: 'label' as const, label: m.name, token: `label:${quoteIfNeeded(m.name)}`, id: m.id }))
 			.sort((a, b) => a.label.localeCompare(b.label));
 
 		return [...roles, ...userFolders, ...labels];

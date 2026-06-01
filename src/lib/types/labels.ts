@@ -1,42 +1,49 @@
 export interface Label {
 	/** JMAP Mailbox id (authoritative — this is the mailbox id in JMAP/IMAP) */
 	id: string;
-	/** Display name (without the `labels/` prefix) */
+	/** Display name (the mailbox's own name, e.g. "Work Stuff") */
 	name: string;
-	/** Hex color — stored in the `label_meta` cookie, keyed by id */
+	/** Hex color — stored in SQLite `label_meta`, keyed by id */
 	color: string;
 	createdAt: number;
 }
 
-/** Prefix used for all label mailbox names in JMAP. */
-export const LABEL_PREFIX = 'labels/';
+/**
+ * Display name of the parent mailbox that contains every label. Labels are
+ * real child mailboxes of this container (`parentId`-based), which is what
+ * lets them sync to Apple Mail / Thunderbird as a clean `Labels/<name>` tree
+ * — no slugs, no `/` jammed into a single mailbox name.
+ */
+export const LABELS_PARENT_NAME = 'Labels';
 
-/** Cookie name for the id → { color, displayName, createdAt } map. */
-export const LABEL_META_COOKIE = 'label_meta';
+/** Default color for labels that have no meta entry. */
+export const DEFAULT_LABEL_COLOR = '#6366F1';
 
-/** Cookie name for the migration marker (values: `v1`). */
+/** Cookie marker for the one-shot keyword→mailbox migration (value `v1`). */
 export const LABEL_MIGRATION_COOKIE = 'mail_labels_migrated';
 
 /** Legacy cookie holding the pre-migration keyword-based labels. */
 export const LEGACY_LABELS_COOKIE = 'mail_labels';
 
-/** Default color for labels that exist in JMAP but have no meta entry. */
-export const DEFAULT_LABEL_COLOR = '#6366F1';
+type MailboxLike = { id: string; name: string; parentId: string | null };
 
 /**
- * Normalize a display name into a JMAP-safe slug that becomes the suffix
- * after `labels/`. Lowercased, ASCII-only, collapsed underscores.
+ * The id of the "Labels" container mailbox, or null if it doesn't exist yet
+ * (it's created lazily the first time a label is made).
  */
-export function slugifyLabel(displayName: string): string {
-	return displayName
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '')
-		.slice(0, 64) || 'untitled';
+export function findLabelsParentId(mailboxes: MailboxLike[]): string | null {
+	return mailboxes.find((m) => m.parentId === null && m.name === LABELS_PARENT_NAME)?.id ?? null;
 }
 
-/** Full JMAP mailbox name for a given display name. */
-export function labelMailboxName(displayName: string): string {
-	return LABEL_PREFIX + slugifyLabel(displayName);
+/** True if `m` is a label — i.e. a direct child of the Labels container. */
+export function isLabelMailbox(
+	m: { parentId: string | null },
+	labelsParentId: string | null
+): boolean {
+	return labelsParentId !== null && m.parentId === labelsParentId;
+}
+
+/** True if `m` is the Labels container itself (not a real folder, not a label). */
+export function isLabelsParent(m: { id: string }, labelsParentId: string | null): boolean {
+	return labelsParentId !== null && m.id === labelsParentId;
 }

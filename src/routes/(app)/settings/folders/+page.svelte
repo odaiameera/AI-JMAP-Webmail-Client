@@ -4,7 +4,7 @@
 	import { pageTitle } from '$lib/utils/title';
 	import type { LayoutData } from '../$types';
 	import type { Mailbox } from '$lib/jmap/types';
-	import { LABEL_PREFIX } from '$lib/types/labels';
+	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 	import { userState } from '$lib/stores/userState';
 	import { colorByHex, DEFAULT_LABEL_COLOR, type LabelColor } from '$lib/constants/colors';
 	import { buildFolderTree, flattenFolderTree } from '$lib/utils/folder-tree';
@@ -19,8 +19,11 @@
 
 	let { data }: { data: LayoutData } = $props();
 
+	const labelsParentId = $derived(findLabelsParentId(data.mailboxes));
 	const userFolders = $derived(
-		data.mailboxes.filter((m) => m.role === null && !m.name.startsWith(LABEL_PREFIX))
+		data.mailboxes.filter(
+			(m) => m.role === null && !isLabelMailbox(m, labelsParentId) && !isLabelsParent(m, labelsParentId)
+		)
 	);
 	const systemFolders = $derived(data.mailboxes.filter((m) => m.role !== null));
 

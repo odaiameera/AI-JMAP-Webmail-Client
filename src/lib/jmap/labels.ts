@@ -1,19 +1,12 @@
 import type { JMAPClient } from './client';
 import type { Mailbox } from './types';
-import { LABEL_PREFIX, labelMailboxName } from '$lib/types/labels';
+import { LABELS_PARENT_NAME, findLabelsParentId } from '$lib/types/labels';
 
 export type CreateLabelResult = { id: string } | { error: string };
 export type MutateLabelResult = { success: true; id?: string } | { success: false; error: string };
 
-/**
- * Return every mailbox whose name begins with `labels/`. Stalwart's
- * Mailbox/query filter support is thin, so we list everything and filter
- * in JS — mailbox counts per account are small.
- */
-export async function listLabelMailboxes(
-	client: JMAPClient,
-	accountId: string
-): Promise<Mailbox[]> {
+/** Fetch every mailbox (id/name/parentId) — the shared building block. */
+async function getAllMailboxes(client: JMAPClient, accountId: string): Promise<Mailbox[]> {
 	const response = await client.request([
 		[
 			'Mailbox/get',
@@ -25,30 +18,77 @@ export async function listLabelMailboxes(
 			'0'
 		]
 	]);
-
-	const result = response.methodResponses[0][1] as { list: Mailbox[] };
-	return (result.list ?? []).filter((m) => m.name.startsWith(LABEL_PREFIX));
+	return (response.methodResponses[0][1] as { list: Mailbox[] }).list ?? [];
 }
 
 /**
- * Create a `labels/<slug>` mailbox at the root. Returns the new id, or an
- * error message if Stalwart refused (e.g. name collision).
+ * Find or create the "Labels" container mailbox and return its id. Labels are
+ * children of this mailbox, so it must exist before any label is created.
  */
-export async function createLabelMailbox(
-	client: JMAPClient,
-	accountId: string,
-	displayName: string
-): Promise<CreateLabelResult> {
-	const name = labelMailboxName(displayName);
+export async function ensureLabelsParent(client: JMAPClient, accountId: string): Promise<string> {
+	const mailboxes = await getAllMailboxes(client, accountId);
+	const existing = findLabelsParentId(mailboxes);
+	if (existing) return existing;
 
 	const response = await client.request([
 		[
 			'Mailbox/set',
 			{
 				accountId,
-				create: {
-					lbl1: { name, role: null, parentId: null }
-				}
+				create: { labels: { name: LABELS_PARENT_NAME, role: null, parentId: null } }
+			},
+			'0'
+		]
+	]);
+
+	const result = response.methodResponses[0][1] as {
+		created?: Record<string, { id: string }>;
+	};
+	const id = result.created?.labels?.id;
+	if (!id) throw new Error('Could not create the Labels container mailbox');
+	return id;
+}
+
+/**
+ * Return every label mailbox — i.e. every direct child of the "Labels"
+ * container. Returns [] if the container doesn't exist yet.
+ */
+export async function listLabelMailboxes(
+	client: JMAPClient,
+	accountId: string
+): Promise<Mailbox[]> {
+	const mailboxes = await getAllMailboxes(client, accountId);
+	const parentId = findLabelsParentId(mailboxes);
+	if (!parentId) return [];
+	return mailboxes.filter((m) => m.parentId === parentId);
+}
+
+/**
+ * Create a label as a child mailbox of "Labels", named with the real display
+ * name (e.g. "Work Stuff"). The container is created on demand. Over IMAP this
+ * surfaces as `Labels/Work Stuff` — clean and grouped, no slug.
+ */
+export async function createLabelMailbox(
+	client: JMAPClient,
+	accountId: string,
+	displayName: string
+): Promise<CreateLabelResult> {
+	const name = displayName.trim();
+	if (!name) return { error: 'Label name is required' };
+
+	let parentId: string;
+	try {
+		parentId = await ensureLabelsParent(client, accountId);
+	} catch (err) {
+		return { error: err instanceof Error ? err.message : 'Could not prepare Labels container' };
+	}
+
+	const response = await client.request([
+		[
+			'Mailbox/set',
+			{
+				accountId,
+				create: { lbl1: { name, role: null, parentId } }
 			},
 			'0'
 		]
@@ -61,24 +101,23 @@ export async function createLabelMailbox(
 
 	if (result.notCreated?.lbl1) {
 		const err = result.notCreated.lbl1;
-		return { error: err.description ?? err.type ?? 'Failed to create label mailbox' };
+		return { error: err.description ?? err.type ?? 'Failed to create label' };
 	}
 
 	const id = result.created?.lbl1?.id;
-	if (!id) return { error: 'Label mailbox created but no id returned' };
+	if (!id) return { error: 'Label created but no id returned' };
 	return { id };
 }
 
-/**
- * Rename a label mailbox to `labels/<slug(newDisplayName)>`.
- */
+/** Rename a label by setting its mailbox name to the new display name. */
 export async function renameLabelMailbox(
 	client: JMAPClient,
 	accountId: string,
 	id: string,
 	newDisplayName: string
 ): Promise<MutateLabelResult> {
-	const name = labelMailboxName(newDisplayName);
+	const name = newDisplayName.trim();
+	if (!name) return { success: false, error: 'Label name is required' };
 
 	const response = await client.request([
 		[
@@ -103,9 +142,8 @@ export async function renameLabelMailbox(
 }
 
 /**
- * Destroy a label mailbox. We explicitly pass `onDestroyRemoveEmails: false`
- * so messages in the label are detached from it but not deleted — they
- * continue to live in Inbox/Archive/etc.
+ * Destroy a label mailbox. `onDestroyRemoveEmails: false` detaches messages
+ * from the label without deleting them — they stay in Inbox/Archive/etc.
  */
 export async function deleteLabelMailbox(
 	client: JMAPClient,

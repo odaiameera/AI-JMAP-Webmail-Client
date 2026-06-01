@@ -2,10 +2,8 @@ import type { Cookies } from '@sveltejs/kit';
 import type { JMAPClient } from '$lib/jmap/client';
 import {
 	LABEL_MIGRATION_COOKIE,
-	LABEL_PREFIX,
 	LEGACY_LABELS_COOKIE,
 	DEFAULT_LABEL_COLOR,
-	labelMailboxName,
 	type Label
 } from '$lib/types/labels';
 import { createLabelMailbox, listLabelMailboxes } from '$lib/jmap/labels';
@@ -31,9 +29,8 @@ const COOKIE_BASE = {
 	secure: true
 } as const;
 
-/** Hydrate the per-user label metadata into the legacy `Record<id, …>`
- *  shape that the rest of the server code expects. The data lives in
- *  SQLite now (Phase 13); this just reshapes it. */
+/** Hydrate the per-user label metadata into the `Record<id, …>` shape the
+ *  rest of the server code expects. The data lives in SQLite; this reshapes it. */
 export function getLabelMeta(userEmail: string): LabelMeta {
 	const rows = getLabelsForUser(userEmail);
 	const out: LabelMeta = {};
@@ -62,14 +59,11 @@ export function removeLabelMeta(userEmail: string, id: string): void {
 	deleteLabelMeta(userEmail, id);
 }
 
-/** Pretty-print a mailbox name for users when no meta displayName exists. */
-function fallbackDisplayName(mailboxName: string): string {
-	return mailboxName.slice(LABEL_PREFIX.length).replace(/_/g, ' ').trim() || mailboxName;
-}
-
 /**
- * Merge the JMAP mailbox list with SQLite-backed meta (color + user-chosen
- * display name) into the Label[] shape the UI consumes.
+ * Merge the JMAP label mailboxes (children of the "Labels" container) with
+ * SQLite-backed color meta into the Label[] shape the UI consumes. The
+ * mailbox's own name is the display name; SQLite only overrides color (and an
+ * optional renamed display name kept in sync on rename).
  */
 export async function listLabels(
 	client: JMAPClient,
@@ -82,7 +76,7 @@ export async function listLabels(
 		const entry = meta[m.id];
 		return {
 			id: m.id,
-			name: entry?.displayName?.trim() || fallbackDisplayName(m.name),
+			name: entry?.displayName?.trim() || m.name,
 			color: entry?.color ?? DEFAULT_LABEL_COLOR,
 			createdAt: entry?.createdAt ?? 0
 		};
@@ -93,10 +87,8 @@ export async function listLabels(
 
 /**
  * One-shot migration from keyword-based labels (cookie `mail_labels` +
- * `keywords/<id>` on emails) to JMAP mailbox-based labels.
- *
- * Pre-Phase-13 this also seeded the cookie meta store. Now it writes
- * straight to SQLite via {@link upsertLabelMeta}.
+ * `keywords/<id>` on emails) to mailbox-based labels. Idempotent; the marker
+ * cookie makes subsequent loads a no-op. Most accounts have nothing to migrate.
  */
 export async function migrateKeywordLabelsIfNeeded(
 	client: JMAPClient,
@@ -127,13 +119,14 @@ export async function migrateKeywordLabelsIfNeeded(
 		return;
 	}
 
+	// Existing label mailboxes, indexed by lowercased display name, so we can
+	// reuse a child instead of failing on a duplicate-name create.
 	const existing = await listLabelMailboxes(client, accountId);
-	const existingByName = new Map(existing.map((m) => [m.name, m.id]));
+	const existingByName = new Map(existing.map((m) => [m.name.toLowerCase(), m.id]));
 
 	for (const old of oldLabels) {
 		try {
-			const mailboxName = labelMailboxName(old.name);
-			let newId = existingByName.get(mailboxName);
+			let newId = existingByName.get(old.name.trim().toLowerCase());
 
 			if (!newId) {
 				const result = await createLabelMailbox(client, accountId, old.name);
