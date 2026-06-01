@@ -9,6 +9,9 @@ services:
       - PORT=3001
       - JMAP_URL=https://mx.odaiameera.com
       - DATABASE_PATH=/data/ameera.db
+      - PLANE_BASE_URL=https://plane.odaiameera.com/api/v1
+      - PLANE_API_KEY=plane_api_48006eede7e9430db31c073f06038eab
+      - PLANE_WORKSPACE_SLUG=homelab
     volumes:
       # Persistent SQLite store for per-user state (avatar, label/folder
       # metadata, signatures). Survives `docker compose up -d --build`.
