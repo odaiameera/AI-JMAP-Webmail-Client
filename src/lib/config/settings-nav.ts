@@ -29,6 +29,7 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
 	{ slug: 'folders',            group: 'Organization',       label: 'Folders' },
 	{ slug: 'labels',             group: 'Organization',       label: 'Labels' },
 	{ slug: 'rules',              group: 'Organization',       label: 'Filters & Rules' },
+	{ slug: 'calendar',           group: 'Organization',       label: 'Calendar' },
 
 	{ slug: 'import-export',      group: 'Advanced',           label: 'Import / Export' },
 	{ slug: 'reset',              group: 'Advanced',           label: 'Reset' },

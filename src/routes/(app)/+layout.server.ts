@@ -76,6 +76,10 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		// layout) so the realtime layer can decide whether to fire desktop
 		// notifications for new mail without a second round-trip.
 		const notificationsEnabled = cookies.get('notifications') === 'on';
+		// Calendar notification channels default to on once the master
+		// toggle is enabled; users opt out per-channel.
+		const notifyCalendarEvents = cookies.get('notify_calendar_events') !== 'off';
+		const notifyEventReminders = cookies.get('notify_event_reminders') !== 'off';
 
 		return {
 			mailboxes,
@@ -88,7 +92,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			labels,
 			rules,
 			folderExpanded,
-			notificationsEnabled
+			notificationsEnabled,
+			notifyCalendarEvents,
+			notifyEventReminders
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

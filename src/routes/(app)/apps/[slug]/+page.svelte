@@ -7,8 +7,7 @@
 	const titles: Record<string, string> = {
 		ai: 'AI Assistant',
 		contacts: 'Contacts',
-		tasks: 'Tasks',
-		calendar: 'Calendar'
+		tasks: 'Tasks'
 	};
 
 	const title = $derived(titles[data.slug] ?? data.slug);

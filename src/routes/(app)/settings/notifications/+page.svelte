@@ -10,6 +10,8 @@
 
 	let enabled = $state(data.notificationsEnabled);
 	let selectedFolders = $state<Set<string>>(new Set(data.notificationFolders));
+	let calendarEvents = $state(data.notifyCalendarEvents);
+	let eventReminders = $state(data.notifyEventReminders);
 
 	const states = $state<Record<string, SaveState>>({});
 	function flash(key: string, ok: boolean) {
@@ -73,7 +75,7 @@
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Notifications</h1>
 	<p class="text-sm text-text-tertiary mt-1">
-		Browser notifications for new mail. Notifications work while Ameera is open in a browser tab.
+		Browser notifications for new mail and calendar activity. Notifications work while Ameera is open in a browser tab.
 	</p>
 </header>
 
@@ -110,4 +112,42 @@
 			{/each}
 		</div>
 	</div>
+
+	<div class="pt-6 pb-2">
+		<p class="text-sm font-semibold text-text">Calendar</p>
+	</div>
+
+	<SettingRow
+		title="New & updated events"
+		description="Notify when an event is added or changed on one of your calendars — including from other devices and CalDAV clients."
+		state={states.calendarEvents ?? 'idle'}
+	>
+		{#snippet control()}
+			<Toggle
+				checked={calendarEvents && enabled}
+				disabled={!enabled}
+				onChange={(next) => {
+					calendarEvents = next;
+					save({ calendarEvents: next }, 'calendarEvents');
+				}}
+			/>
+		{/snippet}
+	</SettingRow>
+
+	<SettingRow
+		title="Event reminders"
+		description="Fire each event's reminders (e.g. 10 minutes before it starts), like Google or Apple Calendar."
+		state={states.eventReminders ?? 'idle'}
+	>
+		{#snippet control()}
+			<Toggle
+				checked={eventReminders && enabled}
+				disabled={!enabled}
+				onChange={(next) => {
+					eventReminders = next;
+					save({ eventReminders: next }, 'eventReminders');
+				}}
+			/>
+		{/snippet}
+	</SettingRow>
 </section>

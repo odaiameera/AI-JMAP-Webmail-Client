@@ -53,6 +53,10 @@ export const PREF_COOKIE_KEYS = [
 	// Notifications
 	'notifications',
 	'notification_folders',
+	'notify_calendar_events',
+	'notify_event_reminders',
+	// Calendar
+	'calendar_week_start',
 	// Auto-reply
 	'auto_reply_enabled',
 	'auto_reply_subject',
