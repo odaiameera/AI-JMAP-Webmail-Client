@@ -26,3 +26,7 @@ vite.config.ts.timestamp-*
 # at /data; dev falls back to a repo-relative path that should never be
 # committed.
 local-data/
+
+# Local deployment config — holds real secrets (API keys).
+# Use docker-compose.example.yml as a template.
+docker-compose.yml
