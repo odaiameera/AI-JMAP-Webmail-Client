@@ -8,6 +8,11 @@
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import InvitationCard from './InvitationCard.svelte';
+	import EventModal from './calendar/EventModal.svelte';
+	import { apiCreateEvent } from '$lib/calendar/api';
+	import { fromDayKey } from '$lib/calendar/dates';
+	import { showToast } from '$lib/stores/toast';
+	import type { CalendarInfo, EventWritePayload } from '$lib/calendar/types';
 	import CreatePlaneWorkItemModal from './modals/CreatePlaneWorkItemModal.svelte';
 	import { buildPlaneSummary } from '$lib/utils/plane-summary';
 
@@ -321,6 +326,95 @@
 		} finally { actionLoading = ''; }
 	}
 
+	// --- AI event extraction ("create event from this email") ---
+
+	const aiEnabled = $derived(page.data.aiEventExtraction === true);
+	let aiBusy = $state(false);
+	let aiModalOpen = $state(false);
+	let aiCalendars = $state<CalendarInfo[]>([]);
+	let aiPrefill = $state<{ start: Date; end: Date; allDay: boolean } | null>(null);
+	let aiExtras = $state<{ title?: string; location?: string; description?: string } | null>(null);
+
+	async function extractEventWithAI() {
+		if (aiBusy) return;
+		aiBusy = true;
+		try {
+			const [exRes, calRes] = await Promise.all([
+				fetch('/api/ai/extract-event', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						subject: email.subject ?? '',
+						html: getBodyHtml(),
+						from: from?.email ?? '',
+						receivedAt: email.receivedAt,
+						timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+					})
+				}),
+				fetch('/api/calendar/calendars')
+			]);
+			const ex = (await exRes.json().catch(() => ({}))) as {
+				found?: boolean;
+				title?: string;
+				date?: string;
+				startTime?: string | null;
+				endTime?: string | null;
+				allDay?: boolean;
+				location?: string | null;
+				notes?: string | null;
+				error?: string;
+			};
+			if (!exRes.ok) {
+				showToast({ message: ex.error ?? 'Event extraction failed' });
+				return;
+			}
+			if (!ex.found || !ex.date) {
+				showToast({ message: 'No event details found in this email.' });
+				return;
+			}
+			const cals = (await calRes.json().catch(() => ({}))) as { calendars?: CalendarInfo[] };
+			aiCalendars = cals.calendars ?? [];
+
+			const day = fromDayKey(ex.date);
+			if (ex.allDay || !ex.startTime) {
+				aiPrefill = { start: day, end: new Date(day.getTime() + 86400000), allDay: true };
+			} else {
+				const [sh, sm] = ex.startTime.split(':').map(Number);
+				const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), sh, sm);
+				let end: Date;
+				if (ex.endTime) {
+					const [eh, em] = ex.endTime.split(':').map(Number);
+					end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), eh, em);
+					if (end <= start) end = new Date(start.getTime() + 3600000);
+				} else {
+					end = new Date(start.getTime() + 3600000);
+				}
+				aiPrefill = { start, end, allDay: false };
+			}
+			aiExtras = {
+				title: ex.title,
+				location: ex.location ?? '',
+				description: ex.notes ?? ''
+			};
+			aiModalOpen = true;
+		} catch {
+			showToast({ message: 'Event extraction failed' });
+		} finally {
+			aiBusy = false;
+		}
+	}
+
+	async function saveExtractedEvent(payload: EventWritePayload): Promise<{ ok: boolean; error?: string }> {
+		const res = await apiCreateEvent(payload);
+		if (!res.ok) return { ok: false, error: res.error ?? 'Failed to create event' };
+		const date = payload.allDay ? payload.start : payload.start.slice(0, 10);
+		showToast({
+			message: 'Event added to your calendar',
+			action: { label: 'View', onClick: () => goto(`/calendar?view=day&date=${date}`) }
+		});
+		return { ok: true };
+	}
+
 	// --- Unsubscribe flow ---
 
 	let unsubLoading = $state(false);
@@ -542,6 +636,25 @@
 			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
 			</button>
+			{#if aiEnabled && !isDraft}
+				<button
+					onclick={extractEventWithAI}
+					title="Create calendar event from this email (AI)"
+					disabled={aiBusy}
+					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-accent transition-colors cursor-pointer disabled:opacity-50"
+				>
+					{#if aiBusy}
+						<span class="block w-4 h-4 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
+					{:else}
+						<!-- calendar with sparkle -->
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 11V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
+							<path d="M16 2v4M8 2v4M3 10h18"/>
+							<path d="M18.5 15.5 19.3 17.7 21.5 18.5 19.3 19.3 18.5 21.5 17.7 19.3 15.5 18.5 17.7 17.7z"/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
 			<button onclick={openPlaneModal} title="Create Plane work item" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-accent transition-colors cursor-pointer">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/>
@@ -601,6 +714,19 @@
 			class="w-full h-full border-none rounded"
 		></iframe>
 	</div>
+
+	<EventModal
+		open={aiModalOpen}
+		calendars={aiCalendars}
+		prefill={aiPrefill}
+		prefillExtras={aiExtras}
+		onSubmit={saveExtractedEvent}
+		onClose={() => {
+			aiModalOpen = false;
+			aiPrefill = null;
+			aiExtras = null;
+		}}
+	/>
 
 	<CreatePlaneWorkItemModal
 		open={showPlaneModal}

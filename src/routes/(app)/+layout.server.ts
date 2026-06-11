@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import type { LayoutServerLoad } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
@@ -94,7 +95,10 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			folderExpanded,
 			notificationsEnabled,
 			notifyCalendarEvents,
-			notifyEventReminders
+			notifyEventReminders,
+			// "Create event from email" (LLM extraction) only renders when an
+			// Ollama endpoint is configured server-side.
+			aiEventExtraction: !!(env.OLLAMA_API_KEY || env.OLLAMA_URL)
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

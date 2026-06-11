@@ -12,6 +12,12 @@ services:
       - PLANE_BASE_URL=https://plane.odaiameera.com/api/v1
       - PLANE_API_KEY=plane_api_48006eede7e9430db31c073f06038eab
       - PLANE_WORKSPACE_SLUG=homelab
+      # AI event extraction ("create event from this email"). Works with
+      # Ollama Cloud or any self-hosted Ollama; leave unset to hide the
+      # feature. Models: deepseek-v3.1:671b (default), minimax-m2, qwen3, …
+      # - OLLAMA_URL=https://ollama.com
+      # - OLLAMA_API_KEY=<your ollama cloud api key>
+      # - OLLAMA_MODEL=deepseek-v3.1:671b
     volumes:
       # Persistent SQLite store for per-user state (avatar, label/folder
       # metadata, signatures). Survives `docker compose up -d --build`.

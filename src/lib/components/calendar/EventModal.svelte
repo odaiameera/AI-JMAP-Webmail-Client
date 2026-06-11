@@ -19,6 +19,7 @@
 		calendars,
 		editing = null,
 		prefill = null,
+		prefillExtras = null,
 		onSubmit,
 		onClose
 	}: {
@@ -28,6 +29,8 @@
 		editing?: EventInstance | null;
 		/** Creation prefill from a grid click/drag. */
 		prefill?: { start: Date; end: Date; allDay: boolean } | null;
+		/** Extra creation prefill (AI extraction, invitations): text fields. */
+		prefillExtras?: { title?: string; location?: string; description?: string } | null;
 		onSubmit: (payload: EventWritePayload) => Promise<{ ok: boolean; error?: string }>;
 		onClose: () => void;
 	} = $props();
@@ -107,15 +110,15 @@
 				hydrateRecurrence(editing.rrule);
 			} else {
 				const base = prefill ?? defaultSlot();
-				title = '';
+				title = prefillExtras?.title ?? '';
 				allDay = base.allDay;
 				startDate = dayKey(base.start);
 				startTime = minutesToTime(base.start);
 				endDate = base.allDay ? dayKey(addDays(base.end, -1)) : dayKey(base.end);
 				endTime = minutesToTime(base.end);
 				calendarId = calendars.find((c) => c.isDefault)?.id ?? calendars[0]?.id ?? '';
-				location = '';
-				description = '';
+				location = prefillExtras?.location ?? '';
+				description = prefillExtras?.description ?? '';
 				alarms = [10];
 				attendees = [];
 				recurrence = 'none';
