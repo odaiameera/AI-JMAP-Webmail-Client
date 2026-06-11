@@ -50,6 +50,7 @@
 
 	let saving = $state(false);
 	let deployError = $state('');
+	let deployWarning = $state('');
 	let savedToast = $state(false);
 
 	async function persistAll(): Promise<boolean> {
@@ -67,10 +68,13 @@
 				body: JSON.stringify({ rules: localRules })
 			});
 			const deployData = await deployRes.json();
-			if (deployData.error) {
-				deployError = deployData.error;
-				return false;
-			}
+			// Sieve deploy is best-effort: rules are stored server-side and
+			// applied by the app engine either way. A deploy failure (e.g.
+			// Sieve unsupported/disabled on the mail server) must not block
+			// saving or applying — surface it as a warning instead.
+			deployWarning = deployData.error
+				? `Rules saved. Delivery-time (Sieve) deploy failed: ${deployData.error} — rules still run through the app's own engine.`
+				: '';
 			await invalidateAll();
 			return true;
 		} catch (err) {
@@ -353,6 +357,9 @@
 		</button>
 	</header>
 
+	{#if deployWarning}
+		<div class="mx-6 mt-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs">{deployWarning}</div>
+	{/if}
 	{#if deployError}
 		<div class="mx-6 mt-3 px-3 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs">{deployError}</div>
 	{/if}

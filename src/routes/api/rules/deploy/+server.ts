@@ -5,7 +5,6 @@ import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { Rule } from '$lib/types/rules';
 
-const JMAP_BASE = 'https://mx.odaiameera.com/jmap/';
 const JMAP_USING = ['urn:ietf:params:jmap:core', 'urn:ietf:params:jmap:sieve'];
 
 interface SieveScriptEntry {
@@ -18,10 +17,11 @@ interface JMAPMethodResponse {
 }
 
 async function jmapRequest(
+	apiUrl: string,
 	authHeader: string,
 	methodCalls: unknown[]
 ): Promise<JMAPMethodResponse> {
-	const res = await fetch(JMAP_BASE, {
+	const res = await fetch(apiUrl, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -37,7 +37,9 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
 
 	const { rules } = await request.json() as { rules: Rule[] };
-	const { authHeader, accountId } = locals.auth;
+	// The session's own JMAP base — never a hardcoded host, so deploys work
+	// on any Stalwart deployment.
+	const { authHeader, accountId, apiUrl } = locals.auth;
 
 	// Sieve needs to resolve applyLabel/moveToFolder action values (mailbox
 	// ids, or legacy names for older rules) to IMAP mailbox names —
@@ -59,7 +61,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	try {
 		// Step 1: Upload script as blob
 		const uploadRes = await fetch(
-			`${JMAP_BASE}upload/${accountId}/`,
+			`${apiUrl}upload/${accountId}/`,
 			{
 				method: 'POST',
 				headers: {
@@ -78,7 +80,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 		const { blobId } = await uploadRes.json() as { blobId: string };
 
 		// Step 2: Check if mailrules script already exists
-		const getRes = await jmapRequest(authHeader, [
+		const getRes = await jmapRequest(apiUrl, authHeader, [
 			['SieveScript/get', { accountId, ids: null }, '0']
 		]);
 
@@ -101,7 +103,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 			}, '0']];
 		}
 
-		const setRes = await jmapRequest(authHeader, methodCalls);
+		const setRes = await jmapRequest(apiUrl, authHeader, methodCalls);
 		const result = setRes.methodResponses[0][1] as {
 			created?: Record<string, unknown>;
 			updated?: Record<string, unknown>;

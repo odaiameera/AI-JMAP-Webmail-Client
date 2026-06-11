@@ -4,7 +4,13 @@ import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { AuthState, Email } from '$lib/jmap/types';
 import { getRules, getRulesCursor, setRulesCursor } from './db/queries/rules';
-import { evaluateRulesForEmail, extractBodyText, rulesNeedBody, type RuleActionCtx } from './rules-engine';
+import {
+	evaluateRulesForEmail,
+	extractBodyText,
+	outcomeToUpdate,
+	rulesNeedBody,
+	type RuleActionCtx
+} from './rules-engine';
 
 /**
  * Server-side rule application. Stalwart on this deployment does not run
@@ -114,8 +120,9 @@ async function runApply(auth: AuthState, userEmail: string): Promise<void> {
 	const update: Record<string, Record<string, unknown>> = {};
 	for (const email of emails) {
 		const bodyText = needBody ? extractBodyText(email) : '';
-		const patch = evaluateRulesForEmail(email, enabled, ctx, bodyText);
-		if (Object.keys(patch).length > 0) update[email.id] = patch;
+		const outcome = evaluateRulesForEmail(email, enabled, ctx, bodyText);
+		const emailUpdate = outcomeToUpdate(email, outcome);
+		if (Object.keys(emailUpdate).length > 0) update[email.id] = emailUpdate;
 	}
 
 	const entries = Object.entries(update);
@@ -123,15 +130,19 @@ async function runApply(auth: AuthState, userEmail: string): Promise<void> {
 		const chunk = Object.fromEntries(entries.slice(i, i + BATCH));
 		const res = await client.request([['Email/set', { accountId, update: chunk }, '0']]);
 		const result = res.methodResponses[0][1] as {
-			notUpdated?: Record<string, { type?: string; description?: string }> | null;
+			notUpdated?: Record<
+				string,
+				{ type?: string; description?: string; properties?: string[] }
+			> | null;
 		};
 		const rejected = Object.entries(result.notUpdated ?? {});
 		if (rejected.length > 0) {
 			// Surface rejections in the server log — they were previously
 			// swallowed, making rules look applied while nothing moved.
 			const [id, err] = rejected[0];
+			const where = err.properties?.length ? ` (${err.properties.join(', ')})` : '';
 			console.warn(
-				`[rules] ${userEmail}: server rejected ${rejected.length}/${entries.length} update(s); first: ${id} → ${err.description ?? err.type ?? 'unknown'}`
+				`[rules] ${userEmail}: server rejected ${rejected.length}/${entries.length} update(s); first: ${id} → ${err.description ?? err.type ?? 'unknown'}${where}`
 			);
 		}
 	}

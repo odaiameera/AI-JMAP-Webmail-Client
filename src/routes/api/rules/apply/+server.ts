@@ -2,76 +2,29 @@ import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import { buildJmapFilter } from '$lib/server/rules';
-import type { Rule, RuleAction } from '$lib/types/rules';
+import {
+	applyActionsToOutcome,
+	emptyOutcome,
+	outcomeToUpdate,
+	type RuleActionCtx
+} from '$lib/server/rules-engine';
+import type { Rule } from '$lib/types/rules';
 import type { Email } from '$lib/jmap/types';
 
 const PAGE = 200;
 const BATCH = 50;
 
-interface ActionCtx {
-	inboxId?: string;
-	trashId?: string;
-}
-
 /**
- * Translate a single rule's actions into a JMAP Email/set update patch for
- * one email. Keep the email in its source folder by default — only
- * `moveToFolder` and `delete` detach from the inbox.
- *
- * `applyLabel` ADDS the label mailbox to `mailboxIds` (multi-mailbox
- * membership is exactly the model Phase 1 established) — it does NOT
- * overwrite, which would remove the email from the inbox.
+ * One email's JMAP update for a single rule. Matching already happened
+ * server-side (Email/query pre-filtered), so only the actions run here.
+ * The wire format comes from the shared engine — full `mailboxIds`
+ * objects, never id pointer patches (see outcomeToUpdate for the Stalwart
+ * digit-id story).
  */
-function buildUpdates(email: Email, rule: Rule, ctx: ActionCtx): Record<string, unknown> {
-	const patch: Record<string, unknown> = {};
-
-	for (const action of rule.actions) {
-		applyAction(patch, email, action, ctx);
-	}
-	return patch;
-}
-
-function applyAction(
-	patch: Record<string, unknown>,
-	email: Email,
-	action: RuleAction,
-	ctx: ActionCtx
-): void {
-	switch (action.type) {
-		case 'applyLabel':
-			if (action.value && !email.mailboxIds[action.value]) {
-				patch[`mailboxIds/${action.value}`] = true;
-			}
-			break;
-		case 'markRead':
-			if (!email.keywords['$seen']) patch['keywords/$seen'] = true;
-			break;
-		case 'markImportant':
-			if (!email.keywords['$flagged']) patch['keywords/$flagged'] = true;
-			break;
-		case 'moveToFolder':
-			if (action.value) {
-				patch[`mailboxIds/${action.value}`] = true;
-				// Rule-context "move" only detaches from the inbox for safety —
-				// Phase 4's doc spells this out: moving from arbitrary folders
-				// via a rule isn't supported yet.
-				if (ctx.inboxId && email.mailboxIds[ctx.inboxId] && action.value !== ctx.inboxId) {
-					patch[`mailboxIds/${ctx.inboxId}`] = null;
-				}
-			}
-			break;
-		case 'delete':
-			if (ctx.trashId) {
-				patch[`mailboxIds/${ctx.trashId}`] = true;
-				if (ctx.inboxId && email.mailboxIds[ctx.inboxId]) {
-					patch[`mailboxIds/${ctx.inboxId}`] = null;
-				}
-			}
-			break;
-		case 'stopProcessing':
-			// Handled by the caller (skips subsequent rules).
-			break;
-	}
+function buildUpdates(email: Email, rule: Rule, ctx: RuleActionCtx): Record<string, unknown> {
+	const outcome = emptyOutcome();
+	applyActionsToOutcome(email, rule.actions, ctx, outcome);
+	return outcomeToUpdate(email, outcome);
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -109,15 +62,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 
 				const mailboxes = await getMailboxes(client, accountId);
-				const ctx: ActionCtx = {
+				const validIds = new Set(mailboxes.map((m) => m.id));
+				const ctx: RuleActionCtx = {
 					inboxId: mailboxes.find((m) => m.role === 'inbox')?.id,
-					trashId: mailboxes.find((m) => m.role === 'trash')?.id
+					trashId: mailboxes.find((m) => m.role === 'trash')?.id,
+					validMailboxIds: validIds
 				};
 
 				// Preflight: a rule whose label/folder target was deleted would
 				// "apply" as a stream of server-side rejections. Name the broken
 				// rule instead of pretending it ran.
-				const validIds = new Set(mailboxes.map((m) => m.id));
 				for (const rule of activeRules) {
 					const stale = rule.actions.find(
 						(a) =>
@@ -206,7 +160,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 							]);
 							const result = setRes.methodResponses[0][1] as {
 								updated?: Record<string, unknown> | null;
-								notUpdated?: Record<string, { type?: string; description?: string }> | null;
+								notUpdated?: Record<
+									string,
+									{ type?: string; description?: string; properties?: string[] }
+								> | null;
 							};
 							applied += Object.keys(result.updated ?? {}).length;
 							const rejected = Object.values(result.notUpdated ?? {});
@@ -214,7 +171,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 								failed += rejected.length;
 								if (!failedReason) {
 									const first = rejected[0];
-									failedReason = first.description ?? first.type ?? 'rejected by server';
+									const where = first.properties?.length
+										? ` (${first.properties.join(', ')})`
+										: '';
+									failedReason = `${first.description ?? first.type ?? 'rejected by server'}${where}`;
 								}
 							}
 						}

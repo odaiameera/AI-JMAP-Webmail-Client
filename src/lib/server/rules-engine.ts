@@ -105,59 +105,122 @@ function matchesRule(email: Email, rule: Rule, bodyText: string): boolean {
 }
 
 /**
- * Evaluate the (enabled, ordered) rules against one email and produce a single
- * JMAP Email/set patch. Actions are idempotent — they only set what isn't
- * already true — so re-running over the same email is harmless. Honors
- * `stopProcessing`.
+ * Semantic result of running rule actions over one email — what to add,
+ * remove, and which keywords to flip. Converted to a JMAP update by
+ * {@link outcomeToUpdate}; keeping this layer semantic (not raw patches)
+ * lets the writer choose a wire format every Stalwart version accepts.
+ */
+export interface RuleOutcome {
+	addMailboxIds: Set<string>;
+	removeMailboxIds: Set<string>;
+	keywords: Record<string, boolean>;
+}
+
+export function emptyOutcome(): RuleOutcome {
+	return { addMailboxIds: new Set(), removeMailboxIds: new Set(), keywords: {} };
+}
+
+/**
+ * Fold one rule's actions into an outcome. Used directly by the manual
+ * apply endpoint (which pre-matches emails via Email/query) and via
+ * {@link evaluateRulesForEmail} by the scheduler.
+ */
+export function applyActionsToOutcome(
+	email: Email,
+	actions: Rule['actions'],
+	ctx: RuleActionCtx,
+	outcome: RuleOutcome
+): { stop: boolean } {
+	let stop = false;
+	for (const action of actions) {
+		switch (action.type) {
+			case 'applyLabel':
+				if (action.value && targetExists(ctx, action.value)) {
+					outcome.addMailboxIds.add(action.value);
+				}
+				break;
+			case 'markRead':
+				outcome.keywords['$seen'] = true;
+				break;
+			case 'markImportant':
+				outcome.keywords['$flagged'] = true;
+				break;
+			case 'moveToFolder':
+				if (action.value && targetExists(ctx, action.value)) {
+					outcome.addMailboxIds.add(action.value);
+					if (ctx.inboxId && action.value !== ctx.inboxId) {
+						outcome.removeMailboxIds.add(ctx.inboxId);
+					}
+				}
+				break;
+			case 'delete':
+				if (ctx.trashId) {
+					outcome.addMailboxIds.add(ctx.trashId);
+					if (ctx.inboxId) outcome.removeMailboxIds.add(ctx.inboxId);
+				}
+				break;
+			case 'stopProcessing':
+				stop = true;
+				break;
+		}
+	}
+	return { stop };
+}
+
+/**
+ * Evaluate the (enabled, ordered) rules against one email. Honors
+ * `stopProcessing`. The outcome is idempotent by construction — converting
+ * it with {@link outcomeToUpdate} only writes real differences.
  */
 export function evaluateRulesForEmail(
 	email: Email,
 	enabledRules: Rule[],
 	ctx: RuleActionCtx,
 	bodyText: string
-): Record<string, unknown> {
-	const patch: Record<string, unknown> = {};
-
+): RuleOutcome {
+	const outcome = emptyOutcome();
 	for (const rule of enabledRules) {
 		if (!matchesRule(email, rule, bodyText)) continue;
+		if (applyActionsToOutcome(email, rule.actions, ctx, outcome).stop) break;
+	}
+	return outcome;
+}
 
-		let stop = false;
-		for (const action of rule.actions) {
-			switch (action.type) {
-				case 'applyLabel':
-					if (action.value && targetExists(ctx, action.value) && !email.mailboxIds[action.value]) {
-						patch[`mailboxIds/${action.value}`] = true;
-					}
-					break;
-				case 'markRead':
-					if (!email.keywords['$seen']) patch['keywords/$seen'] = true;
-					break;
-				case 'markImportant':
-					if (!email.keywords['$flagged']) patch['keywords/$flagged'] = true;
-					break;
-				case 'moveToFolder':
-					if (action.value && targetExists(ctx, action.value)) {
-						patch[`mailboxIds/${action.value}`] = true;
-						if (ctx.inboxId && email.mailboxIds[ctx.inboxId] && action.value !== ctx.inboxId) {
-							patch[`mailboxIds/${ctx.inboxId}`] = null;
-						}
-					}
-					break;
-				case 'delete':
-					if (ctx.trashId) {
-						patch[`mailboxIds/${ctx.trashId}`] = true;
-						if (ctx.inboxId && email.mailboxIds[ctx.inboxId]) {
-							patch[`mailboxIds/${ctx.inboxId}`] = null;
-						}
-					}
-					break;
-				case 'stopProcessing':
-					stop = true;
-					break;
-			}
-		}
-		if (stop) break;
+/**
+ * Turn an outcome into a JMAP Email/set update object.
+ *
+ * Mailbox membership is written as the **full `mailboxIds` object**, never
+ * `mailboxIds/<id>` pointer patches: Stalwart v0.15.0–v0.16.7 (jmap-tools
+ * ≤ 0.1.4) tokenizes all-digit pointer segments as array indices and
+ * rejects the whole update with "Invalid patch value" — and Stalwart's id
+ * alphabet produces all-digit mailbox ids ("9", "92", …) for folders
+ * created late enough. This was the root cause of rules reporting success
+ * while folders stayed empty. Keywords keep the pointer form: `$`-prefixed
+ * names always tokenize as strings, which every version parses correctly.
+ *
+ * Returns `{}` when the email already satisfies the outcome.
+ */
+export function outcomeToUpdate(email: Email, outcome: RuleOutcome): Record<string, unknown> {
+	const update: Record<string, unknown> = {};
+
+	if (outcome.addMailboxIds.size > 0 || outcome.removeMailboxIds.size > 0) {
+		const next: Record<string, boolean> = { ...email.mailboxIds };
+		for (const id of outcome.removeMailboxIds) delete next[id];
+		for (const id of outcome.addMailboxIds) next[id] = true;
+		// JMAP requires ≥1 mailbox — never strand the message.
+		if (Object.keys(next).length === 0) Object.assign(next, email.mailboxIds);
+
+		const changed =
+			Object.keys(next).length !== Object.keys(email.mailboxIds).length ||
+			Object.keys(next).some((k) => !email.mailboxIds[k]);
+		if (changed) update.mailboxIds = next;
 	}
 
-	return patch;
+	for (const [keyword, on] of Object.entries(outcome.keywords)) {
+		if (!!email.keywords[keyword] !== on) {
+			update[`keywords/${keyword}`] = on;
+		}
+	}
+
+	return update;
 }

@@ -1,5 +1,6 @@
 import type { JMAPClient } from './client';
 import type { Mailbox } from './types';
+import { updateEmailMailboxes } from './email';
 import { LABELS_PARENT_NAME, findLabelsParentId } from '$lib/types/labels';
 
 export type CreateLabelResult = { id: string } | { error: string };
@@ -174,25 +175,21 @@ export async function deleteLabelMailbox(
 	return { success: true, id };
 }
 
-/** Add `labelMailboxId` to the email's mailboxIds (multi-mailbox membership). */
+/**
+ * Add `labelMailboxId` to the email's mailboxIds (multi-mailbox membership).
+ * Goes through the full-object write path — label mailboxes are created
+ * late, so they're prime candidates for the all-digit ids that Stalwart's
+ * pointer parser (jmap-tools ≤ 0.1.4) rejects.
+ */
 export async function applyLabel(
 	client: JMAPClient,
 	accountId: string,
 	emailId: string,
 	labelMailboxId: string
 ): Promise<void> {
-	await client.request([
-		[
-			'Email/set',
-			{
-				accountId,
-				update: {
-					[emailId]: { [`mailboxIds/${labelMailboxId}`]: true }
-				}
-			},
-			'0'
-		]
-	]);
+	await updateEmailMailboxes(client, accountId, {
+		[emailId]: { add: [labelMailboxId] }
+	});
 }
 
 /** Remove `labelMailboxId` from the email's mailboxIds. */
@@ -202,16 +199,7 @@ export async function removeLabel(
 	emailId: string,
 	labelMailboxId: string
 ): Promise<void> {
-	await client.request([
-		[
-			'Email/set',
-			{
-				accountId,
-				update: {
-					[emailId]: { [`mailboxIds/${labelMailboxId}`]: null }
-				}
-			},
-			'0'
-		]
-	]);
+	await updateEmailMailboxes(client, accountId, {
+		[emailId]: { remove: [labelMailboxId] }
+	});
 }
