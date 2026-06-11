@@ -13,7 +13,9 @@ export async function authenticate(baseUrl: string, email: string, password: str
 	}
 
 	if (!response.ok) {
-		throw new JMAPAuthError(`Authentication failed: ${response.status}`);
+		// Not an auth problem — a 404 here means the URL doesn't point at a
+		// JMAP server. Keep it a plain Error so callers report it as such.
+		throw new Error(`Mail server responded ${response.status} at ${baseUrl}/jmap/session`);
 	}
 
 	const session: JMAPSession = await response.json();

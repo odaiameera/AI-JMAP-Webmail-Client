@@ -4,7 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { JMAPAuthError } from '$lib/jmap/client';
 import { createAppUser, hasAppUser } from '$lib/server/auth/user';
 import { createAppSession } from '$lib/server/auth/app-session';
-import { linkAccount } from '$lib/server/auth/accounts';
+import { describeLinkError, linkAccount, normalizeServerUrl } from '$lib/server/auth/accounts';
 import { DEFAULT_LABEL_COLOR } from '$lib/constants/colors';
 
 /**
@@ -72,7 +72,8 @@ export const actions: Actions = {
 		const email = data.get('email')?.toString().trim() ?? '';
 		const password = data.get('password')?.toString() ?? '';
 		const serverUrl =
-			data.get('serverUrl')?.toString().trim().replace(/\/+$/, '') || (env.JMAP_BASE_URL ?? '');
+			normalizeServerUrl(data.get('serverUrl')?.toString() ?? '') ||
+			normalizeServerUrl(env.JMAP_BASE_URL ?? '');
 		const color = data.get('color')?.toString() || DEFAULT_LABEL_COLOR.hex;
 
 		if (!email || !password) {
@@ -97,7 +98,8 @@ export const actions: Actions = {
 					linkStep: true
 				});
 			}
-			return fail(500, { error: 'Unable to reach the mail server', email, linkStep: true });
+			console.error('[setup] linking mail account failed:', err);
+			return fail(500, { error: describeLinkError(err, serverUrl), email, linkStep: true });
 		}
 
 		cookies.set('active_account', account.id, {

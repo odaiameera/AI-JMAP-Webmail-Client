@@ -8,6 +8,7 @@ import { startRulesScheduler, applyRulesForUserSafe } from '$lib/server/rules-sc
 import { getAppSession } from '$lib/server/auth/app-session';
 import { getUserById, hasAppUser } from '$lib/server/auth/user';
 import { authStateForAccount, listAccounts, toPublic } from '$lib/server/auth/accounts';
+import { assertCryptoReady } from '$lib/server/auth/crypto';
 
 // Run pending DB migrations once per process lifetime — better-sqlite3 is
 // synchronous so no promise-caching is required. Silent by design (the
@@ -15,6 +16,9 @@ import { authStateForAccount, listAccounts, toPublic } from '$lib/server/auth/ac
 // query errors rather than hot-path noise.
 let migrated = false;
 let setupDone = false;
+
+// undefined = not yet checked, null = ok, string = the operator-facing error.
+let secretError: string | null | undefined;
 
 // Throttle on-demand reminder checks so we don't hit SQLite on every
 // static asset request. Map is process-local; cron handles cross-process
@@ -28,6 +32,23 @@ const lastRulesRun = new Map<string, number>();
 const RULES_RUN_INTERVAL_MS = 20 * 1000;
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// Fail fast on a missing/short WEBMAIL_SECRET: without it linked-account
+	// passwords can't be encrypted or decrypted, and the breakage would
+	// otherwise surface mid-flow as misleading "can't reach the mail server"
+	// errors. One loud, precise error beats a half-working app.
+	if (secretError === undefined) {
+		try {
+			assertCryptoReady();
+			secretError = null;
+		} catch (err) {
+			secretError = err instanceof Error ? err.message : String(err);
+			console.error(`[config] ${secretError}`);
+		}
+	}
+	if (secretError) {
+		return new Response(secretError, { status: 500 });
+	}
+
 	if (!migrated) {
 		runMigrations();
 		startReminderScheduler();

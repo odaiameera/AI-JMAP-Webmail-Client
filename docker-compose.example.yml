@@ -7,6 +7,9 @@ services:
       - "127.0.0.1:3001:3001"
     environment:
       - PORT=3001
+      # Public URL the app is served from — required for form posts
+      # (SvelteKit CSRF protection) when running behind a reverse proxy.
+      - ORIGIN=https://webmail.odaiameera.com
       # Default mail server new accounts link against (your Stalwart base URL).
       - JMAP_BASE_URL=https://mx.odaiameera.com
       - DATABASE_PATH=/data/ameera.db

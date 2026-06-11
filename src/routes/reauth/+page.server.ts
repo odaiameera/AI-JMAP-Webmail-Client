@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { JMAPAuthError } from '$lib/jmap/client';
-import { getAccount, reauthAccount } from '$lib/server/auth/accounts';
+import { describeLinkError, getAccount, reauthAccount } from '$lib/server/auth/accounts';
 
 /**
  * Standalone page (outside the (app) layout, which needs working JMAP
@@ -52,7 +52,8 @@ export const actions: Actions = {
 			if (err instanceof JMAPAuthError) {
 				return fail(401, { error: 'The mail server rejected that password' });
 			}
-			return fail(500, { error: 'Unable to reach the mail server' });
+			console.error('[reauth] verification failed:', err);
+			return fail(500, { error: describeLinkError(err, account.server_url) });
 		}
 		redirect(303, '/inbox');
 	}

@@ -2,7 +2,13 @@ import { error, json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { JMAPAuthError } from '$lib/jmap/client';
-import { linkAccount, listAccounts, toPublic } from '$lib/server/auth/accounts';
+import {
+	describeLinkError,
+	linkAccount,
+	listAccounts,
+	normalizeServerUrl,
+	toPublic
+} from '$lib/server/auth/accounts';
 import { DEFAULT_LABEL_COLOR } from '$lib/constants/colors';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -27,8 +33,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// Default server: explicit > env > wherever the existing accounts live.
 	const serverUrl =
-		body.serverUrl?.trim().replace(/\/+$/, '') ||
-		env.JMAP_BASE_URL ||
+		normalizeServerUrl(body.serverUrl ?? '') ||
+		normalizeServerUrl(env.JMAP_BASE_URL ?? '') ||
 		listAccounts(locals.user.id)[0]?.server_url;
 	if (!serverUrl) error(400, 'No mail server configured');
 
@@ -46,6 +52,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (err instanceof JMAPAuthError) {
 			error(401, 'The mail server rejected those credentials');
 		}
-		error(502, 'Unable to reach the mail server');
+		console.error('[accounts] linking mail account failed:', err);
+		error(502, describeLinkError(err, serverUrl));
 	}
 };

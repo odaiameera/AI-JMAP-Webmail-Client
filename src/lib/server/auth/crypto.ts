@@ -24,6 +24,15 @@ function key(): Buffer {
 	return cachedKey;
 }
 
+/**
+ * Validate WEBMAIL_SECRET (and pre-derive the key) so a misconfigured
+ * deployment fails at boot with the message above, instead of surfacing
+ * mid-flow as a confusing "can't reach the mail server" error.
+ */
+export function assertCryptoReady(): void {
+	key();
+}
+
 export function encryptSecret(plaintext: string): string {
 	const iv = randomBytes(12);
 	const cipher = createCipheriv('aes-256-gcm', key(), iv);

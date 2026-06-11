@@ -65,6 +65,29 @@ function stmts() {
 	return (_stmts ??= prepareStmts());
 }
 
+/** Trim trailing slashes; default the scheme to https when omitted. */
+export function normalizeServerUrl(input: string): string {
+	let url = input.trim().replace(/\/+$/, '');
+	if (url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `https://${url}`;
+	return url;
+}
+
+/**
+ * Operator-actionable description of a non-auth linking failure. Node's
+ * fetch wraps the interesting part (DNS, refused connection, TLS) in
+ * `cause`; configuration errors carry their own clear message.
+ */
+export function describeLinkError(err: unknown, serverUrl: string): string {
+	const message = err instanceof Error ? err.message : String(err);
+	if (message.includes('WEBMAIL_SECRET')) return message;
+	const cause = (err as { cause?: unknown }).cause;
+	const causeMsg =
+		cause instanceof Error
+			? cause.message || (cause as NodeJS.ErrnoException).code
+			: undefined;
+	return `Unable to reach the mail server at ${serverUrl} (${causeMsg ?? message})`;
+}
+
 export function toPublic(row: MailAccountRow): MailAccountPublic {
 	return {
 		id: row.id,
