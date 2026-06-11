@@ -4,6 +4,16 @@ import type { Rule, RuleCondition } from '$lib/types/rules';
 export interface RuleActionCtx {
 	inboxId?: string;
 	trashId?: string;
+	/**
+	 * Live mailbox ids. When provided, label/folder actions whose target no
+	 * longer exists are skipped — Stalwart rejects patches referencing dead
+	 * mailbox ids and the whole update for that email silently fails.
+	 */
+	validMailboxIds?: Set<string>;
+}
+
+function targetExists(ctx: RuleActionCtx, id: string): boolean {
+	return !ctx.validMailboxIds || ctx.validMailboxIds.has(id);
 }
 
 /**
@@ -115,7 +125,7 @@ export function evaluateRulesForEmail(
 		for (const action of rule.actions) {
 			switch (action.type) {
 				case 'applyLabel':
-					if (action.value && !email.mailboxIds[action.value]) {
+					if (action.value && targetExists(ctx, action.value) && !email.mailboxIds[action.value]) {
 						patch[`mailboxIds/${action.value}`] = true;
 					}
 					break;
@@ -126,7 +136,7 @@ export function evaluateRulesForEmail(
 					if (!email.keywords['$flagged']) patch['keywords/$flagged'] = true;
 					break;
 				case 'moveToFolder':
-					if (action.value) {
+					if (action.value && targetExists(ctx, action.value)) {
 						patch[`mailboxIds/${action.value}`] = true;
 						if (ctx.inboxId && email.mailboxIds[ctx.inboxId] && action.value !== ctx.inboxId) {
 							patch[`mailboxIds/${ctx.inboxId}`] = null;

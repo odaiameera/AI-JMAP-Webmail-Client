@@ -27,6 +27,25 @@
 	);
 	const labelOptions = $derived(data.labels);
 
+	/**
+	 * A saved action can point at a folder/label that was deleted after the
+	 * rule was created — the select then renders blank and applying the rule
+	 * silently does nothing server-side. Flag it loudly instead.
+	 */
+	function isStaleTarget(action: { type: string; value?: string }): boolean {
+		if (!action.value) return false;
+		if (action.type === 'applyLabel') {
+			return !labelOptions.some((l) => l.id === action.value);
+		}
+		if (action.type === 'moveToFolder') {
+			return (
+				!folderOptions.some((m) => m.id === action.value) &&
+				!systemFolderOptions.some((m) => m.id === action.value)
+			);
+		}
+		return false;
+	}
+
 	// --- Save / deploy ---
 
 	let saving = $state(false);
@@ -263,12 +282,17 @@
 				total: (data.total as number) ?? progress.total
 			};
 		} else if (data.type === 'done') {
+			const failed = (data.failed as number) ?? 0;
 			progress = {
 				...progress,
 				scanned: (data.scanned as number) ?? progress.scanned,
 				matched: (data.matched as number) ?? progress.matched,
 				applied: (data.applied as number) ?? progress.applied,
-				status: 'done'
+				status: failed > 0 ? 'error' : 'done',
+				error:
+					failed > 0
+						? `The mail server rejected ${failed} update${failed === 1 ? '' : 's'}${data.failedReason ? ` — ${data.failedReason}` : ''}.`
+						: undefined
 			};
 		} else if (data.type === 'error') {
 			progress = { ...progress, status: 'error', error: (data.message as string) ?? 'Error' };
@@ -495,6 +519,11 @@
 											</optgroup>
 										{/if}
 									</select>
+								{/if}
+								{#if isStaleTarget(action)}
+									<span class="w-full text-[11px] text-warning">
+										⚠ The {action.type === 'moveToFolder' ? 'folder' : 'label'} this rule pointed at no longer exists — pick a new one and save, or the rule will do nothing.
+									</span>
 								{/if}
 								<button
 									onclick={() => removeAction(idx)}
