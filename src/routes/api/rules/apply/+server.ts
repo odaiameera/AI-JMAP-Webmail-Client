@@ -98,11 +98,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			let scanned = 0;
 			let matched = 0;
 			let applied = 0;
+			let failed = 0;
+			let failedReason = '';
 			let total = 0;
 
 			try {
 				if (activeRules.length === 0) {
-					send({ type: 'done', scanned: 0, matched: 0, applied: 0 });
+					send({ type: 'done', scanned: 0, matched: 0, applied: 0, failed: 0 });
 					return;
 				}
 
@@ -111,6 +113,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					inboxId: mailboxes.find((m) => m.role === 'inbox')?.id,
 					trashId: mailboxes.find((m) => m.role === 'trash')?.id
 				};
+
+				// Preflight: a rule whose label/folder target was deleted would
+				// "apply" as a stream of server-side rejections. Name the broken
+				// rule instead of pretending it ran.
+				const validIds = new Set(mailboxes.map((m) => m.id));
+				for (const rule of activeRules) {
+					const stale = rule.actions.find(
+						(a) =>
+							(a.type === 'moveToFolder' || a.type === 'applyLabel') &&
+							a.value &&
+							!validIds.has(a.value)
+					);
+					if (stale) {
+						send({
+							type: 'error',
+							message: `Rule "${rule.name}" targets a ${stale.type === 'moveToFolder' ? 'folder' : 'label'} that no longer exists. Open the rule and pick the target again.`
+						});
+						return;
+					}
+					const unset = rule.actions.find(
+						(a) => (a.type === 'moveToFolder' || a.type === 'applyLabel') && !a.value
+					);
+					if (unset) {
+						send({
+							type: 'error',
+							message: `Rule "${rule.name}" has a ${unset.type === 'moveToFolder' ? '"move to folder"' : '"apply label"'} action with no target selected.`
+						});
+						return;
+					}
+				}
 
 				// Estimate total up-front so the UI can render a progress bar.
 				for (const rule of activeRules) {
@@ -162,24 +194,39 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						scanned += emails.length;
 						matched += emails.length; // pre-filtered, so every row matched
 
-						// Send updates in JMAP-safe chunks.
+						// Send updates in JMAP-safe chunks. Count what the server
+						// actually accepted — `notUpdated` rejections used to be
+						// dropped on the floor, reporting success while folders
+						// stayed empty.
 						const entries = Object.entries(patches);
 						for (let i = 0; i < entries.length; i += BATCH) {
 							const chunk = Object.fromEntries(entries.slice(i, i + BATCH));
-							await client.request([
+							const setRes = await client.request([
 								['Email/set', { accountId, update: chunk }, '0']
 							]);
-							applied += Object.keys(chunk).length;
+							const result = setRes.methodResponses[0][1] as {
+								updated?: Record<string, unknown> | null;
+								notUpdated?: Record<string, { type?: string; description?: string }> | null;
+							};
+							applied += Object.keys(result.updated ?? {}).length;
+							const rejected = Object.values(result.notUpdated ?? {});
+							if (rejected.length > 0) {
+								failed += rejected.length;
+								if (!failedReason) {
+									const first = rejected[0];
+									failedReason = first.description ?? first.type ?? 'rejected by server';
+								}
+							}
 						}
 
-						send({ type: 'progress', scanned, matched, applied, total });
+						send({ type: 'progress', scanned, matched, applied, failed, total });
 
 						if (emails.length < PAGE) break;
 						position += emails.length;
 					}
 				}
 
-				send({ type: 'done', scanned, matched, applied });
+				send({ type: 'done', scanned, matched, applied, failed, failedReason });
 			} catch (err) {
 				send({
 					type: 'error',

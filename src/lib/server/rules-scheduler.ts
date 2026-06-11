@@ -75,7 +75,8 @@ async function runApply(auth: AuthState, userEmail: string): Promise<void> {
 	}
 	const ctx: RuleActionCtx = {
 		inboxId: inbox.id,
-		trashId: mailboxes.find((m) => m.role === 'trash')?.id
+		trashId: mailboxes.find((m) => m.role === 'trash')?.id,
+		validMailboxIds: new Set(mailboxes.map((m) => m.id))
 	};
 
 	const needBody = rulesNeedBody(enabled);
@@ -120,7 +121,19 @@ async function runApply(auth: AuthState, userEmail: string): Promise<void> {
 	const entries = Object.entries(update);
 	for (let i = 0; i < entries.length; i += BATCH) {
 		const chunk = Object.fromEntries(entries.slice(i, i + BATCH));
-		await client.request([['Email/set', { accountId, update: chunk }, '0']]);
+		const res = await client.request([['Email/set', { accountId, update: chunk }, '0']]);
+		const result = res.methodResponses[0][1] as {
+			notUpdated?: Record<string, { type?: string; description?: string }> | null;
+		};
+		const rejected = Object.entries(result.notUpdated ?? {});
+		if (rejected.length > 0) {
+			// Surface rejections in the server log — they were previously
+			// swallowed, making rules look applied while nothing moved.
+			const [id, err] = rejected[0];
+			console.warn(
+				`[rules] ${userEmail}: server rejected ${rejected.length}/${entries.length} update(s); first: ${id} → ${err.description ?? err.type ?? 'unknown'}`
+			);
+		}
 	}
 
 	// If we filled a full page there may be more backlog; advance the cursor
