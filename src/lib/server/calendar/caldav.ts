@@ -61,9 +61,20 @@ export function davOrigin(auth: AuthState): string {
 	return auth.apiUrl.replace(/\/jmap\/?$/, '');
 }
 
+// Per-account calendar-home override, populated by discovery (RFC 6764) when
+// the constructed path doesn't answer. Keyed by email — accounts are unique
+// by email, and this stays a process-local cache (discovery is one cheap
+// PROPFIND on first calendar use, then free).
+const homeOverride = new Map<string, string>();
+
+/** The conventional Stalwart calendar home — the discovery fallback. */
+function constructedHome(userEmail: string): string {
+	return `/dav/cal/${encodeURIComponent(userEmail)}/`;
+}
+
 /** Calendar home collection for the account, server-relative. */
 export function calendarHomeHref(userEmail: string): string {
-	return `/dav/cal/${encodeURIComponent(userEmail)}/`;
+	return homeOverride.get(userEmail) ?? constructedHome(userEmail);
 }
 
 export function calendarHref(userEmail: string, calendarId: string): string {
@@ -147,6 +158,100 @@ export function hrefsEqual(a: string, b: string): boolean {
 		}
 	};
 	return norm(a) === norm(b);
+}
+
+/** Pull a single `<d:href>` out of a parsed prop value, array-tolerant. */
+function hrefFromProp(value: unknown): string | null {
+	if (!value || typeof value !== 'object') return null;
+	const href = (value as Record<string, unknown>).href;
+	if (typeof href === 'string') return href;
+	if (Array.isArray(href) && typeof href[0] === 'string') return href[0];
+	return null;
+}
+
+async function propfindResponses(
+	auth: AuthState,
+	href: string,
+	innerProps: string
+): Promise<ParsedResponse[]> {
+	const body = `<?xml version="1.0" encoding="utf-8"?>
+<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <d:prop>${innerProps}</d:prop>
+</d:propfind>`;
+	const res = await davRequest(auth, 'PROPFIND', href, {
+		body,
+		headers: { Depth: '0', 'Content-Type': 'application/xml; charset=utf-8' }
+	});
+	if (!res.ok && res.status !== 207) {
+		throw new CalDAVError(`PROPFIND ${href} failed: ${res.status}`, res.status);
+	}
+	return parseMultistatus(await res.text()).responses;
+}
+
+/**
+ * RFC 6764 calendar-home discovery: current-user-principal → calendar-home-set.
+ * Best-effort; returns null on any hiccup so the caller keeps the constructed
+ * path. Tries the DAV root, the well-known alias, then the server root.
+ */
+async function discoverCalendarHome(auth: AuthState): Promise<string | null> {
+	let principal: string | null = null;
+	for (const start of ['/dav/', '/.well-known/caldav', '/']) {
+		try {
+			for (const r of await propfindResponses(auth, start, '<d:current-user-principal/>')) {
+				const h = hrefFromProp(r.props['current-user-principal']);
+				if (h) {
+					principal = h;
+					break;
+				}
+			}
+		} catch {
+			// try the next candidate root
+		}
+		if (principal) break;
+	}
+	if (!principal) return null;
+
+	try {
+		for (const r of await propfindResponses(auth, principal, '<c:calendar-home-set/>')) {
+			const h = hrefFromProp(r.props['calendar-home-set']);
+			if (h) return h.endsWith('/') ? h : `${h}/`;
+		}
+	} catch {
+		// fall through to null
+	}
+	return null;
+}
+
+/**
+ * Resolve (and cache) the account's calendar home. The constructed Stalwart
+ * path is probed first; only if it doesn't answer as a collection do we fall
+ * back to RFC 6764 discovery. Working deployments keep their exact behavior
+ * (one extra depth-0 PROPFIND on first use); misconfigured principal paths —
+ * e.g. a login name that differs from the email — get a self-healing path.
+ */
+export async function resolveCalendarHome(auth: AuthState, userEmail: string): Promise<string> {
+	const cached = homeOverride.get(userEmail);
+	if (cached) return cached;
+
+	const constructed = constructedHome(userEmail);
+	try {
+		const res = await davRequest(auth, 'PROPFIND', constructed, {
+			body: `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>`,
+			headers: { Depth: '0', 'Content-Type': 'application/xml; charset=utf-8' }
+		});
+		if (res.status === 207) {
+			homeOverride.set(userEmail, constructed);
+			return constructed;
+		}
+		// 404/403 here = the conventional path isn't this server's home.
+	} catch {
+		// Network/parse trouble — discovery may still succeed.
+	}
+
+	const discovered = await discoverCalendarHome(auth);
+	const home = discovered ?? constructed;
+	homeOverride.set(userEmail, home);
+	return home;
 }
 
 export async function listCalendars(auth: AuthState, userEmail: string): Promise<DavCalendar[]> {

@@ -56,15 +56,18 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	let calendars: CalendarInfo[] = [];
 	let events: EventInstance[] = [];
 	let calendarError = false;
+	let calendarErrorDetail: string | undefined;
 	try {
 		const result = await getEventsInRange(locals.auth, userEmail, rangeStart, rangeEnd);
 		calendars = result.calendars;
 		events = result.events;
 		calendarError = result.partial;
+		calendarErrorDetail = result.errorDetail;
 	} catch (err) {
 		console.warn('[calendar] load failed', err);
 		calendarError = true;
+		calendarErrorDetail = err instanceof Error ? err.message : String(err);
 	}
 
-	return { calendars, events, view, date, weekStart, calendarError };
+	return { calendars, events, view, date, weekStart, calendarError, calendarErrorDetail };
 };

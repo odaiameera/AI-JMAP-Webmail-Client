@@ -336,6 +336,9 @@
 		{#if data.calendarError}
 			<div class="mx-4 mt-3 px-3 py-2 rounded-lg bg-danger/10 text-danger text-sm">
 				Couldn't reach the calendar server. Events may be out of date — try reloading.
+				{#if data.calendarErrorDetail}
+					<span class="block mt-1 text-xs text-danger/80 font-mono break-all">{data.calendarErrorDetail}</span>
+				{/if}
 			</div>
 		{/if}
 

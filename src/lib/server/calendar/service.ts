@@ -18,6 +18,7 @@ import {
 	listCalendars,
 	putObject,
 	queryEvents,
+	resolveCalendarHome,
 	syncCollection,
 	CalDAVError
 } from './caldav';
@@ -43,6 +44,9 @@ export async function listCalendarsWithMeta(
 	auth: AuthState,
 	userEmail: string
 ): Promise<CalendarInfo[]> {
+	// Resolve the calendar home once (cached) before any href is built, so a
+	// non-conventional principal path is healed for the whole request.
+	await resolveCalendarHome(auth, userEmail);
 	let calendars = await listCalendars(auth, userEmail);
 
 	// First visit on a fresh account: make sure at least one calendar exists.
@@ -84,6 +88,8 @@ export interface RangeResult {
 	 * error look like the user's events were deleted.
 	 */
 	partial: boolean;
+	/** First failure's reason (status/message), for the UI banner + logs. */
+	errorDetail?: string;
 }
 
 export async function getEventsInRange(
@@ -95,6 +101,7 @@ export async function getEventsInRange(
 	const calendars = await listCalendarsWithMeta(auth, userEmail);
 	const visible = calendars.filter((c) => !c.hidden);
 	let partial = false;
+	let errorDetail: string | undefined;
 
 	const perCalendar = await Promise.all(
 		visible.map(async (cal) => {
@@ -116,6 +123,7 @@ export async function getEventsInRange(
 			} catch (err) {
 				console.warn(`[calendar] query failed for ${cal.id}`, err);
 				partial = true;
+				errorDetail ??= err instanceof Error ? err.message : String(err);
 				return [] as EventInstance[];
 			}
 		})
@@ -127,7 +135,7 @@ export async function getEventsInRange(
 		if (a.start > b.start) return 1;
 		return Number(b.allDay) - Number(a.allDay);
 	});
-	return { calendars, events, partial };
+	return { calendars, events, partial, errorDetail };
 }
 
 function newObjectHref(userEmail: string, calendarId: string, uid: string): string {
@@ -140,6 +148,7 @@ export async function createEvent(
 	payload: EventWritePayload,
 	organizerName: string | null
 ): Promise<{ id: string }> {
+	await resolveCalendarHome(auth, userEmail);
 	const uid = randomUUID();
 	const data = payloadToData(payload, uid, {
 		organizer: payload.attendees?.length ? { email: userEmail, name: organizerName } : null
@@ -181,6 +190,7 @@ export async function updateEvent(
 	recurrenceId: string | null,
 	organizerName: string | null
 ): Promise<{ id: string }> {
+	await resolveCalendarHome(auth, userEmail);
 	const href = idToHref(id, userEmail);
 	if (!href) throw new CalDAVError('Unknown event', 404);
 	const currentCalendarId = calendarIdFromHref(href, userEmail);
@@ -302,6 +312,7 @@ export async function deleteEvent(
 	scope: EditScope,
 	recurrenceId: string | null
 ): Promise<void> {
+	await resolveCalendarHome(auth, userEmail);
 	const href = idToHref(id, userEmail);
 	if (!href) throw new CalDAVError('Unknown event', 404);
 
