@@ -1,5 +1,6 @@
 import cron from 'node-cron';
-import { listActiveAuthsByUser } from './session';
+import { listSchedulableAuths, markNeedsReauth } from './auth/accounts';
+import { JMAPAuthError } from '$lib/jmap/client';
 import { createClient } from '$lib/jmap/auth';
 import { ensureRemindMeLaterMailbox } from '$lib/jmap/mailbox';
 import {
@@ -12,10 +13,11 @@ import {
 import type { AuthState } from '$lib/jmap/types';
 
 /**
- * Fires every minute. Iterates the users who currently have a live
- * session in memory and processes any due reminders for each. Reminders
- * for users without an active session stay queued until the user logs
- * back in (there's no persisted credential store to impersonate them).
+ * Fires every minute. Iterates every linked mail account (credentials
+ * live encrypted in mail_accounts) and processes any due reminders for
+ * each — no live login required, and container restarts don't pause the
+ * queue. Accounts whose stored credentials the server rejects get
+ * flagged needs_reauth and skipped until re-linked.
  *
  * Running this every minute is enough for the product: the user either
  * has the tab open (SSE push picks up the moved email instantly) or is
@@ -29,14 +31,17 @@ export function startReminderScheduler(): void {
 	started = true;
 
 	cron.schedule('* * * * *', async () => {
-		const active = listActiveAuthsByUser();
-		for (const [userEmail, auth] of active) {
-			const due = listDueReminders(userEmail);
+		for (const { account, auth, email } of listSchedulableAuths()) {
+			const due = listDueReminders(email);
 			if (due.length === 0) continue;
 			for (const r of due) {
 				try {
-					await returnReminder(auth, userEmail, r);
+					await returnReminder(auth, email, r);
 				} catch (err) {
+					if (err instanceof JMAPAuthError) {
+						markNeedsReauth(account.id);
+						break;
+					}
 					// Leave the row; next tick will retry. One noisy log is
 					// better than a silent stall since this is a background
 					// job users can't see.

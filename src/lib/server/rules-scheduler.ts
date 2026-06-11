@@ -1,5 +1,6 @@
 import cron from 'node-cron';
-import { listActiveAuthsByUser } from './session';
+import { listSchedulableAuths, markNeedsReauth } from './auth/accounts';
+import { JMAPAuthError } from '$lib/jmap/client';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { AuthState, Email } from '$lib/jmap/types';
@@ -34,12 +35,15 @@ export function startRulesScheduler(): void {
 	started = true;
 
 	cron.schedule('* * * * *', async () => {
-		const active = listActiveAuthsByUser();
-		for (const [userEmail, auth] of active) {
+		for (const { account, auth, email } of listSchedulableAuths()) {
 			try {
-				await applyRulesForUser(auth, userEmail);
+				await applyRulesForUser(auth, email);
 			} catch (err) {
-				console.error('[rules] auto-apply failed', userEmail, err);
+				if (err instanceof JMAPAuthError) {
+					markNeedsReauth(account.id);
+					continue;
+				}
+				console.error('[rules] auto-apply failed', email, err);
 			}
 		}
 	});

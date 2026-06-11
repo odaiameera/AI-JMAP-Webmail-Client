@@ -40,3 +40,21 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## Configuration
+
+The webmail has its own login (master password + passkeys) and links one or
+more JMAP (Stalwart) mail accounts to it. On first run you'll be redirected
+to `/setup` to create the master login and link your first account.
+
+Environment variables:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `WEBMAIL_SECRET` | **yes** | Encrypts linked mail-account passwords at rest (AES-256-GCM). Generate with `openssl rand -base64 32`. Back it up — rotating it means re-entering every linked account's mail password. |
+| `JMAP_BASE_URL` | recommended | Default mail server base URL offered when linking accounts (e.g. `https://mx.example.com`). Can be overridden per account in the link form. |
+| `DATABASE_PATH` | no | SQLite path (defaults to `/data/ameera.db` in production, `local-data/ameera.db` in dev). |
+| `OLLAMA_URL` / `OLLAMA_API_KEY` / `OLLAMA_MODEL` | no | Enables AI "create event from email" extraction. |
+| `PLANE_BASE_URL` / `PLANE_API_KEY` / `PLANE_WORKSPACE_SLUG` | no | Enables the Plane apps integration. |
+
+See `docker-compose.example.yml` for a complete deployment example.

@@ -1,12 +1,44 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
+	import type { LinkedAccount } from '$lib/types/accounts';
 
-	let { displayName, email, onClose }: {
+	let { displayName, email, accounts = [], activeAccountId = null, accountUnread = {}, onClose }: {
 		displayName: string;
 		email: string;
+		accounts?: LinkedAccount[];
+		activeAccountId?: string | null;
+		accountUnread?: Record<string, number>;
 		onClose: () => void;
 	} = $props();
+
+	let switching = $state<string | null>(null);
+	const otherAccounts = $derived(accounts.filter((a) => a.id !== activeAccountId));
+
+	async function switchAccount(id: string) {
+		if (switching) return;
+		switching = id;
+		try {
+			const res = await fetch('/api/accounts/switch', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (res.ok) {
+				// Land on the inbox of the newly active account with fresh data.
+				await goto('/inbox', { invalidateAll: true });
+				onClose();
+			}
+		} finally {
+			switching = null;
+		}
+	}
+
+	async function manageAccounts() {
+		onClose();
+		await goto('/settings/accounts');
+	}
 
 	// Committed state (mirrors the store)
 	let committedUrl = $state<string | null>(null);
@@ -317,8 +349,56 @@
 
 	<div class="border-t border-border"></div>
 
+	<!-- Account switcher -->
+	{#if otherAccounts.length > 0}
+		<div class="p-2">
+			{#each otherAccounts as account (account.id)}
+				<button
+					type="button"
+					onclick={() => switchAccount(account.id)}
+					disabled={switching !== null}
+					class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary
+						hover:text-text hover:bg-surface-hover transition-colors cursor-pointer text-left
+						disabled:opacity-60 disabled:cursor-wait"
+				>
+					<span
+						class="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-[11px] font-semibold"
+						style="background-color: {account.color}"
+					>
+						{account.email[0]?.toUpperCase()}
+					</span>
+					<span class="flex-1 min-w-0">
+						<span class="block truncate">{account.displayName ?? account.email.split('@')[0]}</span>
+						<span class="block truncate text-xs text-text-tertiary">{account.email}</span>
+					</span>
+					{#if account.needsReauth}
+						<span class="text-[10px] text-danger shrink-0" title="Reconnect required">!</span>
+					{:else if accountUnread[account.id]}
+						<span class="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-accent/15 text-accent text-[11px] font-semibold flex items-center justify-center">
+							{accountUnread[account.id] > 99 ? '99+' : accountUnread[account.id]}
+						</span>
+					{/if}
+				</button>
+			{/each}
+		</div>
+		<div class="border-t border-border"></div>
+	{/if}
+
 	<!-- Actions -->
 	<div class="p-2">
+		<button
+			type="button"
+			onclick={manageAccounts}
+			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer text-left"
+		>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="9" cy="7" r="4"/>
+				<path d="M2 21v-2a4 4 0 014-4h6"/>
+				<line x1="19" y1="8" x2="19" y2="14"/>
+				<line x1="16" y1="11" x2="22" y2="11"/>
+			</svg>
+			Add or manage accounts
+		</button>
 		<form method="POST" action="/logout">
 			<button
 				type="submit"

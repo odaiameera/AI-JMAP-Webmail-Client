@@ -17,6 +17,7 @@ export interface SettingsNavItem {
 
 export const SETTINGS_NAV: SettingsNavItem[] = [
 	{ slug: 'account',            group: 'Account & Identity', label: 'Account' },
+	{ slug: 'accounts',           group: 'Account & Identity', label: 'Accounts' },
 	{ slug: 'signatures',         group: 'Account & Identity', label: 'Signatures' },
 	{ slug: 'security',           group: 'Account & Identity', label: 'Security' },
 

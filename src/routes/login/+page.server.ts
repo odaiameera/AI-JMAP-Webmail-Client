@@ -1,18 +1,17 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { authenticate } from '$lib/jmap/auth';
-import { JMAPAuthError } from '$lib/jmap/client';
-import { createSession } from '$lib/server/session';
-import { env } from '$env/dynamic/private';
+import { verifyUserPassword } from '$lib/server/auth/user';
+import { createAppSession } from '$lib/server/auth/app-session';
+import { isLockedOut, recordFailure, recordSuccess } from '$lib/server/auth/rate-limit';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.auth) {
+	if (locals.user) {
 		redirect(303, '/inbox');
 	}
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, cookies, getClientAddress }) => {
 		const data = await request.formData();
 		const email = data.get('email')?.toString() ?? '';
 		const password = data.get('password')?.toString() ?? '';
@@ -21,23 +20,30 @@ export const actions: Actions = {
 			return fail(400, { error: 'Email and password are required', email });
 		}
 
-		try {
-			const auth = await authenticate(env.JMAP_BASE_URL ?? 'https://mx.odaiameera.com', email, password);
-			const sessionId = createSession(auth);
-
-			cookies.set('session', sessionId, {
-				path: '/',
-				httpOnly: true,
-				secure: true,
-				sameSite: 'strict',
-				maxAge: 7 * 24 * 60 * 60
-			});
-		} catch (err) {
-			if (err instanceof JMAPAuthError) {
-				return fail(401, { error: 'Invalid email or password', email });
-			}
-			return fail(500, { error: 'Unable to connect to mail server', email });
+		const ip = getClientAddress();
+		if (isLockedOut(email, ip)) {
+			return fail(429, { error: 'Too many attempts. Try again in a few minutes.', email });
 		}
+
+		const user = verifyUserPassword(email, password);
+		if (!user) {
+			recordFailure(email, ip);
+			return fail(401, { error: 'Invalid email or password', email });
+		}
+
+		recordSuccess(email, ip);
+		const sessionId = createAppSession(
+			user.id,
+			request.headers.get('user-agent') ?? undefined,
+			ip
+		);
+		cookies.set('session', sessionId, {
+			path: '/',
+			httpOnly: true,
+			secure: true,
+			sameSite: 'strict',
+			maxAge: 30 * 24 * 60 * 60
+		});
 
 		redirect(303, '/inbox');
 	}

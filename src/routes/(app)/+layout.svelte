@@ -166,7 +166,8 @@
 <div
 	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
 	class:density-compact={data.density === 'compact'}
-	style="grid-template-columns: {sidebarWidth} 1fr auto; transition: grid-template-columns 0.2s ease;"
+	style="grid-template-columns: {sidebarWidth} 1fr auto; transition: grid-template-columns 0.2s ease;
+		{data.activeAccountColor ? `border-top: 2px solid ${data.activeAccountColor};` : ''}"
 >
 	<!-- Row 1: Full-width header -->
 	<div class="col-span-3 flex items-center h-14 pl-4 pr-0 gap-4">
@@ -183,8 +184,11 @@
 		<div class="w-[52px] shrink-0 flex items-center justify-center">
 			<button
 				onclick={(e) => { e.stopPropagation(); profileOpen = !profileOpen; }}
-				class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-semibold select-none shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/50 transition-shadow overflow-hidden"
-				title="Profile"
+				class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-semibold select-none shrink-0 cursor-pointer transition-shadow overflow-hidden"
+				style={data.activeAccountColor
+					? `background-color: ${data.activeAccountColor}; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px ${data.activeAccountColor};`
+					: ''}
+				title="Accounts — {data.userEmail}"
 			>
 				{#if $profilePhoto.url}
 					<img
@@ -227,6 +231,9 @@
 		<ProfileCard
 			displayName={data.displayName}
 			email={data.userEmail}
+			accounts={data.accounts ?? []}
+			activeAccountId={data.activeAccountId ?? null}
+			accountUnread={data.accountUnread ?? {}}
 			onClose={() => { profileOpen = false; }}
 		/>
 	</div>

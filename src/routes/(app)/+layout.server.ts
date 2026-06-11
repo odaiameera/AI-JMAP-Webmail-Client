@@ -5,27 +5,38 @@ import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import { getIdentities } from '$lib/jmap/identities';
 import { JMAPAuthError } from '$lib/jmap/client';
-import { deleteSession } from '$lib/server/session';
+import { listAccounts, markNeedsReauth } from '$lib/server/auth/accounts';
+import { unreadBadges } from '$lib/server/auth/unread-badges';
 import { listLabels, migrateKeywordLabelsIfNeeded } from '$lib/server/labels';
 import { syncIdentities } from '$lib/server/db/queries/identities';
 import { loadRules } from '$lib/server/rules-store';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
-	if (!locals.auth) {
+	if (!locals.user) {
 		redirect(303, '/login');
+	}
+	if (!locals.auth) {
+		// Logged into the webmail but no usable mail account: either none
+		// linked yet (finish setup) or the active one needs re-auth.
+		redirect(303, (locals.accounts?.length ?? 0) === 0 ? '/setup' : '/reauth');
 	}
 
 	try {
 		const client = createClient(locals.auth);
 		const mailboxes = await getMailboxes(client, locals.auth.accountId);
 
-		const decoded = Buffer.from(locals.auth.authHeader.replace('Basic ', ''), 'base64').toString();
-		const userEmail = decoded.split(':')[0];
+		const accounts = locals.accounts ?? [];
+		const activeAccount = accounts.find((a) => a.id === locals.activeAccountId);
+		const userEmail = activeAccount?.email ?? '';
 
 		const readingPane = cookies.get('reading_pane') ?? 'on';
 		const theme = cookies.get('theme') ?? 'dark';
 		const density = cookies.get('density') ?? 'comfortable';
-		const displayName = cookies.get('display_name') ?? 'Odai Ameera';
+		const displayName =
+			cookies.get('display_name') ??
+			activeAccount?.displayName ??
+			userEmail.split('@')[0] ??
+			'';
 
 		// One-shot migration from keyword-based labels to JMAP mailbox labels.
 		// Idempotent; the marker cookie makes subsequent loads a no-op.
@@ -82,10 +93,21 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const notifyCalendarEvents = cookies.get('notify_calendar_events') !== 'off';
 		const notifyEventReminders = cookies.get('notify_event_reminders') !== 'off';
 
+		// Inbox unread counts for the other accounts' switcher badges.
+		// Cached server-side (30s) so navigations stay cheap.
+		const accountUnread = await unreadBadges(
+			listAccounts(locals.user.id),
+			locals.activeAccountId
+		);
+
 		return {
 			mailboxes,
 			accountId: locals.auth.accountId,
 			userEmail,
+			accounts,
+			activeAccountId: locals.activeAccountId,
+			activeAccountColor: activeAccount?.color ?? null,
+			accountUnread,
 			readingPaneDefault: readingPane === 'on',
 			theme,
 			density,
@@ -102,10 +124,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {
-			const sessionId = cookies.get('session');
-			if (sessionId) deleteSession(sessionId);
-			cookies.delete('session', { path: '/' });
-			redirect(303, '/login');
+			// The mail server rejected the stored credentials (password
+			// changed). The webmail session stays valid — flag the account
+			// and send the user to the reconnect page.
+			if (locals.activeAccountId) markNeedsReauth(locals.activeAccountId);
+			redirect(303, '/reauth');
 		}
 		throw err;
 	}

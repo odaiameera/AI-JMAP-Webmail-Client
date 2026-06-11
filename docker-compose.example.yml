@@ -7,8 +7,13 @@ services:
       - "127.0.0.1:3001:3001"
     environment:
       - PORT=3001
-      - JMAP_URL=https://mx.odaiameera.com
+      # Default mail server new accounts link against (your Stalwart base URL).
+      - JMAP_BASE_URL=https://mx.odaiameera.com
       - DATABASE_PATH=/data/ameera.db
+      # REQUIRED. Encrypts linked mail-account passwords at rest. Generate
+      # with: openssl rand -base64 32 — and back it up: rotating it means
+      # re-entering every linked account's mail password.
+      - WEBMAIL_SECRET=<openssl rand -base64 32>
       - PLANE_BASE_URL=https://plane.odaiameera.com/api/v1
       - PLANE_API_KEY=<your plane api key>
       - PLANE_WORKSPACE_SLUG=homelab

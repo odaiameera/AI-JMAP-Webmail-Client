@@ -34,8 +34,11 @@ function prepareStmts() {
 			`SELECT * FROM reminders WHERE user_email = ? ORDER BY remind_at ASC`
 		),
 		dueForUser: db.prepare(
+			// remind_at is stored as an ISO string ('...T...Z'); compare against
+			// the same shape — datetime('now') uses a space separator, which
+			// sorts BEFORE 'T' and silently deferred same-day reminders.
 			`SELECT * FROM reminders
-			 WHERE user_email = ? AND remind_at <= datetime('now')
+			 WHERE user_email = ? AND remind_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 			 ORDER BY remind_at ASC`
 		),
 		insertMarker: db.prepare(
