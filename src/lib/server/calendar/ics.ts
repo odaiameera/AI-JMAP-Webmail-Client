@@ -141,6 +141,20 @@ function recurToRule(recur: ICAL.Recur): RecurrenceRule | null {
 }
 
 function parseVEvent(vevent: ICAL.Component): VEventData | null {
+	try {
+		return parseVEventUnsafe(vevent);
+	} catch (err) {
+		// ical.js parses dates/durations/recurrences lazily, so a single
+		// malformed property (a bad EXDATE, DURATION, TRIGGER, …) throws here
+		// rather than at ICAL.parse. Swallow it so ONE quirky event can never
+		// blank the whole calendar — the granular guards below keep most such
+		// events visible; this is the last-resort backstop.
+		console.warn('[calendar] skipped an unparseable VEVENT', err);
+		return null;
+	}
+}
+
+function parseVEventUnsafe(vevent: ICAL.Component): VEventData | null {
 	const dtstartProp = vevent.getFirstProperty('dtstart');
 	if (!dtstartProp) return null;
 	const start = dtstartProp.getFirstValue() as ICAL.Time;
@@ -150,46 +164,67 @@ function parseVEvent(vevent: ICAL.Component): VEventData | null {
 	const tzid = allDay ? 'UTC' : propZone(dtstartProp, start);
 	const startWall = timeToWall(start);
 
-	// Duration: explicit DURATION, else DTEND, else RFC 5545 defaults.
+	// Duration: explicit DURATION, else DTEND, else RFC 5545 defaults. Each
+	// lazy value read is isolated — a bad DURATION/DTEND degrades to the
+	// default length instead of dropping the event.
 	let durationMs = 0;
 	let durationDays = 1;
-	const durationVal = vevent.getFirstPropertyValue('duration') as ICAL.Duration | null;
+	let durationVal: ICAL.Duration | null = null;
+	try {
+		durationVal = vevent.getFirstPropertyValue('duration') as ICAL.Duration | null;
+	} catch {
+		durationVal = null;
+	}
 	const dtendProp = vevent.getFirstProperty('dtend');
 	if (durationVal && typeof durationVal.toSeconds === 'function') {
 		const secs = durationVal.toSeconds();
 		durationMs = secs * 1000;
 		durationDays = Math.max(1, Math.round(secs / 86400));
 	} else if (dtendProp) {
-		const end = dtendProp.getFirstValue() as ICAL.Time;
-		if (allDay) {
-			const a = Date.UTC(start.year, start.month - 1, start.day);
-			const b = Date.UTC(end.year, end.month - 1, end.day);
-			durationDays = Math.max(1, Math.round((b - a) / 86400000));
-		} else {
-			const endTz = propZone(dtendProp, end);
-			durationMs = Math.max(
-				0,
-				wallClockToUtc(timeToWall(end), endTz) - wallClockToUtc(startWall, tzid)
-			);
+		try {
+			const end = dtendProp.getFirstValue() as ICAL.Time;
+			if (allDay) {
+				const a = Date.UTC(start.year, start.month - 1, start.day);
+				const b = Date.UTC(end.year, end.month - 1, end.day);
+				durationDays = Math.max(1, Math.round((b - a) / 86400000));
+			} else {
+				const endTz = propZone(dtendProp, end);
+				durationMs = Math.max(
+					0,
+					wallClockToUtc(timeToWall(end), endTz) - wallClockToUtc(startWall, tzid)
+				);
+			}
+		} catch {
+			// Malformed DTEND — keep the event at its default length.
 		}
 	}
 
-	// Recurrence
+	// Recurrence. A malformed RRULE drops recurrence but keeps the base
+	// occurrence visible, rather than losing the event.
 	let rruleRaw: string | null = null;
 	let rrule: RecurrenceRule | null = null;
-	const rruleVal = vevent.getFirstPropertyValue('rrule') as ICAL.Recur | null;
-	if (rruleVal && typeof rruleVal.toString === 'function') {
-		rruleRaw = rruleVal.toString();
-		rrule = recurToRule(rruleVal);
+	try {
+		const rruleVal = vevent.getFirstPropertyValue('rrule') as ICAL.Recur | null;
+		if (rruleVal && typeof rruleVal.toString === 'function') {
+			rruleRaw = rruleVal.toString();
+			rrule = recurToRule(rruleVal);
+		}
+	} catch {
+		rruleRaw = null;
+		rrule = null;
 	}
 
 	const collectDates = (name: string): string[] => {
 		const keys: string[] = [];
 		for (const prop of vevent.getAllProperties(name)) {
-			for (const v of prop.getValues() as ICAL.Time[]) {
-				if (v && typeof v === 'object' && 'year' in v) {
-					keys.push(wallKey(timeToWall(v), allDay));
+			try {
+				for (const v of prop.getValues() as ICAL.Time[]) {
+					if (v && typeof v === 'object' && 'year' in v) {
+						keys.push(wallKey(timeToWall(v), allDay));
+					}
 				}
+			} catch {
+				// Malformed EXDATE/RDATE value — skip just this property.
 			}
 		}
 		return keys;
@@ -198,7 +233,12 @@ function parseVEvent(vevent: ICAL.Component): VEventData | null {
 	// Alarms — only relative (duration) DISPLAY-style triggers before start.
 	const alarms: number[] = [];
 	for (const alarm of vevent.getAllSubcomponents('valarm')) {
-		const trigger = alarm.getFirstPropertyValue('trigger') as ICAL.Duration | null;
+		let trigger: ICAL.Duration | null = null;
+		try {
+			trigger = alarm.getFirstPropertyValue('trigger') as ICAL.Duration | null;
+		} catch {
+			continue; // bad TRIGGER — ignore this alarm
+		}
 		if (trigger && typeof trigger.toSeconds === 'function') {
 			const secs = trigger.toSeconds();
 			if (secs <= 0) alarms.push(Math.round(-secs / 60));
@@ -281,12 +321,33 @@ function parseVEvent(vevent: ICAL.Component): VEventData | null {
 	};
 }
 
+/**
+ * Retry parse after stripping the recurrence properties ical.js parses
+ * eagerly (and throws on when malformed, e.g. RRULE:...;COUNT=). Recovers the
+ * event's base occurrence instead of losing it wholesale. Unfolds first so a
+ * folded continuation line never gets orphaned.
+ */
+function salvageParse(ics: string): ICAL.Component | null {
+	const unfolded = ics.replace(/\r?\n[ \t]/g, '');
+	const cleaned = unfolded
+		.split(/\r?\n/)
+		.filter((line) => !/^(RRULE|EXDATE|RDATE)[:;]/i.test(line))
+		.join('\r\n');
+	try {
+		return new ICAL.Component(ICAL.parse(cleaned));
+	} catch {
+		return null;
+	}
+}
+
 export function parseIcs(ics: string): ParsedObject {
 	let comp: ICAL.Component;
 	try {
 		comp = new ICAL.Component(ICAL.parse(ics));
 	} catch {
-		return { master: null, overrides: [], method: null };
+		const salvaged = salvageParse(ics);
+		if (!salvaged) return { master: null, overrides: [], method: null };
+		comp = salvaged;
 	}
 	let master: VEventData | null = null;
 	const overrides: VEventData[] = [];

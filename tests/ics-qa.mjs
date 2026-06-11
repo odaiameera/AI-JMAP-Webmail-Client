@@ -138,5 +138,34 @@ import { payloadToData, buildRRuleString } from '../.test-build/ics.mjs';
   expect('5 occurrences total, one moved', inst.length === 5 && starts.includes('2026-06-03T15:00:00.000Z'), starts.join(', '));
 }
 
+
+
+// ---------- probe 10: a malformed event must not blank its siblings ----------
+// Real-world cause of "Could not extract integer" / "invalid date-time":
+// ical.js parses EXDATE/RDATE/DURATION/TRIGGER lazily, so a single bad
+// property used to throw past parseIcs and fail the whole calendar query.
+{
+  const badCases = [
+    ['bad RDATE',     'RDATE::2'],
+    ['bad EXDATE',    'EXDATE:20260105T090000Z,:2'],
+    ['bad DURATION',  'DURATION:PT:2H'],
+    ['empty COUNT',   'RRULE:FREQ=DAILY;COUNT='],
+    ['bad TRIGGER',   'BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT:2M\r\nEND:VALARM']
+  ];
+  for (const [name, prop] of badCases) {
+    const ics = wrap(`BEGIN:VEVENT\r\nUID:bad\r\nDTSTAMP:20260101T000000Z\r\nDTSTART:20260115T090000Z\r\nDTEND:20260115T100000Z\r\nSUMMARY:quirky\r\n${prop}\r\nEND:VEVENT`);
+    let parsed, inst;
+    try {
+      parsed = parseIcs(ics);
+      inst = expandToInstances(parsed, 'id', 'cal', Date.UTC(2026,0,1), Date.UTC(2026,1,1));
+    } catch (e) {
+      expect(`${name}: parseIcs/expand never throws`, false, e.message);
+      continue;
+    }
+    expect(`${name}: parseIcs/expand never throws`, true);
+    // The quirky event should still render its base occurrence (Jan 15).
+    expect(`${name}: base occurrence still visible`, inst.some((i) => i.start.startsWith('2026-01-15')), JSON.stringify(inst.map(i=>i.start)));
+  }
+}
 console.log(fail ? `\n${fail} probe(s) FAILED` : '\nall probes passed');
 process.exit(fail ? 1 : 0);

@@ -114,10 +114,16 @@ export async function getEventsInRange(
 				);
 				const instances: EventInstance[] = [];
 				for (const obj of objects) {
-					const parsed = parseIcs(obj.ics);
-					instances.push(
-						...expandToInstances(parsed, hrefToId(obj.href), cal.id, rangeStartMs, rangeEndMs)
-					);
+					try {
+						const parsed = parseIcs(obj.ics);
+						instances.push(
+							...expandToInstances(parsed, hrefToId(obj.href), cal.id, rangeStartMs, rangeEndMs)
+						);
+					} catch (err) {
+						// One unparseable object must never blank the calendar —
+						// skip it and keep every other event in this collection.
+						console.warn(`[calendar] skipped object ${obj.href}`, err);
+					}
 				}
 				return instances;
 			} catch (err) {
