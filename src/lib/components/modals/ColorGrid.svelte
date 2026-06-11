@@ -10,12 +10,15 @@
 	} = $props();
 </script>
 
-<div class="grid grid-cols-5 gap-3">
+<!-- w-max keeps the tracks content-sized: inside shrink-to-fit containers
+     (popovers) 1fr tracks collapse under the fixed-size swatches and the
+     circles overlap; in wide containers they over-spread. -->
+<div class="grid w-max grid-cols-5 gap-2.5">
 	{#each LABEL_COLORS as color (color.hex)}
 		{@const selected = value.hex.toLowerCase() === color.hex.toLowerCase()}
 		<button
 			type="button"
-			class="w-9 h-9 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+			class="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
 			class:ring-2={selected}
 			class:ring-offset-2={selected}
 			class:ring-offset-surface={selected}
