@@ -36,6 +36,15 @@ export interface VEventData {
 	uid: string;
 	/** Wall key (`YYYYMMDDTHHMMSS` / `YYYYMMDD`) when this VEVENT overrides one occurrence. */
 	recurrenceId: string | null;
+	/**
+	 * Zone / date-ness the RECURRENCE-ID must be written in — the MASTER's,
+	 * not the override's. An override edited from a browser in another zone
+	 * legitimately changes its own DTSTART zone, but its RECURRENCE-ID must
+	 * keep naming the original occurrence instant or the server and other
+	 * clients can no longer match it to the series.
+	 */
+	ridTzid?: string;
+	ridIsDate?: boolean;
 	summary: string;
 	description: string;
 	location: string;
@@ -70,6 +79,9 @@ export interface ParsedObject {
 }
 
 const MAX_OCCURRENCES = 1000;
+// Hard guard against pathological rules (e.g. BYDAY sets that never match):
+// generous enough that a frequent series stays visible decades past DTSTART.
+const MAX_ITERATIONS = 100_000;
 
 // ---------------------------------------------------------------------------
 // Parsing
@@ -222,18 +234,24 @@ function parseVEvent(vevent: ICAL.Component): VEventData | null {
 		statusRaw === 'TENTATIVE' ? 'tentative' : statusRaw === 'CANCELLED' ? 'cancelled' : 'confirmed';
 
 	let recurrenceId: string | null = null;
+	let ridTzid: string | undefined;
+	let ridIsDate: boolean | undefined;
 	const ridProp = vevent.getFirstProperty('recurrence-id');
 	if (ridProp) {
 		const rid = ridProp.getFirstValue() as ICAL.Time;
 		if (rid && typeof rid === 'object' && 'year' in rid) {
-			recurrenceId = wallKey(timeToWall(rid), allDay);
+			ridIsDate = !!rid.isDate;
+			recurrenceId = wallKey(timeToWall(rid), ridIsDate);
+			ridTzid = ridIsDate ? 'UTC' : propZone(ridProp, rid);
 		}
 	}
 
-	const createdVal = vevent.getFirstPropertyValue('created');
+	const createdVal = vevent.getFirstPropertyValue('created') as ICAL.Time | null;
 	return {
 		uid: String(vevent.getFirstPropertyValue('uid') ?? ''),
 		recurrenceId,
+		ridTzid,
+		ridIsDate,
 		summary: String(vevent.getFirstPropertyValue('summary') ?? ''),
 		description: String(vevent.getFirstPropertyValue('description') ?? ''),
 		location: String(vevent.getFirstPropertyValue('location') ?? ''),
@@ -253,9 +271,13 @@ function parseVEvent(vevent: ICAL.Component): VEventData | null {
 		attendees,
 		organizer,
 		sequence: Number(vevent.getFirstPropertyValue('sequence') ?? 0) || 0,
-		created: (vevent.getFirstPropertyValue('created') as ICAL.Time | null)?.toString
-			? String(createdVal)
-			: null
+		// toICALString() gives the wire form (20250101T120000Z) — toString()
+		// gives ISO with dashes/colons, which is NOT a valid ICS DATE-TIME
+		// and can make strict servers reject the whole object on rewrite.
+		created:
+			createdVal && typeof createdVal.toICALString === 'function'
+				? createdVal.toICALString()
+				: null
 	};
 }
 
@@ -392,18 +414,46 @@ export function expandToInstances(
 			}
 		} else {
 			const exdates = new Set(master.exdates);
-			const overrideByKey = new Map(overrides.map((o) => [o.recurrenceId as string, o]));
+			// Overrides are matched at the master's key granularity: an all-day
+			// master indexes occurrences by date, so a date-time RECURRENCE-ID
+			// (sloppy producers) must still find its slot.
+			const normKey = (k: string) => (master.allDay ? k.slice(0, 8) : k);
+			const overrideByKey = new Map(overrides.map((o) => [normKey(o.recurrenceId as string), o]));
 
 			// Collect occurrence wall clocks: RRULE iterator (UNTIL stripped —
 			// enforced below against true UTC instants) plus RDATEs.
 			const occurrences = new Map<string, WallClock>();
 			const masterKey = wallKey(master.startWall, master.allDay);
 
+			// UNTIL with full precision from the raw rule (the UI model only
+			// keeps the date part); per RFC 5545 an occurrence starting exactly
+			// AT the UNTIL instant is still included.
 			let untilMs = Infinity;
-			if (master.rrule?.until) {
+			const rawUntil = master.rruleRaw?.match(/UNTIL=(\d{8}(?:T\d{6}Z?)?)/i)?.[1];
+			if (rawUntil) {
+				const y = +rawUntil.slice(0, 4);
+				const m = +rawUntil.slice(4, 6);
+				const d = +rawUntil.slice(6, 8);
+				if (rawUntil.length === 8) {
+					// DATE form: covers occurrences through the end of that day.
+					untilMs = master.allDay
+						? Date.UTC(y, m - 1, d)
+						: wallClockToUtc({ year: y, month: m, day: d, hour: 23, minute: 59, second: 59 }, master.tzid);
+				} else {
+					const wc: WallClock = {
+						year: y, month: m, day: d,
+						hour: +rawUntil.slice(9, 11),
+						minute: +rawUntil.slice(11, 13),
+						second: +rawUntil.slice(13, 15)
+					};
+					untilMs = rawUntil.endsWith('Z')
+						? Date.UTC(wc.year, wc.month - 1, wc.day, wc.hour, wc.minute, wc.second)
+						: wallClockToUtc(wc, master.tzid);
+				}
+			} else if (master.rrule?.until) {
 				const [y, m, d] = master.rrule.until.split('-').map(Number);
 				untilMs = master.allDay
-					? Date.UTC(y, m - 1, d) + 86400000
+					? Date.UTC(y, m - 1, d)
 					: wallClockToUtc({ year: y, month: m, day: d, hour: 23, minute: 59, second: 59 }, master.tzid);
 			}
 
@@ -427,13 +477,26 @@ export function expandToInstances(
 					);
 					const iter = recur.iterator(dtstart);
 					let next: ICAL.Time | null;
-					let n = 0;
-					while ((next = iter.next()) && n < MAX_OCCURRENCES) {
-						n++;
+					// Two separate bounds: `emitted` caps what one range can
+					// render; `steps` is a loop guard for pathological rules.
+					// Capping raw iterations at the render limit silently
+					// blanked any frequent series once the viewed range was
+					// more than MAX_OCCURRENCES steps past DTSTART (a daily
+					// event vanished ~2.7 years in).
+					let emitted = 0;
+					let steps = 0;
+					while ((next = iter.next()) && emitted < MAX_OCCURRENCES && steps < MAX_ITERATIONS) {
+						steps++;
 						const wc = timeToWall(next);
 						const startMs = dataStartMs(master, wc);
 						if (startMs > untilMs) break;
 						if (startMs >= rangeEndMs) break;
+						// Skip pre-range occurrences cheaply; overrides that moved
+						// into the range are handled separately below.
+						if (dataEndMs(master, wc) <= rangeStartMs && !overrideByKey.has(wallKey(wc, master.allDay))) {
+							continue;
+						}
+						emitted++;
 						occurrences.set(wallKey(wc, master.allDay), wc);
 					}
 				} catch {
@@ -522,14 +585,19 @@ function dtLine(name: string, data: VEventData, wc: WallClock): string {
 	return `${name};TZID=${data.tzid}:${wallClockToIcs(wc)}`;
 }
 
-export function buildRRuleString(rule: RecurrenceRule): string {
+export function buildRRuleString(rule: RecurrenceRule, allDay = false): string {
 	const parts = [`FREQ=${rule.freq}`];
 	if (rule.interval > 1) parts.push(`INTERVAL=${rule.interval}`);
 	if (rule.byDay?.length) parts.push(`BYDAY=${rule.byDay.join(',')}`);
 	if (rule.byDayOrdinal) parts.push(`BYDAY=${rule.byDayOrdinal}`);
 	if (rule.byMonthDay) parts.push(`BYMONTHDAY=${rule.byMonthDay}`);
 	if (rule.count) parts.push(`COUNT=${rule.count}`);
-	else if (rule.until) parts.push(`UNTIL=${rule.until.replace(/-/g, '')}T235959Z`);
+	else if (rule.until) {
+		// RFC 5545: UNTIL must be DATE when DTSTART is DATE — a DATE-TIME
+		// here makes the whole series invalid for strict consumers.
+		const d = rule.until.replace(/-/g, '');
+		parts.push(`UNTIL=${allDay ? d : `${d}T235959Z`}`);
+	}
 	return parts.join(';');
 }
 
@@ -540,7 +608,15 @@ function buildVEvent(data: VEventData, dtstamp: string): string[] {
 	if (data.recurrenceId) {
 		const iso = keyToIso(data.recurrenceId);
 		const wc = parseWallClock(iso.length === 10 ? `${iso}T00:00` : iso);
-		if (wc) lines.push(dtLine('RECURRENCE-ID', data, wc));
+		// RECURRENCE-ID names the ORIGINAL occurrence: written in the
+		// master's zone / date-ness, not the (possibly rescheduled,
+		// possibly different-zone) override's.
+		const ridCtx = {
+			...data,
+			allDay: data.ridIsDate ?? data.allDay,
+			tzid: data.ridTzid ?? data.tzid
+		};
+		if (wc) lines.push(dtLine('RECURRENCE-ID', ridCtx, wc));
 	}
 	lines.push(dtLine('DTSTART', data, data.startWall));
 	if (data.allDay) {
@@ -615,7 +691,12 @@ export function buildIcs(master: VEventData, overrides: VEventData[] = []): stri
 export function payloadToData(
 	payload: EventWritePayload,
 	uid: string,
-	base?: Partial<Pick<VEventData, 'sequence' | 'created' | 'recurrenceId' | 'exdates' | 'organizer'>>
+	base?: Partial<
+		Pick<
+			VEventData,
+			'sequence' | 'created' | 'recurrenceId' | 'ridTzid' | 'ridIsDate' | 'exdates' | 'organizer'
+		>
+	>
 ): VEventData | null {
 	const allDay = payload.allDay;
 	let startWall: WallClock | null;
@@ -642,6 +723,8 @@ export function payloadToData(
 	return {
 		uid,
 		recurrenceId: base?.recurrenceId ?? null,
+		ridTzid: base?.ridTzid,
+		ridIsDate: base?.ridIsDate,
 		summary: payload.title ?? '',
 		description: payload.description ?? '',
 		location: payload.location ?? '',
@@ -651,7 +734,7 @@ export function payloadToData(
 		durationMs,
 		durationDays,
 		rrule,
-		rruleRaw: rrule ? buildRRuleString(rrule) : null,
+		rruleRaw: rrule ? buildRRuleString(rrule, allDay) : null,
 		exdates: base?.exdates ?? [],
 		rdates: [],
 		alarms: payload.alarms ?? [],

@@ -23,7 +23,6 @@ import {
 } from './caldav';
 import {
 	buildIcs,
-	buildRRuleString,
 	expandToInstances,
 	isoToKey,
 	parseIcs,
@@ -79,6 +78,12 @@ export async function listCalendarsWithMeta(
 export interface RangeResult {
 	calendars: CalendarInfo[];
 	events: EventInstance[];
+	/**
+	 * True when at least one calendar's query failed. Callers must surface
+	 * this — silently rendering the survivors makes a transient server
+	 * error look like the user's events were deleted.
+	 */
+	partial: boolean;
 }
 
 export async function getEventsInRange(
@@ -89,6 +94,7 @@ export async function getEventsInRange(
 ): Promise<RangeResult> {
 	const calendars = await listCalendarsWithMeta(auth, userEmail);
 	const visible = calendars.filter((c) => !c.hidden);
+	let partial = false;
 
 	const perCalendar = await Promise.all(
 		visible.map(async (cal) => {
@@ -109,6 +115,7 @@ export async function getEventsInRange(
 				return instances;
 			} catch (err) {
 				console.warn(`[calendar] query failed for ${cal.id}`, err);
+				partial = true;
 				return [] as EventInstance[];
 			}
 		})
@@ -120,7 +127,7 @@ export async function getEventsInRange(
 		if (a.start > b.start) return 1;
 		return Number(b.allDay) - Number(a.allDay);
 	});
-	return { calendars, events };
+	return { calendars, events, partial };
 }
 
 function newObjectHref(userEmail: string, calendarId: string, uid: string): string {
@@ -141,6 +148,18 @@ export async function createEvent(
 	const href = newObjectHref(userEmail, payload.calendarId, uid);
 	await putObject(auth, href, buildIcs(data), null);
 	return { id: hrefToId(href) };
+}
+
+/**
+ * Truncate a verbatim RRULE at `untilIso` (YYYY-MM-DD) without rebuilding it
+ * from the lossy UI model — parts like BYSETPOS/BYMONTH/WKST survive, and
+ * rules the UI can't represent at all still get truncated.
+ */
+function truncateRRuleRaw(raw: string, untilIso: string, allDay: boolean): string {
+	const d = untilIso.replace(/-/g, '');
+	const until = allDay ? d : `${d}T235959Z`;
+	const kept = raw.split(';').filter((p) => !/^(UNTIL|COUNT)=/i.test(p.trim()));
+	return [...kept, `UNTIL=${until}`].join(';');
 }
 
 /** True when two wall clocks + recurrence shapes match (edit keeps exceptions). */
@@ -174,6 +193,10 @@ export async function updateEvent(
 		const key = isoToKey(recurrenceId);
 		const override = payloadToData(payload, master.uid, {
 			recurrenceId: key,
+			// RECURRENCE-ID must name the occurrence in the master's zone —
+			// the editing browser's zone is irrelevant to which slot this is.
+			ridTzid: master.tzid,
+			ridIsDate: master.allDay,
 			sequence: master.sequence,
 			organizer: master.organizer
 		});
@@ -203,9 +226,9 @@ export async function updateEvent(
 			master.startWall.month - 1,
 			master.startWall.day
 		);
-		if (master.rrule) {
-			truncated.rrule = { ...master.rrule, until: untilIso, count: undefined };
-			truncated.rruleRaw = buildRRuleString(truncated.rrule);
+		if (master.rruleRaw) {
+			truncated.rruleRaw = truncateRRuleRaw(master.rruleRaw, untilIso, master.allDay);
+			if (master.rrule) truncated.rrule = { ...master.rrule, until: untilIso, count: undefined };
 		}
 		const keptOverrides = parsed.overrides.filter(
 			(o) => keyToDateMs(o.recurrenceId as string) < splitDate
@@ -238,6 +261,18 @@ export async function updateEvent(
 			(payload.attendees?.length ? { email: userEmail, name: organizerName } : null)
 	});
 	if (!next) throw new CalDAVError('Invalid event payload', 400);
+
+	// The UI's recurrence model is lossy (no BYSETPOS, BYMONTH, WKST, …).
+	// When the user didn't touch the recurrence — title edits, drag moves —
+	// keep the original RRULE verbatim instead of a degraded rebuild that
+	// would reshape or explode the series.
+	if (
+		next.rrule &&
+		master.rruleRaw &&
+		JSON.stringify(next.rrule) === JSON.stringify(master.rrule)
+	) {
+		next.rruleRaw = master.rruleRaw;
+	}
 
 	let overrides: VEventData[] = [];
 	if (next.rruleRaw && recurrenceShapeUnchanged(master, next)) {
@@ -313,9 +348,9 @@ export async function deleteEvent(
 		exdates: master.exdates.filter((e) => keyToDateMs(e) < splitDate),
 		rdates: master.rdates.filter((e) => keyToDateMs(e) < splitDate)
 	};
-	if (master.rrule) {
-		next.rrule = { ...master.rrule, until: untilIso, count: undefined };
-		next.rruleRaw = buildRRuleString(next.rrule);
+	if (master.rruleRaw) {
+		next.rruleRaw = truncateRRuleRaw(master.rruleRaw, untilIso, master.allDay);
+		if (master.rrule) next.rrule = { ...master.rrule, until: untilIso, count: undefined };
 	}
 	const overrides = parsed.overrides.filter((o) => keyToDateMs(o.recurrenceId as string) < splitDate);
 	await putObject(auth, href, buildIcs(next, overrides), obj.etag);

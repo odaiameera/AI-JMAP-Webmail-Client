@@ -60,6 +60,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		const result = await getEventsInRange(locals.auth, userEmail, rangeStart, rangeEnd);
 		calendars = result.calendars;
 		events = result.events;
+		calendarError = result.partial;
 	} catch (err) {
 		console.warn('[calendar] load failed', err);
 		calendarError = true;
