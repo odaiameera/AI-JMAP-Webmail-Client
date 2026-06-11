@@ -7,6 +7,7 @@
 	import { onMount, getContext } from 'svelte';
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
+	import InvitationCard from './InvitationCard.svelte';
 	import CreatePlaneWorkItemModal from './modals/CreatePlaneWorkItemModal.svelte';
 	import { buildPlaneSummary } from '$lib/utils/plane-summary';
 
@@ -150,6 +151,20 @@
 	}
 
 	const appliedLabels = $derived(allLabels.filter((l) => email.mailboxIds[l.id] === true));
+
+	// Calendar invitations arrive as a text/calendar MIME part (iMIP) or an
+	// .ics attachment — both are structured data, detected without guesswork.
+	const calendarPart = $derived(
+		(email.attachments ?? []).find((a) => {
+			const type = a.type?.toLowerCase() ?? '';
+			const name = a.name?.toLowerCase() ?? '';
+			return (
+				type.startsWith('text/calendar') ||
+				type === 'application/ics' ||
+				name.endsWith('.ics')
+			);
+		})
+	);
 
 	async function toggleLabel(labelId: string) {
 		const isApplied = email.mailboxIds[labelId] === true;
@@ -564,6 +579,12 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if calendarPart}
+		{#key calendarPart.blobId}
+			<InvitationCard emailId={email.id} blobId={calendarPart.blobId} {compact} />
+		{/key}
+	{/if}
 
 	<AttachmentBar emailId={email.id} attachments={email.attachments ?? []} />
 

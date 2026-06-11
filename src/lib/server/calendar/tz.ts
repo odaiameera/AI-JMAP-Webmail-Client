@@ -49,6 +49,88 @@ export function isValidTimeZone(timeZone: string): boolean {
 	}
 }
 
+/**
+ * Windows timezone names → IANA, for invitations produced by Outlook /
+ * Exchange (their VTIMEZONE TZIDs are CLDR "windowsZones" ids, not IANA).
+ * Subset covering the common cases; unknown ids fall back to UTC upstream.
+ */
+const WINDOWS_TZ: Record<string, string> = {
+	'Dateline Standard Time': 'Etc/GMT+12',
+	'Hawaiian Standard Time': 'Pacific/Honolulu',
+	'Alaskan Standard Time': 'America/Anchorage',
+	'Pacific Standard Time': 'America/Los_Angeles',
+	'Pacific Standard Time (Mexico)': 'America/Tijuana',
+	'Mountain Standard Time': 'America/Denver',
+	'US Mountain Standard Time': 'America/Phoenix',
+	'Central Standard Time': 'America/Chicago',
+	'Central America Standard Time': 'America/Guatemala',
+	'Eastern Standard Time': 'America/New_York',
+	'US Eastern Standard Time': 'America/Indiana/Indianapolis',
+	'Atlantic Standard Time': 'America/Halifax',
+	'SA Pacific Standard Time': 'America/Bogota',
+	'SA Western Standard Time': 'America/La_Paz',
+	'Venezuela Standard Time': 'America/Caracas',
+	'E. South America Standard Time': 'America/Sao_Paulo',
+	'Argentina Standard Time': 'America/Argentina/Buenos_Aires',
+	'Greenland Standard Time': 'America/Godthab',
+	UTC: 'UTC',
+	'GMT Standard Time': 'Europe/London',
+	'Greenwich Standard Time': 'Atlantic/Reykjavik',
+	'Morocco Standard Time': 'Africa/Casablanca',
+	'W. Europe Standard Time': 'Europe/Berlin',
+	'Central Europe Standard Time': 'Europe/Budapest',
+	'Central European Standard Time': 'Europe/Warsaw',
+	'Romance Standard Time': 'Europe/Paris',
+	'W. Central Africa Standard Time': 'Africa/Lagos',
+	'GTB Standard Time': 'Europe/Bucharest',
+	'FLE Standard Time': 'Europe/Kiev',
+	'E. Europe Standard Time': 'Europe/Chisinau',
+	'Egypt Standard Time': 'Africa/Cairo',
+	'South Africa Standard Time': 'Africa/Johannesburg',
+	'Jordan Standard Time': 'Asia/Amman',
+	'Middle East Standard Time': 'Asia/Beirut',
+	'Israel Standard Time': 'Asia/Jerusalem',
+	'Turkey Standard Time': 'Europe/Istanbul',
+	'Arabic Standard Time': 'Asia/Baghdad',
+	'Arab Standard Time': 'Asia/Riyadh',
+	'Arabian Standard Time': 'Asia/Dubai',
+	'Russian Standard Time': 'Europe/Moscow',
+	'Iran Standard Time': 'Asia/Tehran',
+	'Afghanistan Standard Time': 'Asia/Kabul',
+	'West Asia Standard Time': 'Asia/Tashkent',
+	'Pakistan Standard Time': 'Asia/Karachi',
+	'India Standard Time': 'Asia/Kolkata',
+	'Sri Lanka Standard Time': 'Asia/Colombo',
+	'Nepal Standard Time': 'Asia/Kathmandu',
+	'Bangladesh Standard Time': 'Asia/Dhaka',
+	'Myanmar Standard Time': 'Asia/Yangon',
+	'SE Asia Standard Time': 'Asia/Bangkok',
+	'China Standard Time': 'Asia/Shanghai',
+	'Singapore Standard Time': 'Asia/Singapore',
+	'Taipei Standard Time': 'Asia/Taipei',
+	'Tokyo Standard Time': 'Asia/Tokyo',
+	'Korea Standard Time': 'Asia/Seoul',
+	'W. Australia Standard Time': 'Australia/Perth',
+	'Cen. Australia Standard Time': 'Australia/Adelaide',
+	'AUS Eastern Standard Time': 'Australia/Sydney',
+	'E. Australia Standard Time': 'Australia/Brisbane',
+	'New Zealand Standard Time': 'Pacific/Auckland'
+};
+
+/**
+ * Resolve a TZID from the wire to something Intl understands: IANA names
+ * pass through, Windows names map via {@link WINDOWS_TZ}, anything else
+ * returns null (callers fall back to UTC rather than crash).
+ */
+export function normalizeTzid(tzid: string): string | null {
+	const clean = tzid.replace(/^\//, '').trim();
+	if (!clean) return null;
+	if (isValidTimeZone(clean)) return clean;
+	const mapped = WINDOWS_TZ[clean];
+	if (mapped && isValidTimeZone(mapped)) return mapped;
+	return null;
+}
+
 /** Milliseconds east of UTC for `timeZone` at the given UTC instant. */
 function tzOffsetMs(timeZone: string, utcMs: number): number {
 	const bucket = `${timeZone}:${Math.floor(utcMs / 3_600_000)}`;
@@ -79,14 +161,24 @@ function tzOffsetMs(timeZone: string, utcMs: number): number {
 export function wallClockToUtc(wc: WallClock, timeZone: string): number {
 	const naive = Date.UTC(wc.year, wc.month - 1, wc.day, wc.hour, wc.minute, wc.second);
 	if (timeZone === 'UTC' || timeZone === 'Etc/UTC' || timeZone === 'Z') return naive;
-	let offset = tzOffsetMs(timeZone, naive);
-	offset = tzOffsetMs(timeZone, naive - offset);
-	return naive - offset;
+	try {
+		let offset = tzOffsetMs(timeZone, naive);
+		offset = tzOffsetMs(timeZone, naive - offset);
+		return naive - offset;
+	} catch {
+		// Unknown zone slipped through normalization — degrade to UTC.
+		return naive;
+	}
 }
 
 /** Wall-clock fields of a UTC instant as seen in `timeZone`. */
 export function utcToWallClock(utcMs: number, timeZone: string): WallClock {
-	const parts = getDtf(timeZone).formatToParts(new Date(utcMs));
+	let parts: Intl.DateTimeFormatPart[];
+	try {
+		parts = getDtf(timeZone).formatToParts(new Date(utcMs));
+	} catch {
+		parts = getDtf('UTC').formatToParts(new Date(utcMs));
+	}
 	const v: Record<string, number> = {};
 	for (const p of parts) {
 		if (p.type !== 'literal') v[p.type] = Number(p.value);

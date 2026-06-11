@@ -352,9 +352,11 @@ export async function putObject(
 	etag?: string | null
 ): Promise<void> {
 	const headers: Record<string, string> = { 'Content-Type': 'text/calendar; charset=utf-8' };
-	// Lost-update protection: If-Match for updates, If-None-Match for creates.
+	// Lost-update protection: a string etag means "update only" (If-Match),
+	// null means "create only" (If-None-Match: *), undefined writes
+	// unconditionally (invitation imports overwrite by design).
 	if (etag) headers['If-Match'] = etag;
-	else headers['If-None-Match'] = '*';
+	else if (etag === null) headers['If-None-Match'] = '*';
 
 	const res = await davRequest(auth, 'PUT', href, { body: ics, headers });
 	if (!res.ok) {

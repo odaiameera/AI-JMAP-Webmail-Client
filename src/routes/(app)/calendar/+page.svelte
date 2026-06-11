@@ -33,27 +33,53 @@
 	const monthDays = $derived(
 		monthGridDays(selectedDate.getFullYear(), selectedDate.getMonth(), weekStart)
 	);
-	const weekDays = $derived(
-		Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(selectedDate, weekStart), i))
+
+	// All time-grid views are just different day windows over the same grid.
+	const gridDays = $derived.by(() => {
+		switch (data.view) {
+			case 'week':
+				return Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(selectedDate, weekStart), i));
+			case 'workweek':
+				// Mon–Fri of the week containing the date, regardless of week-start pref.
+				return Array.from({ length: 5 }, (_, i) => addDays(startOfWeek(selectedDate, 1), i));
+			case '3day':
+				return [selectedDate, addDays(selectedDate, 1), addDays(selectedDate, 2)];
+			default:
+				return [selectedDate];
+		}
+	});
+
+	const VIEW_OPTIONS: { value: string; label: string; shortcut: string }[] = [
+		{ value: 'day', label: 'Day', shortcut: 'D' },
+		{ value: '3day', label: '3 days', shortcut: '3' },
+		{ value: 'workweek', label: 'Work week', shortcut: 'F' },
+		{ value: 'week', label: 'Week', shortcut: 'W' },
+		{ value: 'month', label: 'Month', shortcut: 'M' }
+	];
+	const currentViewLabel = $derived(
+		VIEW_OPTIONS.find((v) => v.value === data.view)?.label ?? 'Month'
 	);
+	let viewMenuOpen = $state(false);
+
+	function rangeLabel(days: Date[]): string {
+		const first = days[0];
+		const last = days[days.length - 1];
+		const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
+		const left = first.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		const right = last.toLocaleDateString(undefined, {
+			month: sameMonth ? undefined : 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+		return `${left} – ${right}`;
+	}
 
 	const headerLabel = $derived.by(() => {
 		if (data.view === 'month') {
 			return `${monthName(selectedDate.getMonth())} ${selectedDate.getFullYear()}`;
 		}
-		if (data.view === 'week') {
-			const first = weekDays[0];
-			const last = weekDays[6];
-			const sameMonth = first.getMonth() === last.getMonth();
-			const left = first.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-			const right = last.toLocaleDateString(undefined, {
-				month: sameMonth ? undefined : 'short',
-				day: 'numeric',
-				year: 'numeric'
-			});
-			return `${left} – ${right}`;
-		}
-		return formatDayLong(selectedDate);
+		if (data.view === 'day') return formatDayLong(selectedDate);
+		return rangeLabel(gridDays);
 	});
 
 	function navigate(view: string, date: Date) {
@@ -61,9 +87,20 @@
 	}
 
 	function step(direction: 1 | -1) {
-		if (data.view === 'month') navigate('month', addMonths(selectedDate, direction));
-		else if (data.view === 'week') navigate('week', addDays(selectedDate, 7 * direction));
-		else navigate('day', addDays(selectedDate, direction));
+		switch (data.view) {
+			case 'month':
+				navigate('month', addMonths(selectedDate, direction));
+				break;
+			case 'week':
+			case 'workweek':
+				navigate(data.view, addDays(selectedDate, 7 * direction));
+				break;
+			case '3day':
+				navigate('3day', addDays(selectedDate, 3 * direction));
+				break;
+			default:
+				navigate('day', addDays(selectedDate, direction));
+		}
 	}
 
 	// ----- event modal / popover / scope dialog --------------------------
@@ -194,6 +231,12 @@
 			case 'w':
 				navigate('week', selectedDate);
 				break;
+			case 'f':
+				navigate('workweek', selectedDate);
+				break;
+			case '3':
+				navigate('3day', selectedDate);
+				break;
 			case 'd':
 				navigate('day', selectedDate);
 				break;
@@ -214,7 +257,7 @@
 	<title>{pageTitle({ page: 'Calendar' })}</title>
 </svelte:head>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onclick={() => (viewMenuOpen = false)} />
 
 <div class="h-full flex min-h-0">
 	<CalendarPanel
@@ -245,17 +288,48 @@
 			</div>
 			<h1 class="text-base font-semibold text-text truncate">{headerLabel}</h1>
 			<div class="flex-1"></div>
-			<div class="flex items-center rounded-lg border border-border overflow-hidden">
-				{#each [['month', 'Month'], ['week', 'Week'], ['day', 'Day']] as [value, label] (value)}
-					<button
-						type="button"
-						class="px-3 h-7 text-sm transition-colors cursor-pointer
-							{data.view === value ? 'bg-accent/15 text-accent font-medium' : 'text-text-secondary hover:bg-surface-hover'}"
-						onclick={() => navigate(value, selectedDate)}
+			<!-- Single view dropdown (Google-style) keeps the toolbar compact
+			     as views multiply; shortcuts work everywhere on the page. -->
+			<div class="relative">
+				<button
+					type="button"
+					class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg border border-border text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer"
+					aria-haspopup="listbox"
+					aria-expanded={viewMenuOpen}
+					onclick={(e) => {
+						e.stopPropagation();
+						viewMenuOpen = !viewMenuOpen;
+					}}
+				>
+					{currentViewLabel}
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-text-tertiary"><path d="M6 9l6 6 6-6"/></svg>
+				</button>
+				{#if viewMenuOpen}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<div
+						class="absolute right-0 top-9 z-40 w-44 bg-surface border border-border rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4)] py-1"
+						role="listbox"
+						onclick={(e) => e.stopPropagation()}
 					>
-						{label}
-					</button>
-				{/each}
+						{#each VIEW_OPTIONS as opt (opt.value)}
+							<button
+								type="button"
+								role="option"
+								aria-selected={data.view === opt.value}
+								class="w-full flex items-center justify-between px-3 py-1.5 text-sm transition-colors cursor-pointer
+									{data.view === opt.value ? 'text-accent font-medium' : 'text-text hover:bg-surface-hover'}"
+								onclick={() => {
+									viewMenuOpen = false;
+									navigate(opt.value, selectedDate);
+								}}
+							>
+								{opt.label}
+								<span class="text-[10px] text-text-tertiary border border-border rounded px-1 py-px">{opt.shortcut}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -285,7 +359,7 @@
 				/>
 			{:else}
 				<TimeGrid
-					days={data.view === 'week' ? weekDays : [selectedDate]}
+					days={gridDays}
 					events={data.events}
 					calendars={data.calendars}
 					onCreateRange={(start, end) => openCreate({ start, end, allDay: false })}

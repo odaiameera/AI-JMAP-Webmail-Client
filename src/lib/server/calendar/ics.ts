@@ -8,6 +8,7 @@ import type {
 	RRuleWeekday
 } from '$lib/calendar/types';
 import {
+	normalizeTzid,
 	parseWallClock,
 	utcToWallClock,
 	wallClockToIcs,
@@ -64,6 +65,8 @@ export interface VEventData {
 export interface ParsedObject {
 	master: VEventData | null;
 	overrides: VEventData[];
+	/** iTIP METHOD of the enclosing VCALENDAR (REQUEST/REPLY/CANCEL/…), if any. */
+	method: string | null;
 }
 
 const MAX_OCCURRENCES = 1000;
@@ -91,8 +94,9 @@ function wallKey(wc: WallClock, allDay: boolean): string {
 function propZone(prop: ICAL.Property, time: ICAL.Time): string {
 	const tzid = prop.getParameter('tzid');
 	if (typeof tzid === 'string' && tzid) {
-		// Strip the historic leading-slash form some producers emit.
-		return tzid.replace(/^\//, '');
+		// Maps Windows/Exchange TZIDs to IANA; unknown zones degrade to UTC
+		// rather than crashing the parse.
+		return normalizeTzid(tzid) ?? 'UTC';
 	}
 	// Z-suffixed → utc zone; floating → treat as UTC.
 	void time;
@@ -260,7 +264,7 @@ export function parseIcs(ics: string): ParsedObject {
 	try {
 		comp = new ICAL.Component(ICAL.parse(ics));
 	} catch {
-		return { master: null, overrides: [] };
+		return { master: null, overrides: [], method: null };
 	}
 	let master: VEventData | null = null;
 	const overrides: VEventData[] = [];
@@ -270,7 +274,9 @@ export function parseIcs(ics: string): ParsedObject {
 		if (data.recurrenceId) overrides.push(data);
 		else if (!master) master = data;
 	}
-	return { master, overrides };
+	const methodRaw = comp.getFirstPropertyValue('method');
+	const method = typeof methodRaw === 'string' && methodRaw ? methodRaw.toUpperCase() : null;
+	return { master, overrides, method };
 }
 
 // ---------------------------------------------------------------------------

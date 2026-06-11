@@ -4,16 +4,16 @@ import { getEventsInRange } from '$lib/server/calendar/service';
 import { userEmailFromAuth } from '$lib/server/user';
 import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
 
-export type CalendarView = 'month' | 'week' | 'day';
+export type CalendarView = 'month' | 'week' | 'workweek' | '3day' | 'day';
 
 const DAY_MS = 86400000;
+const VIEWS: CalendarView[] = ['month', 'week', 'workweek', '3day', 'day'];
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	if (!locals.auth) redirect(303, '/login');
 
-	const viewParam = url.searchParams.get('view');
-	const view: CalendarView =
-		viewParam === 'week' || viewParam === 'day' ? viewParam : 'month';
+	const viewParam = url.searchParams.get('view') as CalendarView | null;
+	const view: CalendarView = viewParam && VIEWS.includes(viewParam) ? viewParam : 'month';
 
 	const dateParam = url.searchParams.get('date');
 	let date: string;
@@ -38,9 +38,12 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		const monthEnd = Date.UTC(y, m, 1);
 		rangeStart = monthStart - 8 * DAY_MS;
 		rangeEnd = monthEnd + 15 * DAY_MS;
-	} else if (view === 'week') {
+	} else if (view === 'week' || view === 'workweek') {
 		rangeStart = anchor - 8 * DAY_MS;
 		rangeEnd = anchor + 9 * DAY_MS;
+	} else if (view === '3day') {
+		rangeStart = anchor - 2 * DAY_MS;
+		rangeEnd = anchor + 5 * DAY_MS;
 	} else {
 		rangeStart = anchor - 2 * DAY_MS;
 		rangeEnd = anchor + 2 * DAY_MS;
