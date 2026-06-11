@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import type { LayoutServerLoad } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
@@ -76,6 +77,10 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		// layout) so the realtime layer can decide whether to fire desktop
 		// notifications for new mail without a second round-trip.
 		const notificationsEnabled = cookies.get('notifications') === 'on';
+		// Calendar notification channels default to on once the master
+		// toggle is enabled; users opt out per-channel.
+		const notifyCalendarEvents = cookies.get('notify_calendar_events') !== 'off';
+		const notifyEventReminders = cookies.get('notify_event_reminders') !== 'off';
 
 		return {
 			mailboxes,
@@ -88,7 +93,12 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			labels,
 			rules,
 			folderExpanded,
-			notificationsEnabled
+			notificationsEnabled,
+			notifyCalendarEvents,
+			notifyEventReminders,
+			// "Create event from email" (LLM extraction) only renders when an
+			// Ollama endpoint is configured server-side.
+			aiEventExtraction: !!(env.OLLAMA_API_KEY || env.OLLAMA_URL)
 		};
 	} catch (err) {
 		if (err instanceof JMAPAuthError) {

@@ -45,6 +45,10 @@ export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 		// Notifications
 		notificationsEnabled: cookies.get('notifications') === 'on',
 		notificationFolders,
+		notifyCalendarEvents: cookies.get('notify_calendar_events') !== 'off',
+		notifyEventReminders: cookies.get('notify_event_reminders') !== 'off',
+		// Calendar
+		calendarWeekStart: cookies.get('calendar_week_start') === '0' ? 0 : cookies.get('calendar_week_start') === '6' ? 6 : 1,
 		// Auto-reply
 		autoReplyEnabled: cookies.get('auto_reply_enabled') === 'on',
 		autoReplySubject: decodeURIComponent(cookies.get('auto_reply_subject') ?? ''),

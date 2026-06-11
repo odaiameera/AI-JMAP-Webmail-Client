@@ -12,6 +12,7 @@
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import { realtime } from '$lib/stores/realtime';
+	import { calendarNotify } from '$lib/stores/calendarNotify';
 	import { showToast } from '$lib/stores/toast';
 	import { loadUserState } from '$lib/stores/userState';
 	import type { LayoutData } from './$types';
@@ -84,7 +85,27 @@
 		return () => {
 			window.removeEventListener('resize', handler);
 			realtime.disconnect();
+			calendarNotify.stop();
 		};
+	});
+
+	// Calendar push: poll CalDAV change tokens + VALARM reminders while any
+	// notification channel is on. Reacts to settings changes live.
+	$effect(() => {
+		const wantsCalendar =
+			data.notificationsEnabled && (data.notifyCalendarEvents || data.notifyEventReminders);
+		if (wantsCalendar) {
+			calendarNotify.start({
+				newEvents: data.notifyCalendarEvents,
+				reminders: data.notifyEventReminders
+			});
+			calendarNotify.setOptions({
+				newEvents: data.notifyCalendarEvents,
+				reminders: data.notifyEventReminders
+			});
+		} else {
+			calendarNotify.stop();
+		}
 	});
 
 	// Watch the inbox unread count for new mail. Kept as a plain `let`
