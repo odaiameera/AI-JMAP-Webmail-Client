@@ -24,11 +24,13 @@ function prepareStmts() {
 			 WHERE user_email = ?`
 		),
 		upsert: db.prepare(
+			// @hidden/@color may be null meaning "leave unchanged"; the insert
+			// path needs a concrete value for the NOT NULL hidden column.
 			`INSERT INTO calendar_meta (user_email, calendar_id, color, hidden)
-			 VALUES (@userEmail, @calendarId, @color, @hidden)
+			 VALUES (@userEmail, @calendarId, @color, COALESCE(@hidden, 0))
 			 ON CONFLICT (user_email, calendar_id) DO UPDATE SET
-			   color      = COALESCE(excluded.color,  calendar_meta.color),
-			   hidden     = COALESCE(excluded.hidden, calendar_meta.hidden),
+			   color      = COALESCE(@color,  calendar_meta.color),
+			   hidden     = COALESCE(@hidden, calendar_meta.hidden),
 			   updated_at = datetime('now')`
 		),
 		delete: db.prepare(`DELETE FROM calendar_meta WHERE user_email = ? AND calendar_id = ?`)
