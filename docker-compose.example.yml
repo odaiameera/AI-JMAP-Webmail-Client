@@ -10,7 +10,7 @@ services:
       - JMAP_URL=https://mx.odaiameera.com
       - DATABASE_PATH=/data/ameera.db
       - PLANE_BASE_URL=https://plane.odaiameera.com/api/v1
-      - PLANE_API_KEY=plane_api_48006eede7e9430db31c073f06038eab
+      - PLANE_API_KEY=<your plane api key>
       - PLANE_WORKSPACE_SLUG=homelab
       # AI event extraction ("create event from this email"). Works with
       # Ollama Cloud or any self-hosted Ollama; leave unset to hide the
