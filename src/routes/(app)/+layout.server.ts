@@ -23,7 +23,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 
 	try {
 		const client = createClient(locals.auth);
-		const mailboxes = await getMailboxes(client, locals.auth.accountId);
 
 		const accounts = locals.accounts ?? [];
 		const activeAccount = accounts.find((a) => a.id === locals.activeAccountId);
@@ -39,33 +38,47 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			'';
 
 		// One-shot migration from keyword-based labels to JMAP mailbox labels.
-		// Idempotent; the marker cookie makes subsequent loads a no-op.
+		// Idempotent; the marker cookie makes subsequent loads a no-op. Must
+		// finish before the label fetch below sees the mailboxes it creates.
 		await migrateKeywordLabelsIfNeeded(client, locals.auth.accountId, userEmail, cookies);
-		const labels = await listLabels(client, locals.auth.accountId, userEmail);
 
 		// Refresh the identity cache on every navigation. Single Identity/get
 		// round-trip; the user picked "always refresh" over stale-while-
 		// revalidate so the cache is never older than one page load. Failures
 		// are non-fatal — a stale cache is better than a broken page.
-		try {
-			const remote = await getIdentities(client, locals.auth.accountId);
-			const primaryByEmail = remote.find(
-				(r) => r.email.toLowerCase() === userEmail.toLowerCase()
-			);
-			const primaryId = primaryByEmail?.id ?? remote[0]?.id;
-			syncIdentities(
-				userEmail,
-				remote.map((r) => ({
-					jmapId: r.id,
-					email: r.email,
-					name: r.name,
-					replyTo: r.replyTo,
-					isPrimary: r.id === primaryId
-				}))
-			);
-		} catch (err) {
-			console.warn('[identities] sync failed; using cached values', err);
-		}
+		const identityRefresh = (async () => {
+			try {
+				const remote = await getIdentities(client, locals.auth!.accountId);
+				const primaryByEmail = remote.find(
+					(r) => r.email.toLowerCase() === userEmail.toLowerCase()
+				);
+				const primaryId = primaryByEmail?.id ?? remote[0]?.id;
+				syncIdentities(
+					userEmail,
+					remote.map((r) => ({
+						jmapId: r.id,
+						email: r.email,
+						name: r.name,
+						replyTo: r.replyTo,
+						isPrimary: r.id === primaryId
+					}))
+				);
+			} catch (err) {
+				console.warn('[identities] sync failed; using cached values', err);
+			}
+		})();
+
+		// These hit the mail server independently — run them concurrently so
+		// every navigation costs one round-trip's latency, not the sum of
+		// three. This load re-runs on each invalidateAll(), so it's hot.
+		const [mailboxes, labels, accountUnread] = await Promise.all([
+			getMailboxes(client, locals.auth.accountId),
+			listLabels(client, locals.auth.accountId, userEmail),
+			// Inbox unread counts for the other accounts' switcher badges.
+			// Cached server-side (30s) so navigations stay cheap.
+			unreadBadges(listAccounts(locals.user.id), locals.activeAccountId),
+			identityRefresh
+		]);
 
 		// Rules live in SQLite now (device-independent). loadRules also performs
 		// the one-time import from the legacy per-browser `mail_rules` cookie.
@@ -92,13 +105,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		// toggle is enabled; users opt out per-channel.
 		const notifyCalendarEvents = cookies.get('notify_calendar_events') !== 'off';
 		const notifyEventReminders = cookies.get('notify_event_reminders') !== 'off';
-
-		// Inbox unread counts for the other accounts' switcher badges.
-		// Cached server-side (30s) so navigations stay cheap.
-		const accountUnread = await unreadBadges(
-			listAccounts(locals.user.id),
-			locals.activeAccountId
-		);
 
 		return {
 			mailboxes,

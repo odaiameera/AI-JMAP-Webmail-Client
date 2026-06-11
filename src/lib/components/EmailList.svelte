@@ -202,14 +202,31 @@
 		}
 	}
 
+	// Stale-while-revalidate for the reading pane: the previous message (or
+	// a cached copy of the clicked one) stays visible while the fresh detail
+	// loads, so switching messages never blanks the pane. The request id
+	// guards against out-of-order responses on rapid clicks.
+	const previewCache = new Map<string, Email>();
+	let previewReqId = 0;
+
+	let previewSelectedId = $state<string | null>(null);
+
 	async function handlePaneClick(email: Email) {
+		const reqId = ++previewReqId;
+		previewSelectedId = email.id;
+		const cached = previewCache.get(email.id);
+		if (cached) previewEmail = cached;
 		loadingPreview = true;
 		try {
 			const res = await fetch(`/api/email/${email.id}/detail`);
-			if (res.ok) {
-				previewEmail = await res.json();
+			if (res.ok && reqId === previewReqId) {
+				const detail = (await res.json()) as Email;
+				previewCache.set(email.id, detail);
+				previewEmail = detail;
 			}
-		} finally { loadingPreview = false; }
+		} finally {
+			if (reqId === previewReqId) loadingPreview = false;
+		}
 	}
 </script>
 
@@ -347,7 +364,7 @@
 								onSelect={toggleSelect}
 								onClick={paneOpen ? handlePaneClick : undefined}
 								onDragStart={handleRowDragStart}
-								active={paneOpen && previewEmail?.id === email.id}
+								active={paneOpen && (previewSelectedId ?? previewEmail?.id) === email.id}
 							/>
 						{/each}
 					{/if}
@@ -406,11 +423,18 @@
 		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
 
-		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
+		<div class="flex-1 overflow-hidden min-w-0 flex flex-col relative">
 			{#if loadingPreview}
-				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading...</div>
-			{:else if previewEmail?.bodyValues}
-				<EmailDetail email={previewEmail} compact />
+				<!-- Thin indeterminate bar — the current message stays visible
+				     underneath while the next one loads. -->
+				<div class="absolute top-0 left-0 right-0 h-0.5 bg-accent/70 animate-pulse z-20"></div>
+			{/if}
+			{#if previewEmail}
+				{#key previewEmail.id}
+					<EmailDetail email={previewEmail} compact />
+				{/key}
+			{:else if loadingPreview}
+				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading…</div>
 			{:else}
 				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Select an email to read</div>
 			{/if}

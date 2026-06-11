@@ -4,7 +4,8 @@
 	import { openCompose } from '$lib/stores/compose';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount, getContext } from 'svelte';
+	import { getContext } from 'svelte';
+	import { renderEmailBodyHtml } from '$lib/utils/email-body';
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import InvitationCard from './InvitationCard.svelte';
@@ -210,18 +211,22 @@
 		});
 	}
 
-	onMount(() => {
-		if (!email.keywords['$seen']) {
-			const timer = setTimeout(async () => {
-				await fetch(`/api/email/${email.id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ action: 'markRead' })
-				});
-				invalidateAll();
-			}, 1000);
-			return () => clearTimeout(timer);
-		}
+	// Mark-as-read after a second of viewing. An $effect keyed on the email
+	// id (not onMount) because in the reading pane this component stays
+	// mounted while the user moves between messages.
+	$effect(() => {
+		const id = email.id;
+		if (email.keywords['$seen']) return;
+		const timer = setTimeout(async () => {
+			await fetch(`/api/email/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'markRead' })
+			});
+			email.keywords['$seen'] = true;
+			invalidateAll();
+		}, 1000);
+		return () => clearTimeout(timer);
 	});
 
 	function formatDate(dateStr: string): string {
@@ -230,34 +235,8 @@
 		});
 	}
 
-	// Some senders (e.g. freeCodeCamp newsletters) ship an HTML body that is
-	// really just plaintext wrapped in <html><body>…</body></html> with no
-	// structural tags. Browsers collapse the embedded newlines and the result
-	// is one unbroken wall of text. If the body has \n characters but none of
-	// the tags that would already express structure, promote those newlines.
-	const STRUCTURE_TAGS = /<(p|div|br|h[1-6]|li|tr|blockquote|pre|table|style)\b/i;
 	function getBodyHtml(): string {
-		if (!email.bodyValues) return '';
-		if (email.htmlBody?.length) {
-			const partId = email.htmlBody[0].partId;
-			const body = email.bodyValues[partId];
-			if (body) {
-				const value = body.value;
-				if (/\n/.test(value) && !STRUCTURE_TAGS.test(value)) {
-					return value.replace(/\n/g, '<br>\n');
-				}
-				return value;
-			}
-		}
-		if (email.textBody?.length) {
-			const partId = email.textBody[0].partId;
-			const body = email.bodyValues[partId];
-			if (body) {
-				const escaped = body.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-				return `<pre style="white-space: pre-wrap; font-family: inherit;">${escaped}</pre>`;
-			}
-		}
-		return '<p style="color: #71717A;">No content</p>';
+		return renderEmailBodyHtml(email) || '<p style="color: #71717A;">No content</p>';
 	}
 
 	function getHtmlQuotedBlock(): string {
@@ -707,11 +686,14 @@
 	     pane, and long ones scroll inside the iframe instead of the
 	     wrapper. -->
 	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4'}">
+		<!-- bg-white matches the document's body background so swapping
+		     srcdoc (next/previous message) repaints white-on-white instead
+		     of flashing through the dark page background. -->
 		<iframe
 			srcdoc={iframeContent}
 			sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
 			title="Email content"
-			class="w-full h-full border-none rounded"
+			class="w-full h-full border-none rounded bg-white"
 		></iframe>
 	</div>
 
