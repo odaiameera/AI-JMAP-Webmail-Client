@@ -16,9 +16,14 @@ import { wasTouchedRecently } from '$lib/calendar/api';
  *  - touched ids   → our own edits (marked by the API helper) stay silent
  */
 
-const POLL_INTERVAL_MS = 90_000;
+// 5 minutes: calendar changes from other devices are ambient information,
+// not chat — and each poll costs the mail server a PROPFIND plus two
+// REPORTs per calendar. Reminder precision doesn't suffer: VALARMs are
+// scheduled as local timers from each poll's 30-minute horizon.
+const POLL_INTERVAL_MS = 5 * 60_000;
 const TOKENS_KEY = 'cal-sync-tokens-v1';
 const FIRED_KEY = 'cal-fired-alarms-v1';
+const LAST_POLL_KEY = 'cal-last-poll-v1';
 const FIRED_TTL_MS = 2 * 86400000;
 
 interface ReminderItem {
@@ -157,6 +162,14 @@ function createCalendarNotify() {
 
 	async function poll() {
 		if (polling) return;
+		// Cross-tab gate: with several tabs open, only the one whose timer
+		// fires first actually polls each window — the rest see the fresh
+		// timestamp and skip. Cuts server load by the tab count and stops
+		// duplicate desktop notifications (system notifications from the
+		// polling tab reach the user regardless of which tab is focused).
+		const lastPoll = readJson<number>(LAST_POLL_KEY, 0);
+		if (Date.now() - lastPoll < POLL_INTERVAL_MS * 0.9) return;
+		writeJson(LAST_POLL_KEY, Date.now());
 		polling = true;
 		try {
 			const tokens = readJson<Record<string, string>>(TOKENS_KEY, {});
