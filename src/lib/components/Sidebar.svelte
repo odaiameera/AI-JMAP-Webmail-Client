@@ -130,6 +130,11 @@
 
 	const folderIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`;
 
+	// Flagged is a virtual view (a keyword query, not a mailbox), so it gets
+	// its own entry instead of riding the mailbox list.
+	const flaggedIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+	const flaggedActive = $derived(page.url.pathname.startsWith('/flagged'));
+
 	function isLabelActive(label: Label): boolean {
 		return page.url.pathname === `/folder/${label.id}`;
 	}
@@ -264,6 +269,18 @@
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(pseudoRole(mailbox))}</span>
 				</a>
+				{#if pseudoRole(mailbox) === 'inbox'}
+					<a
+						href="/flagged"
+						title="Flagged"
+						class="flex items-center justify-center py-2 rounded-lg transition-colors
+							{flaggedActive
+								? 'bg-accent/10 text-accent'
+								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+					>
+						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
+					</a>
+				{/if}
 			{/each}
 
 			{#if userFolders.length > 0}
@@ -321,6 +338,18 @@
 						<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">{mailbox.unreadEmails}</span>
 					{/if}
 				</a>
+				{#if pseudoRole(mailbox) === 'inbox'}
+					<a
+						href="/flagged"
+						class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
+							{flaggedActive
+								? 'bg-accent/10 text-accent'
+								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+					>
+						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
+						<span class="flex-1 truncate">Flagged</span>
+					</a>
+				{/if}
 			{/each}
 
 			<!-- FOLDERS section -->

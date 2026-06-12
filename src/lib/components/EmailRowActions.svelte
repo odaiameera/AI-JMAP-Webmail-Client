@@ -5,11 +5,14 @@
 	let {
 		emailId,
 		isUnread,
-		sourceMailboxId
+		sourceMailboxId,
+		hasReminder = false
 	}: {
 		emailId: string;
 		isUnread: boolean;
 		sourceMailboxId: string;
+		/** Email is parked in Remind Me Later — offer Unsnooze instead of the picker. */
+		hasReminder?: boolean;
 	} = $props();
 
 	let loading = $state<string>('');
@@ -24,6 +27,17 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ action, sourceMailboxId })
 			});
+			await invalidateAll();
+		} finally {
+			loading = '';
+		}
+	}
+
+	async function unsnooze() {
+		if (loading) return;
+		loading = 'unsnooze';
+		try {
+			await fetch(`/api/reminders/${emailId}`, { method: 'DELETE' });
 			await invalidateAll();
 		} finally {
 			loading = '';
@@ -75,27 +89,41 @@
 		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 	</button>
 
-	<div class="relative">
+	{#if hasReminder}
 		<button
 			type="button"
 			onmousedown={stop}
-			onclick={(e) => { stop(e); pickerOpen = !pickerOpen; }}
+			onclick={(e) => { stop(e); unsnooze(); }}
 			disabled={!!loading}
-			title="Remind me later"
-			aria-label="Remind me later"
-			class="p-1.5 rounded hover:bg-surface transition-colors cursor-pointer disabled:opacity-50 {pickerOpen ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+			title="Unsnooze — return to inbox now"
+			aria-label="Unsnooze"
+			class="p-1.5 rounded hover:bg-surface text-accent hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 		>
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
 		</button>
-		{#if pickerOpen}
-			<div onclick={stop} onmousedown={stop} onkeydown={(e) => e.stopPropagation()} role="presentation">
-				<RemindMeLaterPicker
-					onPick={scheduleReminder}
-					onClose={() => (pickerOpen = false)}
-				/>
-			</div>
-		{/if}
-	</div>
+	{:else}
+		<div class="relative">
+			<button
+				type="button"
+				onmousedown={stop}
+				onclick={(e) => { stop(e); pickerOpen = !pickerOpen; }}
+				disabled={!!loading}
+				title="Remind me later"
+				aria-label="Remind me later"
+				class="p-1.5 rounded hover:bg-surface transition-colors cursor-pointer disabled:opacity-50 {pickerOpen ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+			>
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+			</button>
+			{#if pickerOpen}
+				<div onclick={stop} onmousedown={stop} onkeydown={(e) => e.stopPropagation()} role="presentation">
+					<RemindMeLaterPicker
+						onPick={scheduleReminder}
+						onClose={() => (pickerOpen = false)}
+					/>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<button
 		type="button"
@@ -127,8 +155,13 @@
 </div>
 
 <style>
+	/* Hidden toolbar must not swallow clicks meant for row content under it. */
+	.email-row-actions {
+		pointer-events: none;
+	}
 	:global(.email-row:hover) .email-row-actions,
 	.email-row-actions:focus-within {
 		opacity: 1;
+		pointer-events: auto;
 	}
 </style>

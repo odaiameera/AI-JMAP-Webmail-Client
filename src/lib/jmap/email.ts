@@ -284,6 +284,32 @@ export async function markEmail(
 	assertAllUpdated(response, [id]);
 }
 
+/** Toggle the `$flagged` keyword (star) on one email. */
+export async function flagEmail(
+	client: JMAPClient,
+	accountId: string,
+	id: string,
+	flagged: boolean
+): Promise<void> {
+	const response = await client.request([
+		[
+			'Email/set',
+			{
+				accountId,
+				update: {
+					[id]: {
+						// `false` (not null) — accepted by every Stalwart version;
+						// see the note on keywords/$seen above.
+						'keywords/$flagged': flagged ? true : false
+					}
+				}
+			},
+			'0'
+		]
+	]);
+	assertAllUpdated(response, [id]);
+}
+
 // ---------------------------------------------------------------------------
 // Mailbox membership writes
 // ---------------------------------------------------------------------------

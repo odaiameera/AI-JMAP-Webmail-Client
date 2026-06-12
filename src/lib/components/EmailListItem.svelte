@@ -9,6 +9,8 @@
 	const allLabels = getContext<Label[]>('labels') ?? [];
 	const getRemindedIds = getContext<() => Set<string>>('remindedIds');
 	const listMailboxId = getContext<() => string>('listMailboxId');
+	/** emailId → ISO return time for mail parked in Remind Me Later. */
+	const getReminderAt = getContext<(() => Map<string, string>) | undefined>('reminderAt');
 
 	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
@@ -20,7 +22,9 @@
 	} = $props();
 
 	const wasReminded = $derived(getRemindedIds?.().has(email.id) ?? false);
+	const reminderAt = $derived(getReminderAt?.().get(email.id) ?? null);
 	const isUnread = $derived(!('$seen' in email.keywords));
+	const isFlagged = $derived('$flagged' in email.keywords);
 	const sourceMailboxId = $derived(
 		listMailboxId?.() || Object.keys(email.mailboxIds)[0] || ''
 	);
@@ -92,6 +96,37 @@
 			// Best effort — a failed mark-read shouldn't disrupt the list.
 		}
 	}
+
+	// Optimistic star toggle — flip the keyword locally so the UI is instant,
+	// then persist; revert on failure. No invalidateAll: nothing else changes.
+	async function toggleFlag(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		const next = !isFlagged;
+		if (next) email.keywords['$flagged'] = true;
+		else delete email.keywords['$flagged'];
+		try {
+			const res = await fetch(`/api/email/${email.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: next ? 'flag' : 'unflag' })
+			});
+			if (!res.ok) throw new Error();
+		} catch {
+			if (next) delete email.keywords['$flagged'];
+			else email.keywords['$flagged'] = true;
+		}
+	}
+
+	function formatReturnTime(iso: string): string {
+		const d = new Date(iso);
+		const today = new Date();
+		const sameDay = d.toDateString() === today.toDateString();
+		const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+		if (sameDay) return `today ${time}`;
+		return `${d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} ${time}`;
+	}
+
 </script>
 
 <a
@@ -100,7 +135,7 @@
 	ondblclick={handleRowDblClick}
 	draggable="true"
 	ondragstart={(e) => onDragStart?.(email, e)}
-	class="email-row relative flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
+	class="email-row group relative flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface-hover transition-colors cursor-pointer no-underline
 		{selected ? 'bg-accent/10 border-l-2 border-l-accent' : ''} {active ? 'bg-surface-hover' : ''}"
 >
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -117,6 +152,21 @@
 			<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 		{/if}
 	</div>
+
+	<!-- Star: solid amber when flagged; ghosts in on row hover otherwise -->
+	<button
+		type="button"
+		onclick={toggleFlag}
+		title={isFlagged ? 'Unflag' : 'Flag'}
+		aria-label={isFlagged ? 'Unflag' : 'Flag'}
+		aria-pressed={isFlagged}
+		class="shrink-0 p-0.5 -m-0.5 cursor-pointer transition-colors
+			{isFlagged ? 'text-warning' : 'text-transparent group-hover:text-text-tertiary hover:!text-warning'}"
+	>
+		<svg width="15" height="15" viewBox="0 0 24 24" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+			<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+		</svg>
+	</button>
 
 	{#if !isRead}
 		<span class="w-2 h-2 rounded-full bg-unread shrink-0"></span>
@@ -140,6 +190,15 @@
 				</span>
 			{/if}
 			<span class="truncate">{email.subject || '(no subject)'}</span>
+			{#if reminderAt}
+				<span
+					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent text-[10px] font-medium px-1.5 py-0.5"
+					title="Snoozed — returns to the inbox automatically"
+				>
+					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+					Returns {formatReturnTime(reminderAt)}
+				</span>
+			{/if}
 			{#if email.hasAttachment}
 				<span class="text-text-tertiary shrink-0">📎</span>
 			{/if}
@@ -160,5 +219,5 @@
 		</div>
 	</div>
 
-	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} />
+	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} />
 </a>

@@ -54,6 +54,18 @@
 	// Getter so callers always see the current page's marker set even
 	// after invalidateAll() refreshes the load data without remounting.
 	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
+	// emailId → ISO return time for parked snoozes — lets rows in the
+	// Remind Me Later folder show when each mail comes back + unsnooze.
+	setContext(
+		'reminderAt',
+		() =>
+			new Map<string, string>(
+				(page.data.reminders ?? []).map((r: { emailId: string; remindAt: string }) => [
+					r.emailId,
+					r.remindAt
+				])
+			)
+	);
 
 	const readingPane = getContext<{ subscribe: (fn: (v: boolean) => void) => () => void; toggle: () => void }>('readingPane');
 	// Read the store synchronously so the pane renders in its real state

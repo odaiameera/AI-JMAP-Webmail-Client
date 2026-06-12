@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
-import { markEmail, trashEmail, archiveEmail, moveEmail, markAsSpam, markAsNotSpam, destroyEmail } from '$lib/jmap/email';
+import { markEmail, flagEmail, trashEmail, archiveEmail, moveEmail, markAsSpam, markAsNotSpam, destroyEmail } from '$lib/jmap/email';
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
 
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
@@ -22,6 +22,12 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
 				break;
 			case 'markUnread':
 				await markEmail(client, accountId, emailId, false);
+				break;
+			case 'flag':
+				await flagEmail(client, accountId, emailId, true);
+				break;
+			case 'unflag':
+				await flagEmail(client, accountId, emailId, false);
 				break;
 			case 'trash': {
 				const mailboxes = await getMailboxes(client, accountId);

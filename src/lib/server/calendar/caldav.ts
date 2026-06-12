@@ -81,21 +81,41 @@ export function calendarHref(userEmail: string, calendarId: string): string {
 	return `${calendarHomeHref(userEmail)}${encodeURIComponent(calendarId)}/`;
 }
 
+// Read verbs are safe to retry once on transient trouble (5xx, 429, network
+// blip) — a single retry absorbs most intermittent "couldn't reach the
+// calendar server" banners without masking real outages. Writes are never
+// retried here: their conditional headers make duplicates harmless, but a
+// retry could double-apply against a different etag.
+const RETRYABLE_METHODS = new Set(['GET', 'PROPFIND', 'REPORT']);
+
 async function davRequest(
 	auth: AuthState,
 	method: string,
 	href: string,
 	options: { body?: string; headers?: Record<string, string> } = {}
 ): Promise<Response> {
-	const res = await fetch(`${davOrigin(auth)}${href}`, {
-		method,
-		headers: {
-			Authorization: auth.authHeader,
-			...options.headers
-		},
-		body: options.body
-	});
-	return res;
+	const doFetch = () =>
+		fetch(`${davOrigin(auth)}${href}`, {
+			method,
+			headers: {
+				Authorization: auth.authHeader,
+				...options.headers
+			},
+			body: options.body
+		});
+
+	try {
+		const res = await doFetch();
+		if (RETRYABLE_METHODS.has(method) && (res.status >= 500 || res.status === 429)) {
+			await new Promise((r) => setTimeout(r, 300));
+			return doFetch();
+		}
+		return res;
+	} catch (err) {
+		if (!RETRYABLE_METHODS.has(method)) throw err;
+		await new Promise((r) => setTimeout(r, 300));
+		return doFetch();
+	}
 }
 
 interface PropstatProps {
