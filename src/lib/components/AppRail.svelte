@@ -4,9 +4,19 @@
 	type RailItem = {
 		id: string;
 		label: string;
-		href: string;
+		href?: string;
 		icon: string; // inline SVG
 	};
+
+	let {
+		aiOpen = false,
+		aiEnabled = false,
+		onToggleAI = () => {}
+	}: {
+		aiOpen?: boolean;
+		aiEnabled?: boolean;
+		onToggleAI?: () => void;
+	} = $props();
 
 	const SETTINGS_HREF = '/settings/account';
 
@@ -21,8 +31,7 @@
 		},
 		{
 			id: 'ai',
-			label: 'AI',
-			href: '/apps/ai',
+			label: 'AI mail agent',
 			// Robot head — head rect centred on (12, 14), antenna + ears keep the
 			// overall visual centre on viewBox centre (12, 12).
 			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`
@@ -47,7 +56,8 @@
 		}
 	];
 
-	function isActive(href: string): boolean {
+	function isActive(href?: string): boolean {
+		if (!href) return false;
 		const path = page.url.pathname;
 		if (href === '/inbox') {
 			return (
@@ -65,18 +75,34 @@
 
 <div class="w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden">
 	{#each items as item (item.id)}
-		<a
-			href={item.href}
-			title={item.label}
-			aria-label={item.label}
-			aria-current={isActive(item.href) ? 'page' : undefined}
-			class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
-				{isActive(item.href)
-					? 'text-accent bg-accent/10'
-					: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
-		>
-			{@html item.icon}
-		</a>
+		{#if item.id === 'ai'}
+			<button
+				type="button"
+				title={aiEnabled ? (aiOpen ? 'Close AI mail agent' : 'Open AI mail agent') : 'AI mail agent is not configured'}
+				aria-label={aiOpen ? 'Close AI mail agent' : 'Open AI mail agent'}
+				aria-pressed={aiOpen}
+				onclick={onToggleAI}
+				class="w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer
+					{aiOpen
+						? 'text-accent bg-accent/10 shadow-sm'
+						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
+			>
+				{@html item.icon}
+			</button>
+		{:else}
+			<a
+				href={item.href}
+				title={item.label}
+				aria-label={item.label}
+				aria-current={isActive(item.href) ? 'page' : undefined}
+				class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+					{isActive(item.href)
+						? 'text-accent bg-accent/10'
+						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
+			>
+				{@html item.icon}
+			</a>
+		{/if}
 	{/each}
 
 	<!-- Spacer pushes Settings to the bottom of the rail -->

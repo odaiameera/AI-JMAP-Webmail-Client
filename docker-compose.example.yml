@@ -22,6 +22,20 @@ services:
       # - OLLAMA_URL=https://ollama.com
       # - OLLAMA_API_KEY=<your ollama cloud api key>
       # - OLLAMA_MODEL=deepseek-v3.1:671b
+      # Native task apps. Configure any combination; the confirmation card
+      # lets the user choose a destination when more than one is connected.
+      # - TODOIST_API_TOKEN=<todoist personal api token>
+      # - TODOIST_PROJECT_ID=<optional todoist project id>
+      # - LINEAR_API_KEY=<linear personal api key>
+      # - LINEAR_TEAM_ID=<required linear team uuid>
+      # - LINEAR_PROJECT_ID=<optional linear project uuid>
+      # - NOTION_API_TOKEN=<notion integration token>
+      # - NOTION_DATA_SOURCE_ID=<shared notion data source id>
+      # - NOTION_DUE_PROPERTY=Due
+      # Optional task API, automation webhook, or MCP-to-HTTP bridge. The AI
+      # agent shows a proposal and requires confirmation before calling it.
+      # - TASK_ADAPTER_URL=https://tasks.example.com/api/tasks
+      # - TASK_ADAPTER_API_KEY=<task adapter bearer token>
     volumes:
       # Persistent SQLite store for per-user state (avatar, label/folder
       # metadata, signatures). Survives `docker compose up -d --build`.

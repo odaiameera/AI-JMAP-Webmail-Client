@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
+	import AIAssistantRail from '$lib/components/AIAssistantRail.svelte';
 	import ComposerShell from '$lib/components/composer/ComposerShell.svelte';
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
@@ -14,6 +15,7 @@
 	import { calendarNotify } from '$lib/stores/calendarNotify';
 	import { showToast } from '$lib/stores/toast';
 	import { loadUserState } from '$lib/stores/userState';
+	import { AI_ASSISTANT_CONTEXT, type AIAssistantContext } from '$lib/types/assistant';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -39,9 +41,19 @@
 	let profileOpen = $state(false);
 	let profileCardEl = $state<HTMLDivElement | undefined>(undefined);
 	let sidebarCollapsed = $state(false);
+	let assistantOpen = $state(page.url.searchParams.get('assistant') === 'open');
+	let currentEmailId = $state<string | null>(null);
+	setContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT, {
+		open: () => { assistantOpen = true; },
+		setCurrentEmail: (id) => { currentEmailId = id; },
+		clearCurrentEmail: (id) => {
+			if (currentEmailId === id) currentEmailId = null;
+		}
+	});
 
 	const avatarLetter = $derived((data.displayName ?? 'O')[0].toUpperCase());
 	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
+	const assistantWidth = $derived(assistantOpen ? 'clamp(320px, 28vw, 400px)' : '0px');
 
 	onMount(() => {
 		// Phase 13: avatar / labels / signatures live server-side now.
@@ -176,11 +188,11 @@
 <div
 	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
 	class:density-compact={data.density === 'compact'}
-	style="grid-template-columns: {sidebarWidth} 1fr auto; transition: grid-template-columns 0.2s ease;
+	style="grid-template-columns: {sidebarWidth} minmax(0, 1fr) {assistantWidth} 52px; transition: grid-template-columns 0.3s ease;
 		{data.activeAccountColor ? `border-top: 2px solid ${data.activeAccountColor};` : ''}"
 >
 	<!-- Row 1: Full-width header -->
-	<div class="col-span-3 flex items-center h-14 pl-4 pr-0 gap-4">
+	<div class="col-span-4 flex items-center h-14 pl-4 pr-0 gap-4">
 		<h1 class="text-lg font-bold text-text tracking-tight leading-none shrink-0 {sidebarCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
 			{sidebarCollapsed ? '' : 'ameera.'}
 		</h1>
@@ -226,8 +238,22 @@
 		{@render children()}
 	</main>
 
-	<!-- Row 2, Col 3: App rail -->
-	<AppRail />
+	<!-- Row 2, Col 3: Persistent AI agent rail -->
+	<div class="min-w-0 overflow-hidden">
+		<AIAssistantRail
+			open={assistantOpen}
+			aiEnabled={data.aiEnabled}
+			{currentEmailId}
+			onClose={() => { assistantOpen = false; }}
+		/>
+	</div>
+
+	<!-- Row 2, Col 4: App rail -->
+	<AppRail
+		aiOpen={assistantOpen}
+		aiEnabled={data.aiEnabled}
+		onToggleAI={() => { assistantOpen = !assistantOpen; }}
+	/>
 </div>
 
 {#if profileOpen}

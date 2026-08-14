@@ -15,10 +15,18 @@
 	import { showToast } from '$lib/stores/toast';
 	import type { CalendarInfo, EventWritePayload } from '$lib/calendar/types';
 	import { queueSenderForContacts } from '$lib/contacts/navigation';
+	import { AI_ASSISTANT_CONTEXT, type AIAssistantContext } from '$lib/types/assistant';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
+	const aiAssistant = getContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT);
 
 	let { email, compact = false }: { email: Email; compact?: boolean } = $props();
+
+	$effect(() => {
+		const id = email.id;
+		aiAssistant?.setCurrentEmail(id);
+		return () => aiAssistant?.clearCurrentEmail(id);
+	});
 
 	const mailboxes = $derived<Mailbox[]>(page.data.mailboxes ?? []);
 
