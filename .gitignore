@@ -1,0 +1,38 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Local SQLite (Phase 13) — production lives in the Docker volume mounted
+# at /data; dev falls back to a repo-relative path that should never be
+# committed.
+local-data/
+
+# Local deployment config — holds real secrets (API keys).
+# Use docker-compose.example.yml as a template.
+docker-compose.yml
+.test-build/
+
+# Local agent/tool state
+.claude/settings.local.json
+.hermes/
+PLAN.md

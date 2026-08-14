@@ -1,0 +1,31 @@
+services:
+  webmail:
+    build: .
+    container_name: webmail
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      # Public URL the app is served from — required for form posts
+      # (SvelteKit CSRF protection) when running behind a reverse proxy.
+      - ORIGIN=https://webmail.example.com
+      # Default mail server new accounts link against (your Stalwart base URL).
+      - JMAP_BASE_URL=https://mail.example.com
+      - DATABASE_PATH=/data/ameera.db
+      # REQUIRED. Encrypts linked mail-account passwords at rest. Generate
+      # with: openssl rand -base64 32 — and back it up: rotating it means
+      # re-entering every linked account's mail password.
+      - WEBMAIL_SECRET=<openssl rand -base64 32>
+      # AI mail assistant and event extraction. Works with Ollama Cloud or
+      # any self-hosted Ollama-compatible endpoint; leave unset to hide it.
+      # - OLLAMA_URL=https://ollama.com
+      # - OLLAMA_API_KEY=<your ollama cloud api key>
+      # - OLLAMA_MODEL=deepseek-v3.1:671b
+    volumes:
+      # Persistent SQLite store for per-user state (avatar, label/folder
+      # metadata, signatures). Survives `docker compose up -d --build`.
+      - webmail_data:/data
+
+volumes:
+  webmail_data:

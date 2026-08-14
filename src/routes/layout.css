@@ -1,0 +1,214 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/cairo';
+
+@theme {
+	--color-bg: #09090B;
+	--color-surface: #18181B;
+	--color-surface-hover: #27272A;
+	--color-border: #27272A;
+	--color-text: #FAFAFA;
+	--color-text-secondary: #A1A1AA;
+	--color-text-tertiary: #71717A;
+	--color-accent: #6366F1;
+	--color-accent-hover: #818CF8;
+	--color-unread: #3B82F6;
+	/*
+	 * Semantic status colors. Dark-mode defaults use the bright -400 shades
+	 * that read well on the near-black canvas; html.light swaps them for
+	 * darker -600/-700 shades that keep contrast on a light background.
+	 * Use these (text-danger, bg-danger/10, …) instead of raw red-400 etc.
+	 */
+	--color-danger: #f87171;
+	--color-success: #34d399;
+	--color-warning: #fbbf24;
+	--color-info: #60a5fa;
+	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
+}
+
+html {
+	/*
+	 * Global type scale. 100% = the browser default (16px). Bumping the root
+	 * font-size is the single knob that enlarges all rem-based text across the
+	 * app (lists, sidebar, reading pane, settings, composer chrome) at once,
+	 * and proportionally nudges rem spacing so nothing feels cramped.
+	 * 107.5% ≈ +7.5% (midpoint of the 5–10% target). Tune this one number:
+	 *   105%   → +5%
+	 *   107.5% → +7.5%
+	 *   110%   → +10%
+	 */
+	font-size: 107.5%;
+	background-color: var(--color-bg);
+	color: var(--color-text);
+}
+
+html.light {
+	--color-bg: #F4F4F5;
+	--color-surface: #FFFFFF;
+	/* Must stay distinct from --color-bg or hover states on bg-colored areas
+	   (list rows, toolbar buttons, pagination) become invisible. */
+	--color-surface-hover: #E8E8EB;
+	--color-border: #E4E4E7;
+	--color-text: #09090B;
+	--color-text-secondary: #52525B;
+	--color-text-tertiary: #A1A1AA;
+	--color-accent: #6366F1;
+	/* Hover should darken on light, not lighten — keeps white text legible. */
+	--color-accent-hover: #4F46E5;
+	--color-unread: #3B82F6;
+	--color-danger: #DC2626;
+	--color-success: #059669;
+	--color-warning: #D97706;
+	--color-info: #2563EB;
+}
+
+body {
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.fc-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: 26px;
+	padding: 0 4px;
+	border-radius: 4px;
+	font-size: 13px;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	border: none;
+	background: transparent;
+	transition: background 0.1s, color 0.1s;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.fc-btn:hover:not(:disabled) {
+	background: var(--color-surface-hover);
+	color: var(--color-text);
+}
+.fc-active {
+	background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+	color: var(--color-accent);
+}
+.fc-active-red {
+	background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+	color: var(--color-danger);
+}
+.fc-active-blue {
+	background: color-mix(in srgb, var(--color-info) 15%, transparent);
+	color: var(--color-info);
+}
+.fc-select {
+	height: 26px;
+	font-size: 12px;
+	padding: 0 6px;
+	background: var(--color-surface-hover);
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	color: var(--color-text);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+.fc-select:focus {
+	outline: none;
+	border-color: var(--color-accent);
+}
+.fc-sep {
+	width: 1px;
+	height: 16px;
+	background: var(--color-border);
+	margin: 0 3px;
+	flex-shrink: 0;
+}
+
+.full-composer-editor :global(.ProseMirror) {
+	outline: none;
+	min-height: 300px;
+	height: auto;
+	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+	font-size: 14px; line-height: 1.5; color: var(--color-text);
+}
+.full-composer-editor :global(.ProseMirror p) { margin: 0; }
+.full-composer-editor :global(.ProseMirror p:last-child) { margin-bottom: 0; }
+.full-composer-editor :global(.ProseMirror ul) { list-style: disc; padding-left: 1.5em; margin: 0.25em 0; }
+.full-composer-editor :global(.ProseMirror ol) { list-style: decimal; padding-left: 1.5em; margin: 0.25em 0; }
+.full-composer-editor :global(.ProseMirror h1) { font-size: 1.5em; font-weight: 700; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror h2) { font-size: 1.25em; font-weight: 600; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror h3) { font-size: 1.1em; font-weight: 600; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror a) { color: var(--color-accent); text-decoration: underline; }
+.full-composer-editor :global(.ProseMirror blockquote) {
+	border-left: 3px solid var(--color-border); padding-left: 1em; margin-left: 0; color: var(--color-text-secondary);
+}
+.full-composer-editor :global(.ProseMirror table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+.full-composer-editor :global(.ProseMirror td),
+.full-composer-editor :global(.ProseMirror th) { border: 1px solid var(--color-border); padding: 6px 10px; min-width: 60px; }
+.full-composer-editor :global(.ProseMirror th) { background: var(--color-surface-hover); font-weight: 600; }
+.full-composer-editor :global(.ProseMirror .is-editor-empty:first-child::before) {
+	content: attr(data-placeholder); color: var(--color-text-tertiary); pointer-events: none; float: left; height: 0;
+}
+
+/* Compose animations */
+@keyframes compose-modal-in {
+	from { opacity: 0; transform: translateY(20px) scale(0.95); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes compose-backdrop-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes compose-expand {
+	from { opacity: 0; transform: scale(0.97); }
+	to { opacity: 1; transform: scale(1); }
+}
+.animate-compose-modal-in {
+	animation: compose-modal-in 0.2s ease-out both;
+}
+/*
+ * Shell entrance. Opacity-only on purpose: the composer's positioning
+ * relies on `transform` (fullscreen is centered via translate(-50%,-50%)),
+ * so animating transform here would clobber that and shove the panel
+ * off-center. Keep this fade free of any transform.
+ */
+@keyframes compose-shell-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+.animate-compose-shell-in {
+	animation: compose-shell-in 0.15s ease-out both;
+}
+.animate-compose-backdrop-in {
+	animation: compose-backdrop-in 0.15s ease-out both;
+}
+.animate-compose-expand {
+	animation: compose-expand 0.2s ease-out both;
+}
+
+/*
+ * Density overrides — applied to any `.email-row` anywhere inside the
+ * app layout when the grid has `.density-compact`. Compact mode trims
+ * vertical padding and hides the one-line preview; comfortable mode is
+ * the default (no overrides).
+ */
+.density-compact .email-row {
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+}
+.density-compact .email-row .email-preview {
+	display: none;
+}
+.density-compact .email-row .email-subject {
+	margin-top: 0;
+}
+
+@media print {
+	aside,
+	header,
+	.ribbon,
+	.compose-modal { display: none !important; }
+	.email-body {
+		color: black !important;
+		background: white !important;
+	}
+}

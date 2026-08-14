@@ -1,0 +1,24 @@
+# Never copy a host-built node_modules into the image — better-sqlite3 ships
+# a native binary that must be compiled inside the Alpine (musl) builder.
+# A glibc node_modules copied over the musl one breaks the runtime with
+# "Error loading shared library ld-linux-x86-64.so.2".
+node_modules
+
+# Build artifacts are regenerated inside the image.
+build
+.svelte-kit
+
+# Repo/tooling cruft that has no place in the image.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+npm-debug.log*
+.DS_Store
+.vscode
+.claude
+
+# Secrets / local env should never land in an image layer.
+.env
+.env.*
