@@ -362,7 +362,7 @@
 						disabled:opacity-60 disabled:cursor-wait"
 				>
 					<span
-						class="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-[11px] font-semibold"
+						class="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-2xs font-semibold"
 						style="background-color: {account.color}"
 					>
 						{account.email[0]?.toUpperCase()}
@@ -372,9 +372,9 @@
 						<span class="block truncate text-xs text-text-tertiary">{account.email}</span>
 					</span>
 					{#if account.needsReauth}
-						<span class="text-[10px] text-danger shrink-0" title="Reconnect required">!</span>
+						<span class="text-3xs text-danger shrink-0" title="Reconnect required">!</span>
 					{:else if accountUnread[account.id]}
-						<span class="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-accent/15 text-accent text-[11px] font-semibold flex items-center justify-center">
+						<span class="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-accent/15 text-accent text-2xs font-semibold flex items-center justify-center">
 							{accountUnread[account.id] > 99 ? '99+' : accountUnread[account.id]}
 						</span>
 					{/if}

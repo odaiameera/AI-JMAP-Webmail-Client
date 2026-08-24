@@ -153,7 +153,7 @@
 
 			<!-- Date tile -->
 			<div class="w-12 shrink-0 rounded-lg border border-border overflow-hidden text-center select-none self-start">
-				<div class="text-[10px] uppercase tracking-wide py-0.5 {isCancellation ? 'bg-danger/15 text-danger' : 'bg-accent/15 text-accent'}">
+				<div class="text-3xs uppercase tracking-wide py-0.5 {isCancellation ? 'bg-danger/15 text-danger' : 'bg-accent/15 text-accent'}">
 					{monthShort}
 				</div>
 				<div class="text-lg font-semibold text-text leading-7">{startDate.getDate()}</div>
@@ -161,11 +161,11 @@
 
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-2 flex-wrap">
-					<span class="text-[11px] font-medium uppercase tracking-wide {isCancellation ? 'text-danger' : 'text-accent'}">
+					<span class="text-2xs font-medium uppercase tracking-wide {isCancellation ? 'text-danger' : 'text-accent'}">
 						{isCancellation ? 'Event cancelled' : isInvite ? 'Invitation' : 'Event attached'}
 					</span>
 					{#if onCalendar && !isCancellation}
-						<span class="inline-flex items-center gap-1 text-[11px] text-success">
+						<span class="inline-flex items-center gap-1 text-2xs text-success">
 							<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 							On your calendar
 						</span>

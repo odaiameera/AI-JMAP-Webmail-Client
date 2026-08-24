@@ -190,7 +190,7 @@
 		<div class="min-w-0 flex-1">
 			<h1 class="text-base font-semibold text-text">Contacts</h1>
 			{#if data?.supported}
-				<p class="text-[11px] text-text-tertiary">{data.total} {data.total === 1 ? 'contact' : 'contacts'}</p>
+				<p class="text-2xs text-text-tertiary">{data.total} {data.total === 1 ? 'contact' : 'contacts'}</p>
 			{/if}
 		</div>
 		<button
@@ -275,7 +275,7 @@
 				{:else}
 					<div class="flex-1 overflow-y-auto py-2">
 						{#each groups as group (group.letter)}
-							<div class="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-text-tertiary" aria-hidden="true">{group.letter}</div>
+							<div class="px-3 pt-2 pb-1 text-3xs font-semibold tracking-wider text-text-tertiary" aria-hidden="true">{group.letter}</div>
 							{#each group.contacts as contact (contact.id)}
 								<button
 									type="button"

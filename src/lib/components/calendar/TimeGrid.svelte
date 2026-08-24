@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
+	import { DEFAULT_CALENDAR_COLOR } from '$lib/calendar/types';
 	import { dayKey, formatTime, instanceDate, sameDay } from '$lib/calendar/dates';
 	import { layoutTimedBlocks, spanningEvents, timedEventsByDay, layoutWeekSegments } from '$lib/calendar/layout';
 
@@ -188,7 +189,7 @@
 				startMin: drag.startMin,
 				endMin: drag.startMin + drag.durMin,
 				label: drag.ev.title || '(untitled)',
-				color: colorOf.get(drag.ev.calendarId) ?? '#6366F1'
+				color: colorOf.get(drag.ev.calendarId) ?? DEFAULT_CALENDAR_COLOR
 			};
 		}
 		if (drag.kind === 'resize') {
@@ -197,7 +198,7 @@
 				startMin: drag.startMin,
 				endMin: drag.curEndMin,
 				label: drag.ev.title || '(untitled)',
-				color: colorOf.get(drag.ev.calendarId) ?? '#6366F1'
+				color: colorOf.get(drag.ev.calendarId) ?? DEFAULT_CALENDAR_COLOR
 			};
 		}
 		return null;
@@ -217,7 +218,7 @@
 				class="flex-1 py-1.5 flex flex-col items-center gap-0.5 hover:bg-surface-hover/40 transition-colors cursor-pointer border-l border-border first:border-l-0"
 				onclick={() => onSelectDay(day)}
 			>
-				<span class="text-[11px] font-medium uppercase tracking-wide {isToday ? 'text-accent' : 'text-text-tertiary'}">
+				<span class="text-2xs font-medium uppercase tracking-wide {isToday ? 'text-accent' : 'text-text-tertiary'}">
 					{day.toLocaleDateString(undefined, { weekday: 'short' })}
 				</span>
 				<span
@@ -233,18 +234,18 @@
 	<!-- All-day lane -->
 	{#if allDaySegs.length > 0}
 		<div class="flex border-b border-border">
-			<div class="w-14 shrink-0 py-1 pr-2 text-right text-[10px] text-text-tertiary">all-day</div>
+			<div class="w-14 shrink-0 py-1 pr-2 text-right text-3xs text-text-tertiary">all-day</div>
 			<div class="flex-1 relative" style="height: {Math.max(1, allDayLanes) * 22 + 4}px;">
 				{#each allDaySegs as seg (seg.event.id + (seg.event.recurrenceId ?? '') + seg.startCol)}
 					<button
 						type="button"
-						class="absolute h-[20px] px-1.5 flex items-center text-[11px] text-white font-medium truncate cursor-pointer hover:opacity-90 transition-opacity
+						class="absolute h-[20px] px-1.5 flex items-center text-2xs text-white font-medium truncate cursor-pointer hover:opacity-90 transition-opacity
 							{seg.continuesBefore ? '' : 'rounded-l'} {seg.continuesAfter ? '' : 'rounded-r'}"
 						style="
 							top: {2 + seg.lane * 22}px;
 							left: calc({(seg.startCol / days.length) * 100}% + 2px);
 							width: calc({(seg.span / days.length) * 100}% - 4px);
-							background: {colorOf.get(seg.event.calendarId) ?? '#6366F1'};
+							background: {colorOf.get(seg.event.calendarId) ?? DEFAULT_CALENDAR_COLOR};
 						"
 						onclick={(e) => onEventClick(seg.event, e.clientX, e.clientY)}
 					>
@@ -262,7 +263,7 @@
 			<div class="w-14 shrink-0 relative">
 				{#each hours as h (h)}
 					{#if h > 0}
-						<span class="absolute right-2 -translate-y-1/2 text-[10px] text-text-tertiary" style="top: {h * HOUR_H}px;">
+						<span class="absolute right-2 -translate-y-1/2 text-3xs text-text-tertiary" style="top: {h * HOUR_H}px;">
 							{hourLabel(h)}
 						</span>
 					{/if}
@@ -283,7 +284,7 @@
 					{@const blocks = layoutTimedBlocks(timedByDay.get(dayKey(day)) ?? [], day)}
 					<div class="flex-1 relative border-l border-border first:border-l-0">
 						{#each blocks as block (block.event.id + (block.event.recurrenceId ?? ''))}
-							{@const color = colorOf.get(block.event.calendarId) ?? '#6366F1'}
+							{@const color = colorOf.get(block.event.calendarId) ?? DEFAULT_CALENDAR_COLOR}
 							{@const hidden =
 								drag &&
 								((drag.kind === 'move' && drag.moved) || drag.kind === 'resize') &&
@@ -302,11 +303,11 @@
 								"
 								onpointerdown={(e) => blockPointerDown(e, block.event, di, block.startMin, block.endMin)}
 							>
-								<div class="text-[11px] font-semibold leading-tight truncate">
+								<div class="text-2xs font-semibold leading-tight truncate">
 									{block.event.title || '(untitled)'}
 								</div>
 								{#if block.endMin - block.startMin >= 40}
-									<div class="text-[10px] opacity-85 leading-tight truncate">
+									<div class="text-3xs opacity-85 leading-tight truncate">
 										{formatTime(instanceDate(block.event.start, false))} – {formatTime(instanceDate(block.event.end, false))}
 									</div>
 								{/if}
@@ -333,8 +334,8 @@
 							border-color: {dragGhost.color ?? 'var(--color-accent)'};
 						"
 					>
-						<div class="text-[11px] font-semibold text-white leading-tight truncate">{dragGhost.label}</div>
-						<div class="text-[10px] text-white/90 leading-tight">
+						<div class="text-2xs font-semibold text-white leading-tight truncate">{dragGhost.label}</div>
+						<div class="text-3xs text-white/90 leading-tight">
 							{formatTime(minutesToDate(days[dragGhost.dayIdx], dragGhost.startMin))} – {formatTime(minutesToDate(days[dragGhost.dayIdx], dragGhost.endMin))}
 						</div>
 					</div>

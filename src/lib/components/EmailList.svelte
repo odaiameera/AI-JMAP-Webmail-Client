@@ -380,10 +380,10 @@
 								<polyline points="9 18 15 12 9 6" />
 							</svg>
 						</span>
-						<span class="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+						<span class="text-2xs font-semibold uppercase tracking-wider text-text-secondary">
 							{group.label}
 						</span>
-						<span class="text-[11px] text-text-tertiary">{group.emails.length}</span>
+						<span class="text-2xs text-text-tertiary">{group.emails.length}</span>
 					</button>
 					{#if !isCollapsed}
 						{#each group.emails as email (email.id)}

@@ -606,7 +606,7 @@
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
 				{#if spamScore !== null}
 					<span
-						class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full
+						class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full
 							{isFlaggedSpam
 								? 'bg-danger/10 text-danger'
 								: spamScore > 3

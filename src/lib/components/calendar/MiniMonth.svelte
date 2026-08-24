@@ -69,7 +69,7 @@
 
 	<div class="grid grid-cols-7 mb-1">
 		{#each labels as label, i (i)}
-			<div class="text-center text-[10px] font-medium text-text-tertiary">{label}</div>
+			<div class="text-center text-3xs font-medium text-text-tertiary">{label}</div>
 		{/each}
 	</div>
 
@@ -80,7 +80,7 @@
 			{@const outside = day.getMonth() !== viewMonth}
 			<button
 				type="button"
-				class="w-6 h-6 mx-auto rounded-full text-[11px] flex items-center justify-center transition-colors cursor-pointer
+				class="w-6 h-6 mx-auto rounded-full text-2xs flex items-center justify-center transition-colors cursor-pointer
 					{isSelected
 						? 'bg-accent text-white font-semibold'
 						: isToday

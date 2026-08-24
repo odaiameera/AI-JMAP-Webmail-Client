@@ -277,7 +277,7 @@
 			</svg>
 		</button>
 		<div class="flex-1"></div>
-		<span class="text-[11px] {counterClass}" aria-live="polite">{charCount} / {MAX_CHARS}</span>
+		<span class="text-2xs {counterClass}" aria-live="polite">{charCount} / {MAX_CHARS}</span>
 	</div>
 	<div bind:this={mountEl}></div>
 </div>

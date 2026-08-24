@@ -69,5 +69,7 @@
 	.docx-preview :global(img) { max-width: 100%; height: auto; }
 	.docx-preview :global(strong) { font-weight: 600; }
 	.docx-preview :global(em) { font-style: italic; }
-	.docx-preview :global(a) { color: #6366F1; text-decoration: underline; }
+	/* In the app DOM, so it follows the palette — unlike the email-body
+	   iframe, where CSS variables do not reach. */
+	.docx-preview :global(a) { color: var(--color-accent); text-decoration: underline; }
 </style>

@@ -144,7 +144,7 @@
 			{#each systemFolders as mb (mb.id)}
 				<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-hover/30 border border-border/40">
 					<span class="flex-1 truncate text-sm text-text-secondary">{mb.name}</span>
-					<span class="text-[10px] text-text-tertiary uppercase tracking-wider">{mb.role ?? ''}</span>
+					<span class="text-3xs text-text-tertiary uppercase tracking-wider">{mb.role ?? ''}</span>
 				</div>
 			{/each}
 		</div>

@@ -23,6 +23,19 @@
 	--color-warning: #fbbf24;
 	--color-info: #60a5fa;
 	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
+	/*
+	 * Micro type, below Tailwind's text-xs (12px): badges, chips, metadata,
+	 * keyboard hints. These were 71 hand-written `text-[10px]`/`text-[11px]`
+	 * values scattered across every screen; naming them makes the scale one
+	 * edit instead of seventy-one.
+	 *
+	 * Deliberately px, not rem. The html font-size knob above (107.5%) scales
+	 * every rem-based size in the app; these never scaled with it. Converting
+	 * them to rem here would silently enlarge micro text everywhere, so the
+	 * existing behaviour is preserved and the question is left open.
+	 */
+	--text-2xs: 11px;
+	--text-3xs: 10px;
 }
 
 html {
@@ -65,6 +78,42 @@ body {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Keyboard focus, app-wide.
+ *
+ * The app is built almost entirely from unstyled <button>s carrying Tailwind
+ * hover states, and Tailwind's preflight removes the browser's default focus
+ * ring. The result was ~60 interactive elements in the main panes against 3
+ * focus rules: tabbing through the mail list, sidebar, or agent drawer left
+ * no visible indication of where you were.
+ *
+ * One rule rather than sixty utility classes, so it cannot drift out of sync
+ * again as components are added. `:focus-visible` (not `:focus`) means mouse
+ * users never see it — only keyboard and other non-pointer input.
+ *
+ * `:where()` keeps specificity at zero, so any component that needs a
+ * different treatment overrides this with a plain class and no !important.
+ * The colour is the accent token, so a change of palette carries it.
+ */
+:where(a, button, summary, [role='button'], [role='tab'], [role='menuitem'], [tabindex]:not([tabindex='-1'])):focus-visible,
+:where(input, textarea, select):focus-visible {
+	outline: 2px solid var(--color-accent);
+	/* Sits just outside the element so it reads on both the bg and surface
+	   layers without the element's own background clipping it. */
+	outline-offset: 2px;
+	/* Rounded elements would otherwise get a square ring. */
+	border-radius: inherit;
+}
+
+/*
+ * Contenteditable surfaces (the composer, signature editor) are focused for
+ * typing, not navigation — a ring around the whole editor while you type in
+ * it is noise, and these already show a focus-within border on their frame.
+ */
+:where([contenteditable]):focus-visible {
+	outline: none;
 }
 
 .fc-btn {

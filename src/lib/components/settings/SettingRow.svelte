@@ -31,12 +31,12 @@
 
 	<div class="flex items-center gap-2 shrink-0">
 		{#if state === 'saving'}
-			<span class="text-[11px] text-text-tertiary inline-flex items-center gap-1.5">
+			<span class="text-2xs text-text-tertiary inline-flex items-center gap-1.5">
 				<span class="w-3 h-3 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
 				Saving…
 			</span>
 		{:else if state === 'saved'}
-			<span class="text-[11px] text-accent inline-flex items-center gap-1">
+			<span class="text-2xs text-accent inline-flex items-center gap-1">
 				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 				Saved
 			</span>

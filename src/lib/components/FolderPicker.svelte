@@ -263,7 +263,7 @@
 					{/if}
 					<span class="flex-1 truncate">{item.name}</span>
 					{#if item.unread > 0}
-						<span class="text-[10px] font-medium text-text-tertiary shrink-0">{item.unread}</span>
+						<span class="text-3xs font-medium text-text-tertiary shrink-0">{item.unread}</span>
 					{/if}
 				</button>
 			{/each}

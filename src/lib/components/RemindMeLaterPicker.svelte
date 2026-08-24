@@ -107,7 +107,7 @@
 	data-rml-picker
 	class="absolute top-full right-0 mt-1 w-64 bg-surface border border-border rounded-lg shadow-xl z-50 py-1"
 >
-	<div class="px-3 py-1.5 text-[10px] uppercase tracking-wider text-text-tertiary font-semibold">
+	<div class="px-3 py-1.5 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">
 		Remind me later
 	</div>
 
@@ -141,7 +141,7 @@
 				<button
 					type="button"
 					onclick={() => (customMode = false)}
-					class="text-[11px] text-text-tertiary hover:text-text-secondary cursor-pointer"
+					class="text-2xs text-text-tertiary hover:text-text-secondary cursor-pointer"
 				>
 					Back
 				</button>

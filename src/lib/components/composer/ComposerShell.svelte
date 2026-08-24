@@ -755,7 +755,7 @@
 		{#if attachments.length > 0 || pendingUploads.length > 0}
 			<div class="shrink-0 border-t border-border bg-surface px-3 py-2" class:hidden={$composer.mode === 'minimized'}>
 				<div class="flex items-center justify-between mb-1.5">
-					<span class="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">
+					<span class="text-2xs font-medium text-text-tertiary uppercase tracking-wider">
 						{attachments.length} attachment{attachments.length === 1 ? '' : 's'}
 						{#if totalAttachmentBytes > 0}<span class="normal-case tracking-normal">· {formatBytes(totalAttachmentBytes)}</span>{/if}
 					</span>

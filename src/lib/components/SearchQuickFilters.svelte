@@ -252,7 +252,7 @@
 						onclick={() => pickFolder(opt)}
 						class="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-text cursor-pointer flex items-center gap-2"
 					>
-						<span class="text-[10px] uppercase tracking-wider text-text-tertiary w-10 shrink-0">
+						<span class="text-3xs uppercase tracking-wider text-text-tertiary w-10 shrink-0">
 							{opt.kind === 'role' ? 'Folder' : opt.kind === 'label' ? 'Label' : 'Folder'}
 						</span>
 						<span class="truncate">{opt.label}</span>

@@ -356,7 +356,7 @@
 			<div class="mt-4 mb-1 pl-3 pr-1">
 				<button
 					onclick={() => expanded.toggle(SECTION_FOLDERS)}
-					class="w-full flex items-center gap-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
+					class="w-full flex items-center gap-1.5 py-1 text-3xs font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
 				>
 					<span class="chevron {isExpanded(SECTION_FOLDERS) ? 'expanded' : ''}">
 						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -368,7 +368,7 @@
 			{#if isExpanded(SECTION_FOLDERS)}
 				<div transition:slide={{ duration: 150 }}>
 					{#if userFolderTree.length === 0}
-						<p class="text-[11px] text-text-tertiary/70 px-3 py-2 italic">No folders yet</p>
+						<p class="text-2xs text-text-tertiary/70 px-3 py-2 italic">No folders yet</p>
 					{:else}
 						{@render folderTree(userFolderTree, 0)}
 					{/if}
@@ -379,7 +379,7 @@
 			<div class="mt-4 mb-1 pl-3 pr-1">
 				<button
 					onclick={() => expanded.toggle(SECTION_LABELS)}
-					class="w-full flex items-center gap-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
+					class="w-full flex items-center gap-1.5 py-1 text-3xs font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
 				>
 					<span class="chevron {isExpanded(SECTION_LABELS) ? 'expanded' : ''}">
 						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -391,7 +391,7 @@
 			{#if isExpanded(SECTION_LABELS)}
 				<div transition:slide={{ duration: 150 }}>
 					{#if labels.length === 0}
-						<p class="text-[11px] text-text-tertiary/70 px-3 py-2 italic">No labels yet</p>
+						<p class="text-2xs text-text-tertiary/70 px-3 py-2 italic">No labels yet</p>
 					{:else}
 						{#each labels as label (label.id)}
 							<a

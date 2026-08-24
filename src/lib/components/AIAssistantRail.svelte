@@ -397,7 +397,7 @@
 			</div>
 			<div class="min-w-0 flex-1">
 				<h2 class="truncate text-sm font-semibold text-text">AI Mail Agent</h2>
-				<p class="truncate text-[11px] text-text-tertiary">
+				<p class="truncate text-2xs text-text-tertiary">
 					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'AI service not configured'}
 				</p>
 			</div>
@@ -433,7 +433,7 @@
 
 		{#if historyOpen}
 			<div class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-				<p class="px-1 pb-2 text-[11px] text-text-tertiary">
+				<p class="px-1 pb-2 text-2xs text-text-tertiary">
 					Conversations are kept for {retentionDays} days.
 				</p>
 
@@ -451,7 +451,7 @@
 									class="min-w-0 flex-1 cursor-pointer px-2.5 py-2 text-left"
 								>
 									<span class="block truncate text-xs font-medium text-text">{session.title}</span>
-									<span class="block text-[11px] text-text-tertiary">
+									<span class="block text-2xs text-text-tertiary">
 										{relativeTime(session.updatedAt)} · {session.messageCount} message{session.messageCount === 1 ? '' : 's'}
 									</span>
 								</button>
@@ -493,14 +493,14 @@
 								the only path to /api/ai/calendar.
 							-->
 							<div class="mt-3 rounded-xl border p-3 text-text {message.calendarProposal.action === 'delete' ? 'border-danger/40 bg-danger/5' : 'border-border bg-bg'}">
-								<p class="text-[10px] font-semibold uppercase tracking-wider {message.calendarProposal.action === 'delete' ? 'text-danger' : 'text-accent'}">
+								<p class="text-3xs font-semibold uppercase tracking-wider {message.calendarProposal.action === 'delete' ? 'text-danger' : 'text-accent'}">
 									{message.calendarProposal.action === 'delete' ? 'Delete event' : 'New event'}
 								</p>
 
 								{#if message.calendarProposal.action === 'delete' && message.calendarProposal.target}
 									<p class="mt-1 font-medium">{message.calendarProposal.target.title}</p>
 									<p class="mt-1 text-xs text-text-secondary">{message.calendarProposal.target.start}</p>
-									<p class="mt-2 text-[11px] text-danger">This cannot be undone.</p>
+									<p class="mt-2 text-2xs text-danger">This cannot be undone.</p>
 								{:else if message.calendarProposal.event}
 									<p class="mt-1 font-medium">{message.calendarProposal.event.title}</p>
 									<p class="mt-1 text-xs text-text-secondary">
@@ -533,7 +533,7 @@
 						{/if}
 						{#if message.proposal}
 							<div class="mt-3 rounded-xl border border-border bg-bg p-3 text-text">
-								<p class="text-[10px] font-semibold uppercase tracking-wider text-accent">Task proposal</p>
+								<p class="text-3xs font-semibold uppercase tracking-wider text-accent">Task proposal</p>
 								<p class="mt-1 font-medium">{message.proposal.title}</p>
 								{#if message.proposal.description}
 									<p class="mt-1 text-xs text-text-secondary">{message.proposal.description}</p>
@@ -547,7 +547,7 @@
 											<button
 												type="button"
 												onclick={() => selectProvider(message.id, provider)}
-												class="cursor-pointer rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors
+												class="cursor-pointer rounded-full border px-2.5 py-1 text-3xs font-medium transition-colors
 													{message.selectedProvider === provider
 														? 'border-accent bg-accent/10 text-accent'
 														: 'border-border text-text-secondary hover:border-accent/50'}"
@@ -586,14 +586,14 @@
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v16H4zM8 9h8M8 13h6M8 17h4"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Today’s mail</span>
-						<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Summary and priorities</span>
+						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and priorities</span>
 					</button>
 					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Tomorrow</span>
-						<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Calendar briefing</span>
+						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Calendar briefing</span>
 					</button>
 					{#if currentEmailId}
 						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
@@ -601,7 +601,7 @@
 								<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
 							</span>
 							<span class="block text-xs font-medium text-text">This email</span>
-							<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Summary and actions</span>
+							<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and actions</span>
 						</button>
 					{/if}
 					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
@@ -609,7 +609,7 @@
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Create task</span>
-						<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Review before creating</span>
+						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Review before creating</span>
 					</button>
 				</div>
 			{/if}
@@ -639,7 +639,7 @@
 					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
 				</button>
 			</form>
-			<p class="mt-2 text-center text-[10px] text-text-tertiary">Mail content is shared only with your configured AI service.</p>
+			<p class="mt-2 text-center text-3xs text-text-tertiary">Mail content is shared only with your configured AI service.</p>
 		</div>
 	</div>
 </aside>
