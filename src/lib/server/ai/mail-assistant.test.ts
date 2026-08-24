@@ -11,6 +11,7 @@ import { MailAssistantError, runMailAssistant } from './mail-assistant';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 describe('runMailAssistant', () => {
@@ -69,5 +70,63 @@ describe('runMailAssistant', () => {
 				bodyText: 'Hello'
 			})
 		).rejects.toThrow('The AI service returned an error (500)');
+	});
+
+	it('logs the upstream explanation for the operator without leaking it', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				new Response('{"error":"model is no longer available"}', { status: 410 })
+			)
+		);
+
+		await expect(
+			runMailAssistant({
+				action: 'summarize',
+				subject: '',
+				from: '',
+				receivedAt: '',
+				bodyText: 'Hello'
+			})
+		).rejects.toThrow(/does not serve the model "test-model" \(410\)/);
+
+		const logged = String(warn.mock.calls[0]?.[0] ?? '');
+		expect(logged).toContain('410');
+		expect(logged).toContain('test-model');
+		expect(logged).toContain('model is no longer available');
+	});
+
+	it('points a retired or unknown model at OLLAMA_MODEL, not at a bare status', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		for (const status of [404, 410]) {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('gone', { status })));
+
+			await expect(
+				runMailAssistant({
+					action: 'summarize',
+					subject: '',
+					from: '',
+					receivedAt: '',
+					bodyText: 'Hello'
+				})
+			).rejects.toThrow(/set OLLAMA_MODEL to a model your endpoint currently provides/);
+		}
+	});
+
+	it('names rate limiting rather than reporting a generic failure', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('slow down', { status: 429 })));
+
+		await expect(
+			runMailAssistant({
+				action: 'summarize',
+				subject: '',
+				from: '',
+				receivedAt: '',
+				bodyText: 'Hello'
+			})
+		).rejects.toThrow(/rate limiting/);
 	});
 });

@@ -42,7 +42,7 @@ Open `http://localhost:5173` and follow the setup flow.
 | `DATABASE_PATH` | No | SQLite path. Defaults to a local development database or `/data/ameera.db` in production. |
 | `OLLAMA_URL` | AI only | Ollama-compatible endpoint. |
 | `OLLAMA_API_KEY` | AI only | Bearer token when required by the endpoint. |
-| `OLLAMA_MODEL` | AI only | Model name used for assistant and event-extraction requests. |
+| `OLLAMA_MODEL` | AI only | Model tag used for assistant and event-extraction requests. Must be a tag the endpoint serves — Ollama Cloud uses `-cloud` tags such as `deepseek-v3.1:671b-cloud`. |
 | `TODOIST_API_TOKEN` | Todoist only | Personal API token used to create confirmed tasks. |
 | `TODOIST_PROJECT_ID` | No | Optional destination project; omitted tasks go to Todoist Inbox. |
 | `LINEAR_API_KEY` | Linear only | Personal API key used to create confirmed issues. |
@@ -53,6 +53,11 @@ Open `http://localhost:5173` and follow the setup flow.
 | `NOTION_DUE_PROPERTY` | No | Optional date-property name; otherwise `Due`, `Due date`, or `Deadline` is detected. |
 | `TASK_ADAPTER_URL` | Task creation only | HTTP endpoint that accepts confirmed task proposals. |
 | `TASK_ADAPTER_API_KEY` | No | Optional bearer token for the task adapter endpoint. |
+
+If the agent panel reports that the AI service does not serve the configured
+model, `OLLAMA_MODEL` names a tag the endpoint has retired or never had. The
+server log records the endpoint's own explanation on the `[ai]` line for each
+failed request; that detail is deliberately kept out of the browser response.
 
 AI and task-app credentials stay on the server. Email content is sent only to the Ollama endpoint configured by the operator. Task title, description, and due date are sent to the chosen task app only after confirmation.
 

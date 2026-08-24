@@ -12,8 +12,46 @@ export class MailAssistantError extends Error {
 	}
 }
 
+/** Default endpoint. Self-hosted Ollama installs override it with OLLAMA_URL. */
+const DEFAULT_AI_URL = 'https://ollama.com';
+
+/**
+ * Default model tag. Ollama Cloud serves its hosted models under `-cloud`
+ * tags (`deepseek-v3.1:671b-cloud`); the bare tag below only resolves on an
+ * endpoint that has pulled it locally. Operators on Cloud must set
+ * OLLAMA_MODEL to a tag their endpoint actually serves — a retired or
+ * unknown tag comes back as a 404/410 from `/api/chat`.
+ */
+const DEFAULT_AI_MODEL = 'deepseek-v3.1:671b';
+
 export function mailAssistantConfigured(): boolean {
 	return !!(env.OLLAMA_API_KEY || env.OLLAMA_URL);
+}
+
+/** Endpoint base URL, trailing slashes trimmed. */
+export function aiEndpoint(): string {
+	return (env.OLLAMA_URL || DEFAULT_AI_URL).replace(/\/+$/, '');
+}
+
+/** Model tag sent with every chat and extraction request. */
+export function aiModel(): string {
+	return env.OLLAMA_MODEL || DEFAULT_AI_MODEL;
+}
+
+/**
+ * Client-facing text for an upstream failure. The provider's own response
+ * body never reaches the browser — it goes to the server log instead — so
+ * this is built only from the operator's own configuration.
+ */
+export function upstreamErrorMessage(status: number): string {
+	if (status === 401 || status === 403) return 'The AI service rejected its API key';
+	if (status === 404 || status === 410) {
+		return `The AI service does not serve the model "${aiModel()}" (${status}) — set OLLAMA_MODEL to a model your endpoint currently provides`;
+	}
+	if (status === 429) {
+		return 'The AI service is rate limiting this account — wait a moment and try again';
+	}
+	return `The AI service returned an error (${status})`;
 }
 
 export type AIChatMessage = {
@@ -34,7 +72,7 @@ export async function runAIChat(input: {
 
 	let response: Response;
 	try {
-		response = await fetch(`${(env.OLLAMA_URL || 'https://ollama.com').replace(/\/+$/, '')}/api/chat`, {
+		response = await fetch(`${aiEndpoint()}/api/chat`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -43,7 +81,7 @@ export async function runAIChat(input: {
 					: {})
 			},
 			body: JSON.stringify({
-				model: env.OLLAMA_MODEL || 'deepseek-v3.1:671b',
+				model: aiModel(),
 				stream: false,
 				...(input.format ? { format: input.format } : {}),
 				options: { temperature: input.temperature ?? 0.2 },
@@ -63,12 +101,13 @@ export async function runAIChat(input: {
 	}
 
 	if (!response.ok) {
-		throw new MailAssistantError(
-			response.status === 401 || response.status === 403
-				? 'The AI service rejected its API key'
-				: `The AI service returned an error (${response.status})`,
-			502
+		// Log the provider's explanation for the operator; the browser gets
+		// only the configuration-derived message above it.
+		const detail = await response.text().catch(() => '');
+		console.warn(
+			`[ai] ${aiEndpoint()}/api/chat ${response.status} for model ${aiModel()}: ${detail.slice(0, 300)}`
 		);
+		throw new MailAssistantError(upstreamErrorMessage(response.status), 502);
 	}
 
 	const data = (await response.json().catch(() => null)) as {
