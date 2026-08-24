@@ -7,6 +7,13 @@ import {
 } from '$lib/server/ai/mail-agent';
 import { MailAssistantError, type AIChatMessage } from '$lib/server/ai/mail-assistant';
 import { taskAdapterProviders } from '$lib/server/ai/task-adapter';
+import { renderAgentMarkdown } from '$lib/server/ai/markdown';
+import {
+	appendMessage,
+	conversationExists,
+	createConversation,
+	listMessages
+} from '$lib/server/db/queries/ai-conversations';
 
 const ACTIONS = new Set<MailAgentAction>([
 	'chat',
@@ -49,18 +56,23 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		return json({ error: 'A valid action and message are required' }, { status: 400 });
 	}
 
-	const rawConversation = Array.isArray(body?.conversation) ? body.conversation : [];
-	const conversation: AIChatMessage[] = rawConversation
-		.filter(
-			(item): item is { role: 'user' | 'assistant'; content: string } =>
-				!!item &&
-				typeof item === 'object' &&
-				((item as { role?: unknown }).role === 'user' ||
-					(item as { role?: unknown }).role === 'assistant') &&
-				typeof (item as { content?: unknown }).content === 'string'
-		)
+	const userEmail = userEmailFromAuth(locals.auth);
+
+	// Resolve the session before doing any work. An id the caller does not
+	// own is treated as absent and a fresh session is started, so a guessed
+	// id can neither read another account's history nor append to it.
+	const requestedId = typeof body?.conversationId === 'string' ? body.conversationId : '';
+	const conversationId =
+		requestedId && conversationExists(requestedId, userEmail)
+			? requestedId
+			: createConversation(userEmail);
+
+	// History comes from storage, not from the request. The client used to
+	// send the transcript back with every turn, which meant it could invent
+	// assistant turns the agent had never produced.
+	const conversation: AIChatMessage[] = listMessages(conversationId, userEmail)
 		.slice(-12)
-		.map((item) => ({ role: item.role, content: item.content.slice(0, 1500) }));
+		.map((stored) => ({ role: stored.role, content: stored.content.slice(0, 1500) }));
 	const [todayStartMs, todayEndMs] = range(body?.todayStart, body?.todayEnd, 0);
 	const [tomorrowStartMs, tomorrowEndMs] = range(
 		body?.tomorrowStart,
@@ -69,7 +81,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	);
 
 	try {
-		const result = await runMailAgent(locals.auth, userEmailFromAuth(locals.auth), {
+		const result = await runMailAgent(locals.auth, userEmail, {
 			action: action as MailAgentAction,
 			message,
 			conversation,
@@ -83,7 +95,17 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			tomorrowStartMs,
 			tomorrowEndMs
 		});
-		return json({ ...result, taskProviders: taskAdapterProviders() });
+		// Persisted only once the model has answered: a failed turn should not
+		// leave a question in the transcript that was never addressed.
+		appendMessage(conversationId, userEmail, 'user', message);
+		appendMessage(conversationId, userEmail, 'assistant', result.message);
+
+		return json({
+			...result,
+			html: renderAgentMarkdown(result.message),
+			conversationId,
+			taskProviders: taskAdapterProviders()
+		});
 	} catch (error) {
 		if (error instanceof MailAssistantError) {
 			return json({ error: error.message }, { status: error.status });
