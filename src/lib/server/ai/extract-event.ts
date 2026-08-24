@@ -1,5 +1,11 @@
 import { env } from '$env/dynamic/private';
 import sanitizeHtml from 'sanitize-html';
+import {
+	aiEndpoint,
+	aiModel,
+	mailAssistantConfigured,
+	upstreamErrorMessage
+} from './mail-assistant';
 
 /**
  * LLM-backed event extraction from unstructured email text, via the Ollama
@@ -8,8 +14,11 @@ import sanitizeHtml from 'sanitize-html';
  * Configuration (env):
  *  - OLLAMA_URL      base URL, default https://ollama.com (Ollama Cloud)
  *  - OLLAMA_API_KEY  bearer token (required for Ollama Cloud)
- *  - OLLAMA_MODEL    default deepseek-v3.1:671b — minimax-m2, qwen3, etc.
- *                    work too; anything that follows JSON-schema output.
+ *  - OLLAMA_MODEL    anything that follows JSON-schema output. Must name a
+ *                    tag the endpoint serves; Ollama Cloud uses `-cloud` tags.
+ *
+ * Endpoint, model, and upstream error mapping are shared with the mail
+ * assistant so both AI paths stay configured by the same three variables.
  *
  * Structured invitations (text/calendar parts) never go through here —
  * they're parsed deterministically by the iMIP module. This path only
@@ -30,15 +39,7 @@ export interface ExtractedEvent {
 }
 
 export function aiConfigured(): boolean {
-	return !!(env.OLLAMA_API_KEY || env.OLLAMA_URL);
-}
-
-function baseUrl(): string {
-	return (env.OLLAMA_URL || 'https://ollama.com').replace(/\/+$/, '');
-}
-
-function model(): string {
-	return env.OLLAMA_MODEL || 'deepseek-v3.1:671b';
+	return mailAssistantConfigured();
 }
 
 /** Strip an email's HTML down to readable text, capped for the prompt. */
@@ -131,11 +132,11 @@ export async function extractEventFromEmail(input: {
 
 	let res: Response;
 	try {
-		res = await fetch(`${baseUrl()}/api/chat`, {
+		res = await fetch(`${aiEndpoint()}/api/chat`, {
 			method: 'POST',
 			headers,
 			body: JSON.stringify({
-				model: model(),
+				model: aiModel(),
 				stream: false,
 				format: RESPONSE_SCHEMA,
 				options: { temperature: 0 },
@@ -153,13 +154,10 @@ export async function extractEventFromEmail(input: {
 
 	if (!res.ok) {
 		const detail = await res.text().catch(() => '');
-		console.warn(`[ai] ollama ${res.status}: ${detail.slice(0, 200)}`);
-		throw new AIExtractionError(
-			res.status === 401 || res.status === 403
-				? 'AI service rejected the API key'
-				: `AI service error (${res.status})`,
-			502
+		console.warn(
+			`[ai] ${aiEndpoint()}/api/chat ${res.status} for model ${aiModel()}: ${detail.slice(0, 300)}`
 		);
+		throw new AIExtractionError(upstreamErrorMessage(res.status), 502);
 	}
 
 	const data = (await res.json().catch(() => null)) as {

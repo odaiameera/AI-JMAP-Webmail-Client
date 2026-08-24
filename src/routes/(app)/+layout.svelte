@@ -53,7 +53,6 @@
 
 	const avatarLetter = $derived((data.displayName ?? 'O')[0].toUpperCase());
 	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
-	const assistantWidth = $derived(assistantOpen ? 'clamp(320px, 28vw, 400px)' : '0px');
 
 	onMount(() => {
 		// Phase 13: avatar / labels / signatures live server-side now.
@@ -188,7 +187,7 @@
 <div
 	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
 	class:density-compact={data.density === 'compact'}
-	style="grid-template-columns: {sidebarWidth} minmax(0, 1fr) {assistantWidth} 52px; transition: grid-template-columns 0.3s ease;
+	style="grid-template-columns: {sidebarWidth} minmax(0, 1fr) 0px 52px; transition: grid-template-columns 0.3s ease;
 		{data.activeAccountColor ? `border-top: 2px solid ${data.activeAccountColor};` : ''}"
 >
 	<!-- Row 1: Full-width header -->
@@ -238,8 +237,17 @@
 		{@render children()}
 	</main>
 
-	<!-- Row 2, Col 3: Persistent AI agent rail -->
-	<div class="min-w-0 overflow-hidden">
+	<!--
+		Row 2, Col 3: AI agent drawer anchor.
+
+		This column is pinned to 0px so opening the agent never resizes the
+		reading pane. It survives only as a positioning reference: it sits
+		exactly on the boundary between the reading pane and the app rail, so
+		the drawer inside it anchors to `right: 0` and expands leftward over
+		the reading pane. Height comes from the row, so the drawer needs no
+		hard-coded header offset.
+	-->
+	<div class="relative">
 		<AIAssistantRail
 			open={assistantOpen}
 			aiEnabled={data.aiEnabled}
