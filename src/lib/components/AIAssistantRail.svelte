@@ -317,15 +317,18 @@
 	aria-label="AI mail agent"
 	aria-hidden={!open}
 	inert={!open}
-	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-surface shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
+	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
 		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
-		<header class="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+		<header class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
 				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/>
-					<path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/>
+					<path d="M12 8V4H8"/>
+					<rect width="16" height="12" x="4" y="8" rx="2"/>
+					<path d="M2 14h2"/><path d="M20 14h2"/>
+					<path d="M15 13v2"/><path d="M9 13v2"/>
 				</svg>
 				<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface {aiEnabled ? 'bg-success' : 'bg-text-tertiary'}"></span>
 			</div>
@@ -335,6 +338,12 @@
 					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'AI service not configured'}
 				</p>
 			</div>
+			<!--
+				Separates the panel's identity from its controls. The drawer now
+				shares the reading pane's background, so grouping inside the
+				header has to come from a rule rather than a change of shade.
+			-->
+			<span class="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true"></span>
 			<button
 				type="button"
 				onclick={startNewChat}
@@ -403,7 +412,7 @@
 					<div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-5
 						{message.role === 'user'
 							? 'rounded-br-md bg-accent text-white'
-							: 'rounded-bl-md border border-border bg-bg text-text'}">
+							: 'rounded-bl-md border border-border bg-surface text-text'}">
 						{#if message.html}
 							<!-- Sanitised on the server by renderAgentMarkdown; see
 							     src/lib/server/ai/markdown.ts for the allowlist. -->
@@ -415,7 +424,7 @@
 							<a href={message.link} target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-medium text-accent hover:underline">Open task &nearr;</a>
 						{/if}
 						{#if message.proposal}
-							<div class="mt-3 rounded-xl border border-border bg-surface p-3 text-text">
+							<div class="mt-3 rounded-xl border border-border bg-bg p-3 text-text">
 								<p class="text-[10px] font-semibold uppercase tracking-wider text-accent">Task proposal</p>
 								<p class="mt-1 font-medium">{message.proposal.title}</p>
 								{#if message.proposal.description}
@@ -464,14 +473,14 @@
 
 			{#if !hasConversation}
 				<div class="grid grid-cols-2 gap-2 pt-1">
-					<button type="button" onclick={() => ask('summarize_today', "Summarize today's email and highlight anything that needs my attention.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-bg p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
+					<button type="button" onclick={() => ask('summarize_today', "Summarize today's email and highlight anything that needs my attention.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v16H4zM8 9h8M8 13h6M8 17h4"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Today’s mail</span>
 						<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Summary and priorities</span>
 					</button>
-					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-bg p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
+					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
 						</span>
@@ -479,7 +488,7 @@
 						<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Calendar briefing</span>
 					</button>
 					{#if currentEmailId}
-						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-bg p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
+						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 							<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
 								<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
 							</span>
@@ -487,7 +496,7 @@
 							<span class="mt-0.5 block text-[10px] leading-4 text-text-tertiary">Summary and actions</span>
 						</button>
 					{/if}
-					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-bg p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
+					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
 						</span>
@@ -499,7 +508,7 @@
 
 			{#if busy}
 				<div class="flex justify-start">
-					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-bg px-4 py-3" aria-label="AI mail agent is thinking">
+					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3" aria-label="AI mail agent is thinking">
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]"></span>
@@ -516,7 +525,7 @@
 			{#if !aiEnabled}
 				<p class="mb-2 text-xs text-text-tertiary">Set OLLAMA_URL or OLLAMA_API_KEY to enable the agent.</p>
 			{/if}
-			<form class="flex items-end gap-2 rounded-2xl border border-border bg-bg p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
+			<form class="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
 				<textarea bind:value={input} rows="1" maxlength="1500" placeholder="Ask about your mail…" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
 				<button type="submit" disabled={busy || !aiEnabled || !input.trim()} aria-label="Send message" class="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent text-white transition-all hover:bg-accent-hover disabled:cursor-default disabled:opacity-40">
 					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>

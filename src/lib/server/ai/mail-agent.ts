@@ -9,8 +9,9 @@ import { runAIChat, type AIChatMessage } from './mail-assistant';
 import {
 	buildMailFilter,
 	describeMailSearch,
-	MAIL_SEARCH_SCHEMA,
-	parseMailSearchSpec,
+	MAIL_TOOL_SCHEMA,
+	MAX_TOOL_ROUNDS,
+	parseMailToolCall,
 	type MailSearchSpec
 } from './mail-search';
 
@@ -198,72 +199,116 @@ function parseTaskProposal(content: string): TaskProposal | null {
 	}
 }
 
-/**
- * Ask the model what to look for before asking it to answer.
- *
- * Relative time ("last spring", "before I moved") is something the model
- * resolves far better than a date parser, so it plans the search and this
- * only executes it. A failed or unparseable plan degrades to no search: the
- * agent then answers from conversation alone rather than erroring out.
- */
-async function planMailSearch(
-	message: string,
-	conversation: AIChatMessage[],
-	timeZone: string,
-	todayIso: string
-): Promise<MailSearchSpec | null> {
-	try {
-		const raw = await runAIChat({
-			system: `You plan mailbox searches. Today is ${todayIso} in timezone ${timeZone}.
-Decide what to retrieve so the user's latest message can be answered from their mail.
-Set needed to false only for small talk or questions about the conversation itself.
-Resolve relative dates ("last year", "in the spring", "since June") into concrete ISO dates.
-Leave a field null when the user did not constrain it. Prefer a wide window over a wrong one.
-Return JSON only.`,
-			messages: [...conversation.slice(-6), { role: 'user', content: message }],
-			temperature: 0,
-			format: MAIL_SEARCH_SCHEMA
-		});
+/** Format one search's hits compactly enough to fit several rounds of them. */
+function formatSearchResults(spec: MailSearchSpec, emails: Email[], total: number): string {
+	if (!emails.length) return `${describeMailSearch(spec)}\nNo messages matched.`;
 
-		const start = raw.indexOf('{');
-		const end = raw.lastIndexOf('}');
-		if (start === -1 || end <= start) return null;
-		return parseMailSearchSpec(JSON.parse(raw.slice(start, end + 1)));
-	} catch {
-		return null;
-	}
-}
-
-/** Run a planned search and format the hits as answer context. */
-async function searchMailContext(
-	client: JMAPClient,
-	accountId: string,
-	spec: MailSearchSpec
-): Promise<string> {
-	const filter = buildMailFilter(spec);
-	if (!filter) return '';
-
-	const { emails, total } = await searchEmails(client, accountId, filter, { limit: spec.limit });
-	if (!emails.length) {
-		return `${describeMailSearch(spec)}\nNo messages matched.`;
-	}
-
-	// searchEmails returns list properties only — no body. Fetching full
-	// bodies for up to 40 hits would be slow and mostly wasted, so the
-	// preview carries the content and the model asks to open anything it
-	// needs in full.
-	const lines = emails.map((email, index) => {
+	// Ids are included so the model can follow up with open_email on a
+	// specific hit rather than re-searching for it.
+	const lines = emails.map((email) => {
 		const sender = email.from?.[0];
 		return [
-			`RESULT ${index + 1}`,
-			`From: ${sender?.name || sender?.email || '(unknown sender)'}${sender?.name && sender.email ? ` <${sender.email}>` : ''}`,
-			`Received: ${email.receivedAt}`,
-			`Subject: ${email.subject || '(no subject)'}`,
-			`Preview: ${email.preview?.slice(0, 400) || '(no preview)'}`
+			`id: ${email.id}`,
+			`from: ${sender?.name || sender?.email || '(unknown sender)'}${sender?.name && sender.email ? ` <${sender.email}>` : ''}`,
+			`date: ${email.receivedAt}`,
+			`subject: ${email.subject || '(no subject)'}`,
+			`preview: ${email.preview?.slice(0, 300) || '(none)'}`
 		].join('\n');
 	});
 
 	return `${describeMailSearch(spec)} — ${total} match${total === 1 ? '' : 'es'}, showing ${emails.length}\n\n${lines.join('\n\n')}`;
+}
+
+/**
+ * Let the model work the mailbox until it has what it needs.
+ *
+ * A single fixed search cannot answer "did the accountant ever send the Q3
+ * figures" — that takes a broad search, then a narrower one, then the body of
+ * one message. So the model chooses a tool each round and sees the result
+ * before choosing again, up to MAX_TOOL_ROUNDS.
+ *
+ * Everything degrades rather than throws: a round that fails to parse, or a
+ * search that errors, ends the loop and the agent answers from whatever it
+ * gathered. A question answered from partial context beats an error.
+ */
+async function gatherWithTools(
+	client: JMAPClient,
+	accountId: string,
+	message: string,
+	conversation: AIChatMessage[],
+	timeZone: string,
+	todayIso: string
+): Promise<string> {
+	const transcript: string[] = [];
+	const openedIds = new Set<string>();
+
+	const system = `You are retrieving from the user's mailbox to answer their question.
+Today is ${todayIso} in timezone ${timeZone}.
+
+Choose one tool per step and return JSON only:
+- search_mail — set any of text, from, after, before, hasAttachment, limit. Resolve
+  relative dates ("last year", "in the spring") to concrete ISO dates yourself.
+  The search covers every folder, including archived mail.
+- open_email — set emailId to an id from an earlier result, to read its full body.
+- done — you have enough to answer, or further searching will not help.
+
+Search broadly first, then narrow. Open a message only when its preview is not
+enough. Return done as soon as you can answer; do not search for its own sake.`;
+
+	for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+		let call;
+		try {
+			const raw = await runAIChat({
+				system,
+				messages: [
+					...conversation.slice(-6),
+					{
+						role: 'user',
+						content: `Question: ${message}\n\n${
+							transcript.length
+								? `Results so far:\n\n${transcript.join('\n\n')}`
+								: 'Nothing retrieved yet.'
+						}`
+					}
+				],
+				temperature: 0,
+				format: MAIL_TOOL_SCHEMA
+			});
+
+			const start = raw.indexOf('{');
+			const end = raw.lastIndexOf('}');
+			if (start === -1 || end <= start) break;
+			call = parseMailToolCall(JSON.parse(raw.slice(start, end + 1)));
+		} catch {
+			break;
+		}
+
+		if (call.tool === 'done') break;
+
+		try {
+			if (call.tool === 'search_mail') {
+				const filter = buildMailFilter(call.search);
+				// An unconstrained search would return the whole mailbox
+				// newest-first; treat it as nothing to do rather than run it.
+				if (!filter) break;
+				const { emails, total } = await searchEmails(client, accountId, filter, {
+					limit: call.search.limit
+				});
+				transcript.push(formatSearchResults(call.search, emails, total));
+			} else if (call.emailId) {
+				// Re-opening the same message would spend a round to learn
+				// nothing, so stop instead.
+				if (openedIds.has(call.emailId)) break;
+				openedIds.add(call.emailId);
+				const email = await getEmailDetail(client, accountId, call.emailId);
+				transcript.push(`OPENED MESSAGE\n${formatEmail(email, 0, 4000)}`);
+			}
+		} catch {
+			break;
+		}
+	}
+
+	return transcript.join('\n\n');
 }
 
 function normalSystemPrompt(timeZone: string): string {
@@ -287,7 +332,7 @@ several items, \`code\` for filenames, addresses, and identifiers, and short
 paragraphs otherwise. Do not use headings unless the reply genuinely has
 sections. Do not wrap the whole reply in a code block.
 
-When MAIL SEARCH results are supplied, they are what the mailbox returned for
+When MAILBOX RETRIEVAL results are supplied, they are what the mailbox returned for
 this question. Cite senders, subjects, and dates from them. If they are empty or
 plainly miss what was asked, say so and suggest a narrower or wider search rather
 than inventing a message.`;
@@ -339,17 +384,15 @@ export async function runMailAgent(
 			parts.push(`CURRENT EMAIL\n${formatEmail(email, 0, 6000)}`);
 		}
 
-		const spec = await planMailSearch(
+		const retrieved = await gatherWithTools(
+			client,
+			auth.accountId,
 			input.message,
 			safeConversation(input.conversation),
 			input.timeZone,
 			new Date(input.todayStartMs).toISOString().slice(0, 10)
 		);
-
-		if (spec?.needed) {
-			const found = await searchMailContext(client, auth.accountId, spec);
-			if (found) parts.push(`MAIL SEARCH\n${found}`);
-		}
+		if (retrieved) parts.push(`MAILBOX RETRIEVAL\n${retrieved}`);
 
 		context = parts.join('\n\n');
 	}

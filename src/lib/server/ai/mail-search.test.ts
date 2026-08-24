@@ -3,7 +3,8 @@ import {
 	buildMailFilter,
 	describeMailSearch,
 	MAX_SEARCH_RESULTS,
-	parseMailSearchSpec
+	parseMailSearchSpec,
+	parseMailToolCall
 } from './mail-search';
 
 describe('parseMailSearchSpec', () => {
@@ -23,6 +24,7 @@ describe('parseMailSearchSpec', () => {
 			from: 'accounts@vendor.example',
 			after: '2025-03-01T00:00:00.000Z',
 			before: '2025-06-01T00:00:00.000Z',
+			hasAttachment: null,
 			limit: 20
 		});
 	});
@@ -108,5 +110,66 @@ describe('describeMailSearch', () => {
 
 	it('falls back to a plain label with no constraints', () => {
 		expect(describeMailSearch(parseMailSearchSpec({}))).toBe('Recent mail');
+	});
+});
+
+describe('hasAttachment', () => {
+	it('narrows only on a literal true', () => {
+		expect(parseMailSearchSpec({ hasAttachment: true }).hasAttachment).toBe(true);
+		// "false" would mean "only messages WITHOUT attachments" — not a thing
+		// any phrasing asks for, so it must not become a filter condition.
+		for (const value of [false, 'true', 1, null, undefined]) {
+			expect(parseMailSearchSpec({ hasAttachment: value }).hasAttachment).toBeNull();
+		}
+	});
+
+	it('reaches the JMAP filter', () => {
+		const filter = buildMailFilter(parseMailSearchSpec({ text: 'report', hasAttachment: true }));
+		expect(filter).toEqual({
+			operator: 'AND',
+			conditions: [{ text: 'report' }, { hasAttachment: true }]
+		});
+	});
+});
+
+describe('parseMailToolCall', () => {
+	it('reads a search call with its arguments', () => {
+		const call = parseMailToolCall({
+			tool: 'search_mail',
+			text: 'Q3 figures',
+			from: 'accountant',
+			after: '2025-07-01',
+			limit: 25
+		});
+		expect(call.tool).toBe('search_mail');
+		expect(call.search.text).toBe('Q3 figures');
+		expect(call.search.after).toBe('2025-07-01T00:00:00.000Z');
+		expect(call.search.limit).toBe(25);
+	});
+
+	it('reads an open call', () => {
+		const call = parseMailToolCall({ tool: 'open_email', emailId: 'M9f2' });
+		expect(call.tool).toBe('open_email');
+		expect(call.emailId).toBe('M9f2');
+	});
+
+	it('ends the loop rather than acting on a confused call', () => {
+		// An unknown tool, or an open with nothing to open, must not throw and
+		// must not be executed — the agent answers from what it already has.
+		expect(parseMailToolCall({ tool: 'delete_everything' }).tool).toBe('done');
+		expect(parseMailToolCall({ tool: 'open_email', emailId: null }).tool).toBe('done');
+		expect(parseMailToolCall({ tool: 'open_email', emailId: '  ' }).tool).toBe('done');
+		expect(parseMailToolCall({}).tool).toBe('done');
+		expect(parseMailToolCall(null).tool).toBe('done');
+	});
+
+	it('does not carry an id on a done call', () => {
+		expect(parseMailToolCall({ tool: 'done', emailId: 'M1' }).emailId).toBeNull();
+	});
+
+	it('caps a search call the same way a plan is capped', () => {
+		expect(parseMailToolCall({ tool: 'search_mail', limit: 9999 }).search.limit).toBe(
+			MAX_SEARCH_RESULTS
+		);
 	});
 });
