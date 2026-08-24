@@ -44,7 +44,7 @@ Open `http://localhost:5173` and follow the setup flow.
 | `DATABASE_PATH` | No | SQLite path. Defaults to a local development database or `/data/ameera.db` in production. |
 | `OLLAMA_URL` | AI only | Ollama-compatible endpoint. |
 | `OLLAMA_API_KEY` | AI only | Bearer token when required by the endpoint. |
-| `OLLAMA_MODEL` | AI only | Model tag used for assistant and event-extraction requests. Must be a tag the endpoint serves — Ollama Cloud uses `-cloud` tags such as `deepseek-v3.1:671b-cloud`. Verify with `npm run ai:models`. |
+| `OLLAMA_MODEL` | AI only | Model tag used for assistant and event-extraction requests. Must be a tag the endpoint serves — Ollama Cloud uses `-cloud` tags such as `deepseek-v4-flash:cloud`. Verify with `npm run ai:models`. |
 | `TODOIST_API_TOKEN` | Todoist only | Personal API token used to create confirmed tasks. |
 | `TODOIST_PROJECT_ID` | No | Optional destination project; omitted tasks go to Todoist Inbox. |
 | `LINEAR_API_KEY` | Linear only | Personal API key used to create confirmed issues. |
@@ -62,6 +62,11 @@ Open `http://localhost:5173` and follow the setup flow.
 serves its hosted models under `-cloud` tags, so a bare tag copied from the
 model library (`deepseek-v3.1:671b`) resolves only on a self-hosted endpoint
 that has pulled it — against Cloud it fails with 404 or 410.
+
+Changing model is a configuration change, not a code change: set `OLLAMA_MODEL`
+in `.env.local` (development) or the compose `environment:` block (production)
+and restart. The tag compiled into the app applies only when that variable is
+unset.
 
 List what your endpoint actually offers:
 
