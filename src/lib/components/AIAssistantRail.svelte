@@ -190,11 +190,21 @@
 	}
 </script>
 
+<!--
+	Drawer over the reading pane, not a column beside it. The parent is a
+	zero-width grid column sitting on the reading-pane/app-rail boundary, so
+	`inset-y-0 right-0` pins the drawer to that edge at full row height and its
+	own width expands leftward across the pane underneath.
+
+	z-[35] clears in-pane dropdowns (z-30) while staying under the composer
+	backdrop (z-40). While closed, `pointer-events-none` lets clicks reach the
+	reading pane it covers.
+-->
 <aside
 	aria-label="AI mail agent"
 	aria-hidden={!open}
 	inert={!open}
-	class="h-full min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-surface transition-all duration-300 ease-out
+	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-surface shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
 		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
