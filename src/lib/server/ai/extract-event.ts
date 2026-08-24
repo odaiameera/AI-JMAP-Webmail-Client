@@ -3,6 +3,7 @@ import sanitizeHtml from 'sanitize-html';
 import {
 	aiEndpoint,
 	aiModel,
+	logUpstreamFailure,
 	mailAssistantConfigured,
 	upstreamErrorMessage
 } from './mail-assistant';
@@ -153,10 +154,7 @@ export async function extractEventFromEmail(input: {
 	}
 
 	if (!res.ok) {
-		const detail = await res.text().catch(() => '');
-		console.warn(
-			`[ai] ${aiEndpoint()}/api/chat ${res.status} for model ${aiModel()}: ${detail.slice(0, 300)}`
-		);
+		await logUpstreamFailure(res.status, await res.text().catch(() => ''));
 		throw new AIExtractionError(upstreamErrorMessage(res.status), 502);
 	}
 
