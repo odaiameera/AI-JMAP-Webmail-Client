@@ -9,6 +9,14 @@
 		| 'propose_task';
 	type TaskProvider = 'todoist' | 'linear' | 'notion' | 'webhook';
 
+	type SessionSummary = {
+		id: string;
+		title: string;
+		createdAt: number;
+		updatedAt: number;
+		messageCount: number;
+	};
+
 	type TaskProposal = {
 		title: string;
 		description: string;
@@ -20,6 +28,8 @@
 		id: string;
 		role: 'assistant' | 'user';
 		content: string;
+		/** Sanitised HTML for assistant replies; plain `content` is the fallback. */
+		html?: string;
 		proposal?: TaskProposal;
 		taskProviders?: TaskProvider[];
 		selectedProvider?: TaskProvider;
@@ -39,17 +49,29 @@
 		onClose: () => void;
 	} = $props();
 
+	const WELCOME =
+		'I can search your whole mailbox, check your calendar, and prepare tasks. Ask me anything — I will always ask before creating anything.';
+
 	let input = $state('');
 	let busy = $state(false);
 	let error = $state('');
 	let scrollEl = $state<HTMLDivElement | undefined>(undefined);
 	let sequence = 0;
+
+	/**
+	 * The server owns the transcript. This is null until the first reply comes
+	 * back, which is when the session is created and named.
+	 */
+	let conversationId = $state<string | null>(null);
+	let sessions = $state<SessionSummary[]>([]);
+	let historyOpen = $state(false);
+	let loadingHistory = $state(false);
+	let retentionDays = $state(7);
 	let messages = $state<ChatMessage[]>([
 		{
 			id: 'welcome',
 			role: 'assistant',
-			content:
-				'I can review your mail, check your calendar, and prepare tasks. I will always ask before creating anything.'
+			content: WELCOME
 		}
 	]);
 
@@ -74,14 +96,94 @@
 		scrollEl?.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
 	}
 
+	function relativeTime(timestamp: number): string {
+		const minutes = Math.round((Date.now() - timestamp) / 60_000);
+		if (minutes < 1) return 'just now';
+		if (minutes < 60) return `${minutes}m ago`;
+		const hours = Math.round(minutes / 60);
+		if (hours < 24) return `${hours}h ago`;
+		return `${Math.round(hours / 24)}d ago`;
+	}
+
+	async function loadSessions() {
+		loadingHistory = true;
+		try {
+			const response = await fetch('/api/ai/conversations');
+			const data = (await response.json().catch(() => null)) as {
+				conversations?: SessionSummary[];
+				retentionDays?: number;
+			} | null;
+			if (response.ok) {
+				sessions = data?.conversations ?? [];
+				retentionDays = data?.retentionDays ?? retentionDays;
+			}
+		} catch {
+			// A history list that will not load should not break the chat
+			// itself; the panel just shows no past sessions.
+		} finally {
+			loadingHistory = false;
+		}
+	}
+
+	function startNewChat() {
+		conversationId = null;
+		historyOpen = false;
+		error = '';
+		messages = [{ id: 'welcome', role: 'assistant', content: WELCOME }];
+	}
+
+	async function openSession(sessionId: string) {
+		historyOpen = false;
+		error = '';
+		busy = true;
+		try {
+			const response = await fetch(`/api/ai/conversations/${encodeURIComponent(sessionId)}`);
+			const data = (await response.json().catch(() => null)) as {
+				messages?: { id: string; role: 'user' | 'assistant'; content: string; html: string }[];
+				error?: string;
+			} | null;
+			if (!response.ok) throw new Error(data?.error ?? 'That conversation could not be opened');
+
+			conversationId = sessionId;
+			messages = (data?.messages ?? []).map((message) => ({
+				id: message.id,
+				role: message.role,
+				content: message.content,
+				html: message.html || undefined
+			}));
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'That conversation could not be opened';
+		} finally {
+			busy = false;
+			await scrollToLatest();
+		}
+	}
+
+	async function removeSession(sessionId: string) {
+		try {
+			const response = await fetch(`/api/ai/conversations/${encodeURIComponent(sessionId)}`, {
+				method: 'DELETE'
+			});
+			if (!response.ok) return;
+			sessions = sessions.filter((session) => session.id !== sessionId);
+			// Deleting the open session leaves the panel showing a transcript
+			// that no longer exists, so reset to a fresh one.
+			if (conversationId === sessionId) startNewChat();
+		} catch {
+			// Leave the row in place; a retry is one click away.
+		}
+	}
+
+	// Refresh the session list whenever the panel is opened, so it reflects
+	// conversations held in another tab or on another device.
+	$effect(() => {
+		if (open) void loadSessions();
+	});
+
 	async function ask(action: AgentAction, suggestedPrompt?: string) {
 		const prompt = (suggestedPrompt ?? input).trim();
 		if (busy || !prompt) return;
 
-		const priorConversation = messages
-			.filter((message) => message.id !== 'welcome')
-			.slice(-12)
-			.map((message) => ({ role: message.role, content: message.content }));
 		messages = [...messages, { id: id(), role: 'user', content: prompt }];
 		input = '';
 		busy = true;
@@ -98,7 +200,9 @@
 				body: JSON.stringify({
 					action,
 					message: prompt,
-					conversation: priorConversation,
+					// The transcript itself lives on the server; this only says
+					// which one to continue.
+					conversationId,
 					currentEmailId,
 					timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 					todayStart: today.start,
@@ -109,6 +213,8 @@
 			});
 			const data = (await response.json().catch(() => null)) as {
 				message?: string;
+				html?: string;
+				conversationId?: string;
 				error?: string;
 				taskProposal?: TaskProposal;
 				taskProviders?: TaskProvider[];
@@ -120,17 +226,24 @@
 			const preferred = data.taskProposal?.destination ?? undefined;
 			const selectedProvider =
 				preferred && providers.includes(preferred) ? preferred : providers[0];
+			// The first reply is what creates the session, so adopt the id the
+			// server assigned and refresh the list it now appears in.
+			if (data.conversationId && data.conversationId !== conversationId) {
+				conversationId = data.conversationId;
+			}
 			messages = [
 				...messages,
 				{
 					id: id(),
 					role: 'assistant',
 					content: data.message,
+					html: data.html,
 					proposal: data.taskProposal,
 					taskProviders: providers,
 					selectedProvider
 				}
 			];
+			void loadSessions();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'The mail agent could not answer';
 		} finally {
@@ -222,11 +335,68 @@
 					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'AI service not configured'}
 				</p>
 			</div>
+			<button
+				type="button"
+				onclick={startNewChat}
+				class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
+				aria-label="New conversation"
+				title="New conversation"
+			>
+				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+			</button>
+			<button
+				type="button"
+				onclick={() => { historyOpen = !historyOpen; }}
+				class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-surface-hover hover:text-text {historyOpen ? 'bg-surface-hover text-text' : 'text-text-tertiary'}"
+				aria-label="Conversation history"
+				aria-pressed={historyOpen}
+				title="Conversation history"
+			>
+				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+			</button>
 			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close AI mail agent">
 				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
 			</button>
 		</header>
 
+		{#if historyOpen}
+			<div class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+				<p class="px-1 pb-2 text-[11px] text-text-tertiary">
+					Conversations are kept for {retentionDays} days.
+				</p>
+
+				{#if loadingHistory && !sessions.length}
+					<p class="px-1 text-xs text-text-tertiary">Loading…</p>
+				{:else if !sessions.length}
+					<p class="px-1 text-xs text-text-tertiary">No past conversations yet.</p>
+				{:else}
+					<ul class="space-y-1">
+						{#each sessions as session (session.id)}
+							<li class="group flex items-center gap-1 rounded-lg {session.id === conversationId ? 'bg-surface-hover' : 'hover:bg-surface-hover'}">
+								<button
+									type="button"
+									onclick={() => openSession(session.id)}
+									class="min-w-0 flex-1 cursor-pointer px-2.5 py-2 text-left"
+								>
+									<span class="block truncate text-xs font-medium text-text">{session.title}</span>
+									<span class="block text-[11px] text-text-tertiary">
+										{relativeTime(session.updatedAt)} · {session.messageCount} message{session.messageCount === 1 ? '' : 's'}
+									</span>
+								</button>
+								<button
+									type="button"
+									onclick={() => removeSession(session.id)}
+									class="mr-1.5 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-tertiary opacity-0 transition-opacity hover:text-danger focus:opacity-100 group-hover:opacity-100"
+									aria-label="Delete conversation {session.title}"
+								>
+									<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{:else}
 		<div bind:this={scrollEl} class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
 			{#each messages as message (message.id)}
 				<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
@@ -234,7 +404,13 @@
 						{message.role === 'user'
 							? 'rounded-br-md bg-accent text-white'
 							: 'rounded-bl-md border border-border bg-bg text-text'}">
-						<p class="whitespace-pre-wrap">{message.content}</p>
+						{#if message.html}
+							<!-- Sanitised on the server by renderAgentMarkdown; see
+							     src/lib/server/ai/markdown.ts for the allowlist. -->
+							<div class="agent-markdown">{@html message.html}</div>
+						{:else}
+							<p class="whitespace-pre-wrap">{message.content}</p>
+						{/if}
 						{#if message.link}
 							<a href={message.link} target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-medium text-accent hover:underline">Open task &nearr;</a>
 						{/if}
@@ -331,6 +507,7 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 
 		<div class="shrink-0 border-t border-border p-3">
 			{#if error}
@@ -349,3 +526,98 @@
 		</div>
 	</div>
 </aside>
+
+<style>
+	/*
+	 * Assistant replies are injected with {@html}, which Svelte's style
+	 * scoping does not reach — hence :global. Sizes stay close to the
+	 * surrounding chat text so a formatted reply reads as part of the
+	 * conversation rather than as an embedded document.
+	 */
+	.agent-markdown :global(> :first-child) {
+		margin-top: 0;
+	}
+	.agent-markdown :global(> :last-child) {
+		margin-bottom: 0;
+	}
+	.agent-markdown :global(p) {
+		margin: 0.5rem 0;
+	}
+	.agent-markdown :global(ul),
+	.agent-markdown :global(ol) {
+		margin: 0.5rem 0;
+		padding-left: 1.15rem;
+	}
+	.agent-markdown :global(ul) {
+		list-style: disc;
+	}
+	.agent-markdown :global(ol) {
+		list-style: decimal;
+	}
+	.agent-markdown :global(li) {
+		margin: 0.2rem 0;
+	}
+	.agent-markdown :global(h3),
+	.agent-markdown :global(h4),
+	.agent-markdown :global(h5),
+	.agent-markdown :global(h6) {
+		margin: 0.75rem 0 0.35rem;
+		font-size: 0.8125rem;
+		font-weight: 600;
+	}
+	.agent-markdown :global(code) {
+		border-radius: 0.25rem;
+		background: color-mix(in srgb, currentColor 10%, transparent);
+		padding: 0.1em 0.32em;
+		font-size: 0.9em;
+	}
+	.agent-markdown :global(pre) {
+		margin: 0.5rem 0;
+		border-radius: 0.5rem;
+		background: color-mix(in srgb, currentColor 10%, transparent);
+		padding: 0.6rem 0.7rem;
+		/* Long lines scroll inside the bubble instead of widening the panel. */
+		overflow-x: auto;
+	}
+	.agent-markdown :global(pre code) {
+		background: none;
+		padding: 0;
+	}
+	.agent-markdown :global(blockquote) {
+		margin: 0.5rem 0;
+		border-left: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+		padding-left: 0.6rem;
+		opacity: 0.85;
+	}
+	.agent-markdown :global(a) {
+		/*
+		 * Inherit rather than take the UA's link blue, which is unreadable on
+		 * the dark assistant bubble and clashes on the accent-coloured user
+		 * one. The underline carries the affordance in both.
+		 */
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	.agent-markdown :global(hr) {
+		margin: 0.75rem 0;
+		border: 0;
+		border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+	}
+	.agent-markdown :global(table) {
+		margin: 0.5rem 0;
+		display: block;
+		overflow-x: auto;
+		border-collapse: collapse;
+		font-size: 0.8125rem;
+	}
+	.agent-markdown :global(th),
+	.agent-markdown :global(td) {
+		border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+		padding: 0.25rem 0.45rem;
+		text-align: left;
+	}
+	.agent-markdown :global(strong) {
+		font-weight: 600;
+	}
+</style>
