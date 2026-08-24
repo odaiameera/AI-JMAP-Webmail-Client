@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 is the floor the README states. `cache: npm` keys off
+      # package-lock.json, so unchanged dependencies restore instead of refetch.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Ahead of the build, so a type error is reported as a type error rather
+      # than as whatever the bundler makes of it downstream.
+      - name: Typecheck
+        run: npm run check
+
+      - name: Unit tests
+        run: npm run test
+
+      # No env needed: every secret this app reads is read at request time,
+      # not during the build.
+      - name: Build
+        run: npm run build

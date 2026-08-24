@@ -16,13 +16,16 @@ export class MailAssistantError extends Error {
 const DEFAULT_AI_URL = 'https://ollama.com';
 
 /**
- * Default model tag. Ollama Cloud serves its hosted models under `-cloud`
- * tags (`deepseek-v3.1:671b-cloud`); the bare tag below only resolves on an
- * endpoint that has pulled it locally. Operators on Cloud must set
- * OLLAMA_MODEL to a tag their endpoint actually serves — a retired or
- * unknown tag comes back as a 404/410 from `/api/chat`.
+ * Default model tag, matching the default endpoint: Ollama Cloud serves its
+ * hosted models under `-cloud` tags, and the bare `deepseek-v3.1:671b` only
+ * resolves on an endpoint that has pulled it locally.
+ *
+ * Any tag hard-coded here can still be retired upstream, which surfaces as a
+ * 404/410 from `/api/chat`. That is why the failure path below reports what
+ * the endpoint does serve — `npm run ai:models` prints the same list on
+ * demand. Treat this default as a starting point, not a guarantee.
  */
-const DEFAULT_AI_MODEL = 'deepseek-v3.1:671b';
+const DEFAULT_AI_MODEL = 'deepseek-v3.1:671b-cloud';
 
 export function mailAssistantConfigured(): boolean {
 	return !!(env.OLLAMA_API_KEY || env.OLLAMA_URL);
@@ -52,6 +55,51 @@ export function upstreamErrorMessage(status: number): string {
 		return 'The AI service is rate limiting this account — wait a moment and try again';
 	}
 	return `The AI service returned an error (${status})`;
+}
+
+/**
+ * Model tags the endpoint currently serves, from Ollama's `/api/tags`.
+ *
+ * Best-effort by design: it answers with an empty list rather than throwing,
+ * so it can enrich a failure without ever masking the failure it describes.
+ */
+export async function listAvailableModels(): Promise<string[]> {
+	try {
+		const response = await fetch(`${aiEndpoint()}/api/tags`, {
+			headers: env.OLLAMA_API_KEY ? { Authorization: `Bearer ${env.OLLAMA_API_KEY}` } : {},
+			signal: AbortSignal.timeout(10_000)
+		});
+		if (!response.ok) return [];
+		const data = (await response.json().catch(() => null)) as {
+			models?: { name?: string; model?: string }[];
+		} | null;
+		return (data?.models ?? [])
+			.map((entry) => entry.name || entry.model || '')
+			.filter(Boolean)
+			.sort();
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Record an upstream failure for the operator, who is the only one who can
+ * fix it. On a 404/410 the configured model is the likely cause, so this also
+ * asks the endpoint which tags it does serve — turning "set OLLAMA_MODEL to
+ * something else" into a list to choose from.
+ */
+export async function logUpstreamFailure(status: number, detail: string): Promise<void> {
+	console.warn(
+		`[ai] ${aiEndpoint()}/api/chat ${status} for model ${aiModel()}: ${detail.slice(0, 300)}`
+	);
+	if (status !== 404 && status !== 410) return;
+
+	const available = await listAvailableModels();
+	console.warn(
+		available.length
+			? `[ai] ${aiEndpoint()} serves: ${available.join(', ')} — set OLLAMA_MODEL to one of these`
+			: `[ai] could not list models from ${aiEndpoint()}/api/tags — check OLLAMA_URL and OLLAMA_API_KEY`
+	);
 }
 
 export type AIChatMessage = {
@@ -101,12 +149,9 @@ export async function runAIChat(input: {
 	}
 
 	if (!response.ok) {
-		// Log the provider's explanation for the operator; the browser gets
-		// only the configuration-derived message above it.
-		const detail = await response.text().catch(() => '');
-		console.warn(
-			`[ai] ${aiEndpoint()}/api/chat ${response.status} for model ${aiModel()}: ${detail.slice(0, 300)}`
-		);
+		// The provider's explanation goes to the server log; the browser gets
+		// only the configuration-derived message.
+		await logUpstreamFailure(response.status, await response.text().catch(() => ''));
 		throw new MailAssistantError(upstreamErrorMessage(response.status), 502);
 	}
 
