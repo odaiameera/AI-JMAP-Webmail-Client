@@ -17,15 +17,17 @@ const DEFAULT_AI_URL = 'https://ollama.com';
 
 /**
  * Default model tag, matching the default endpoint: Ollama Cloud serves its
- * hosted models under `-cloud` tags, and the bare `deepseek-v3.1:671b` only
- * resolves on an endpoint that has pulled it locally.
+ * hosted models under `-cloud` tags, and a bare library tag like
+ * `deepseek-v3.1:671b` only resolves on an endpoint that has pulled it.
  *
- * Any tag hard-coded here can still be retired upstream, which surfaces as a
- * 404/410 from `/api/chat`. That is why the failure path below reports what
- * the endpoint does serve — `npm run ai:models` prints the same list on
- * demand. Treat this default as a starting point, not a guarantee.
+ * This is the fallback for when OLLAMA_MODEL is unset — setting that variable
+ * is how an operator picks a model, and it needs no code change. Any tag
+ * hard-coded here can still be retired upstream, surfacing as a 404/410 from
+ * `/api/chat`, which is why the failure path below reports what the endpoint
+ * does serve. `npm run ai:models` prints the same list on demand. Treat this
+ * default as a starting point, not a guarantee.
  */
-const DEFAULT_AI_MODEL = 'deepseek-v3.1:671b-cloud';
+const DEFAULT_AI_MODEL = 'deepseek-v4-flash:cloud';
 
 export function mailAssistantConfigured(): boolean {
 	return !!(env.OLLAMA_API_KEY || env.OLLAMA_URL);
