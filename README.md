@@ -11,10 +11,15 @@ A self-hosted webmail client built with SvelteKit. It connects to JMAP mail serv
 - CalDAV calendar and invitation handling
 - JMAP contacts with vCard and CSV import
 - Passkey support
-- Collapsible Ollama-powered AI mail agent with mailbox summaries, email questions, reply drafts, and calendar briefings
+- Collapsible Ollama-powered AI mail agent that searches the whole mailbox and calendar, answers questions, drafts replies, and proposes calendar events
+- Confirmation-gated calendar changes: the agent can propose adding or deleting an event, but only a click applies it
 - Confirmation-gated task proposals through a generic task API, automation webhook, or MCP bridge
 
-The agent never sends generated replies or creates tasks automatically. Replies are prepared for review, and task proposals require an explicit confirmation click.
+The agent never sends generated replies, creates tasks, or changes your calendar
+automatically. Replies are prepared for review, and task and calendar proposals
+require an explicit confirmation click. A proposed calendar deletion names the
+event and its date on the confirmation card, so what is being agreed to is the
+event itself and not an opaque id.
 
 ## Quick start
 
@@ -80,7 +85,10 @@ explanation on the `[ai]` line for each failed request, followed by the list of
 tags the endpoint does serve; that detail is deliberately kept out of the
 browser response.
 
-AI and task-app credentials stay on the server. Email content is sent only to the Ollama endpoint configured by the operator. Task title, description, and due date are sent to the chosen task app only after confirmation.
+AI and task-app credentials stay on the server. Email content is sent only to the
+Ollama endpoint configured by the operator. Task title, description, and due date
+are sent to the chosen task app only after confirmation. Calendar changes go to
+your own CalDAV server and, like tasks, only after confirmation.
 
 The task adapter receives a `POST` body only after confirmation:
 

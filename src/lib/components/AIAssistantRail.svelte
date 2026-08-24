@@ -6,7 +6,8 @@
 		| 'summarize_today'
 		| 'calendar_tomorrow'
 		| 'summarize_current'
-		| 'propose_task';
+		| 'propose_task'
+		| 'propose_event';
 	type TaskProvider = 'todoist' | 'linear' | 'notion' | 'webhook';
 
 	type SessionSummary = {
@@ -15,6 +16,22 @@
 		createdAt: number;
 		updatedAt: number;
 		messageCount: number;
+	};
+
+	type CalendarProposal = {
+		action: 'create' | 'delete';
+		summary: string;
+		event: {
+			title: string;
+			start: string;
+			end: string;
+			allDay: boolean;
+			timeZone: string;
+			location: string;
+			description: string;
+			calendarId: string | null;
+		} | null;
+		target: { id: string; title: string; start: string } | null;
 	};
 
 	type TaskProposal = {
@@ -34,6 +51,8 @@
 		taskProviders?: TaskProvider[];
 		selectedProvider?: TaskProvider;
 		taskStatus?: 'creating' | 'created' | 'failed';
+		calendarProposal?: CalendarProposal;
+		calendarStatus?: 'applying' | 'applied' | 'failed';
 		link?: string;
 	};
 
@@ -218,6 +237,7 @@
 				error?: string;
 				taskProposal?: TaskProposal;
 				taskProviders?: TaskProvider[];
+				calendarProposal?: CalendarProposal;
 			} | null;
 			if (!response.ok || !data?.message) {
 				throw new Error(data?.error ?? 'The mail agent could not answer');
@@ -239,6 +259,7 @@
 					content: data.message,
 					html: data.html,
 					proposal: data.taskProposal,
+					calendarProposal: data.calendarProposal,
 					taskProviders: providers,
 					selectedProvider
 				}
@@ -248,6 +269,48 @@
 			error = err instanceof Error ? err.message : 'The mail agent could not answer';
 		} finally {
 			busy = false;
+			await scrollToLatest();
+		}
+	}
+
+	/**
+	 * Apply a calendar change. Nothing reaches the calendar until this runs,
+	 * and it only runs from the button below the proposal.
+	 */
+	async function confirmCalendar(messageId: string, proposal: CalendarProposal) {
+		messages = messages.map((message) =>
+			message.id === messageId ? { ...message, calendarStatus: 'applying' } : message
+		);
+		error = '';
+		try {
+			const response = await fetch('/api/ai/calendar', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					confirmed: true,
+					proposal,
+					timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+				})
+			});
+			const data = (await response.json().catch(() => null)) as {
+				message?: string;
+				error?: string;
+			} | null;
+			if (!response.ok) throw new Error(data?.error ?? 'The calendar change failed');
+
+			messages = messages.map((message) =>
+				message.id === messageId ? { ...message, calendarStatus: 'applied' } : message
+			);
+			messages = [
+				...messages,
+				{ id: id(), role: 'assistant', content: data?.message ?? 'Calendar updated.' }
+			];
+		} catch (err) {
+			messages = messages.map((message) =>
+				message.id === messageId ? { ...message, calendarStatus: 'failed' } : message
+			);
+			error = err instanceof Error ? err.message : 'The calendar change failed';
+		} finally {
 			await scrollToLatest();
 		}
 	}
@@ -422,6 +485,51 @@
 						{/if}
 						{#if message.link}
 							<a href={message.link} target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-medium text-accent hover:underline">Open task &nearr;</a>
+						{/if}
+						{#if message.calendarProposal}
+							<!--
+								A delete is irreversible, so the card names the event and
+								its date rather than saying "this event". The button is
+								the only path to /api/ai/calendar.
+							-->
+							<div class="mt-3 rounded-xl border p-3 text-text {message.calendarProposal.action === 'delete' ? 'border-danger/40 bg-danger/5' : 'border-border bg-bg'}">
+								<p class="text-[10px] font-semibold uppercase tracking-wider {message.calendarProposal.action === 'delete' ? 'text-danger' : 'text-accent'}">
+									{message.calendarProposal.action === 'delete' ? 'Delete event' : 'New event'}
+								</p>
+
+								{#if message.calendarProposal.action === 'delete' && message.calendarProposal.target}
+									<p class="mt-1 font-medium">{message.calendarProposal.target.title}</p>
+									<p class="mt-1 text-xs text-text-secondary">{message.calendarProposal.target.start}</p>
+									<p class="mt-2 text-[11px] text-danger">This cannot be undone.</p>
+								{:else if message.calendarProposal.event}
+									<p class="mt-1 font-medium">{message.calendarProposal.event.title}</p>
+									<p class="mt-1 text-xs text-text-secondary">
+										{message.calendarProposal.event.allDay
+											? `${message.calendarProposal.event.start} · all day`
+											: `${message.calendarProposal.event.start.slice(0, 10)} · ${message.calendarProposal.event.start.slice(11)}–${message.calendarProposal.event.end.slice(11)}`}
+									</p>
+									{#if message.calendarProposal.event.location}
+										<p class="mt-1 text-xs text-text-tertiary">{message.calendarProposal.event.location}</p>
+									{/if}
+								{/if}
+
+								<button
+									type="button"
+									disabled={message.calendarStatus === 'applying' || message.calendarStatus === 'applied'}
+									onclick={() => confirmCalendar(message.id, message.calendarProposal!)}
+									class="mt-3 w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-default disabled:opacity-60 {message.calendarProposal.action === 'delete' ? 'bg-danger hover:bg-danger/90' : 'bg-accent hover:bg-accent-hover'}"
+								>
+									{message.calendarStatus === 'applying'
+										? 'Working…'
+										: message.calendarStatus === 'applied'
+											? 'Done'
+											: message.calendarStatus === 'failed'
+												? 'Try again'
+												: message.calendarProposal.action === 'delete'
+													? 'Delete from calendar'
+													: 'Add to calendar'}
+								</button>
+							</div>
 						{/if}
 						{#if message.proposal}
 							<div class="mt-3 rounded-xl border border-border bg-bg p-3 text-text">

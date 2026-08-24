@@ -143,7 +143,7 @@ export function describeMailSearch(spec: MailSearchSpec): string {
  * support varies by model. Every model that can already honour the JSON
  * schemas used elsewhere here can drive this loop.
  */
-export type MailToolName = 'search_mail' | 'open_email' | 'done';
+export type MailToolName = 'search_mail' | 'open_email' | 'search_calendar' | 'done';
 
 export interface MailToolCall {
 	tool: MailToolName;
@@ -162,7 +162,7 @@ export const MAX_TOOL_ROUNDS = 4;
 export const MAIL_TOOL_SCHEMA = {
 	type: 'object',
 	properties: {
-		tool: { type: 'string', enum: ['search_mail', 'open_email', 'done'] },
+		tool: { type: 'string', enum: ['search_mail', 'open_email', 'search_calendar', 'done'] },
 		text: { type: ['string', 'null'] },
 		from: { type: ['string', 'null'] },
 		after: { type: ['string', 'null'] },
@@ -188,5 +188,8 @@ export function parseMailToolCall(raw: unknown): MailToolCall {
 
 	if (source.tool === 'search_mail') return { tool: 'search_mail', search, emailId };
 	if (source.tool === 'open_email' && emailId) return { tool: 'open_email', search, emailId };
+	// Calendar search reuses the after/before bounds from the same spec; an
+	// unbounded one is handled by the caller, which supplies a default window.
+	if (source.tool === 'search_calendar') return { tool: 'search_calendar', search, emailId: null };
 	return { tool: 'done', search, emailId: null };
 }

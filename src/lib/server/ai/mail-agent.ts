@@ -1,10 +1,17 @@
 import type { AuthState, Email } from '$lib/jmap/types';
+import type { EventInstance } from '$lib/calendar/types';
 import type { JMAPClient } from '$lib/jmap/client';
 import { createClient } from '$lib/jmap/auth';
 import { getEmailDetail, searchEmails } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import { getEventsInRange } from '$lib/server/calendar/service';
 import { htmlToPromptText } from './extract-event';
+import {
+	buildDeleteProposal,
+	EVENT_PROPOSAL_SCHEMA,
+	parseCreateProposal,
+	type CalendarProposal
+} from './calendar-actions';
 import { runAIChat, type AIChatMessage } from './mail-assistant';
 import {
 	buildMailFilter,
@@ -20,7 +27,8 @@ export type MailAgentAction =
 	| 'summarize_today'
 	| 'calendar_tomorrow'
 	| 'summarize_current'
-	| 'propose_task';
+	| 'propose_task'
+	| 'propose_event';
 
 export interface TaskProposal {
 	title: string;
@@ -44,6 +52,8 @@ export interface MailAgentInput {
 export interface MailAgentResult {
 	message: string;
 	taskProposal?: TaskProposal;
+	/** A calendar change awaiting the user's confirmation. Never applied here. */
+	calendarProposal?: CalendarProposal;
 }
 
 const TASK_SCHEMA = {
@@ -66,6 +76,14 @@ export function inferMailAgentAction(
 	const normalized = message.toLowerCase();
 	if (/\b(create|add|make|turn|convert)\b.{0,40}\b(task|to-do|todo)\b/.test(normalized)) {
 		return 'propose_task';
+	}
+	// Calendar writes, including the destructive ones. Matching here only
+	// decides which prompt runs — the change still needs a confirmation click.
+	if (
+		/\b(schedule|book|create|add|put|set up|move|cancel|delete|remove|clear)\b/.test(normalized) &&
+		/\b(event|meeting|appointment|calendar|reminder to meet)\b/.test(normalized)
+	) {
+		return 'propose_event';
 	}
 	if (/\b(calendar|schedule|meetings?|appointments?)\b/.test(normalized) && /\btomorrow\b/.test(normalized)) {
 		return 'calendar_tomorrow';
@@ -219,6 +237,27 @@ function formatSearchResults(spec: MailSearchSpec, emails: Email[], total: numbe
 	return `${describeMailSearch(spec)} — ${total} match${total === 1 ? '' : 'es'}, showing ${emails.length}\n\n${lines.join('\n\n')}`;
 }
 
+/** Calendar hits, with ids so the model can point at one to delete. */
+function formatCalendarResults(events: EventInstance[], partial: boolean): string {
+	const header = `CALENDAR${partial ? ' (some calendars could not be loaded)' : ''}`;
+	if (!events.length) return `${header}\nNo events in that window.`;
+
+	const lines = events.slice(0, 40).map((event) =>
+		[
+			`id: ${event.id}`,
+			`title: ${event.title || '(untitled)'}`,
+			`start: ${event.start}`,
+			`end: ${event.end}`,
+			`allDay: ${event.allDay}`,
+			event.location ? `location: ${event.location}` : '',
+			event.recurring ? 'recurring: true' : ''
+		]
+			.filter(Boolean)
+			.join('\n')
+	);
+	return `${header} — ${events.length} event${events.length === 1 ? '' : 's'}\n\n${lines.join('\n\n')}`;
+}
+
 /**
  * Let the model work the mailbox until it has what it needs.
  *
@@ -232,15 +271,20 @@ function formatSearchResults(spec: MailSearchSpec, emails: Email[], total: numbe
  * gathered. A question answered from partial context beats an error.
  */
 async function gatherWithTools(
+	auth: AuthState,
+	userEmail: string,
 	client: JMAPClient,
 	accountId: string,
 	message: string,
 	conversation: AIChatMessage[],
 	timeZone: string,
 	todayIso: string
-): Promise<string> {
+): Promise<{ context: string; calendarEvents: EventInstance[] }> {
 	const transcript: string[] = [];
 	const openedIds = new Set<string>();
+	// Kept so a delete proposal can be tied to an event that actually exists
+	// rather than to an id the model produced.
+	const calendarEvents: EventInstance[] = [];
 
 	const system = `You are retrieving from the user's mailbox to answer their question.
 Today is ${todayIso} in timezone ${timeZone}.
@@ -250,6 +294,9 @@ Choose one tool per step and return JSON only:
   relative dates ("last year", "in the spring") to concrete ISO dates yourself.
   The search covers every folder, including archived mail.
 - open_email — set emailId to an id from an earlier result, to read its full body.
+- search_calendar — set after and before to the window to look at. Use this for any
+  question about events, meetings, or availability, and before proposing to delete
+  an event so you know which one it is.
 - done — you have enough to answer, or further searching will not help.
 
 Search broadly first, then narrow. Open a message only when its preview is not
@@ -295,6 +342,18 @@ enough. Return done as soon as you can answer; do not search for its own sake.`;
 					limit: call.search.limit
 				});
 				transcript.push(formatSearchResults(call.search, emails, total));
+			} else if (call.tool === 'search_calendar') {
+				// Default to a window around today when the model gives no
+				// bounds, rather than asking CalDAV for all of time.
+				const from = call.search.after
+					? Date.parse(call.search.after)
+					: Date.parse(`${todayIso}T00:00:00Z`) - 7 * 86_400_000;
+				const to = call.search.before
+					? Date.parse(call.search.before)
+					: from + 60 * 86_400_000;
+				const result = await getEventsInRange(auth, userEmail, from, to);
+				calendarEvents.push(...result.events);
+				transcript.push(formatCalendarResults(result.events, result.partial));
 			} else if (call.emailId) {
 				// Re-opening the same message would spend a round to learn
 				// nothing, so stop instead.
@@ -308,7 +367,7 @@ enough. Return done as soon as you can answer; do not search for its own sake.`;
 		}
 	}
 
-	return transcript.join('\n\n');
+	return { context: transcript.join('\n\n'), calendarEvents };
 }
 
 function normalSystemPrompt(timeZone: string): string {
@@ -346,6 +405,9 @@ export async function runMailAgent(
 	const action = inferMailAgentAction(input.action, input.message, !!input.currentEmailId);
 	const client = createClient(auth);
 	let context = '';
+	// Calendar events the tool loop saw, so a delete proposal can point at a
+	// real one instead of an id the model invented.
+	let foundEvents: EventInstance[] = [];
 
 	if (action === 'summarize_today') {
 		const result = await emailsInRange(client, auth.accountId, input.todayStartMs, input.todayEndMs);
@@ -385,6 +447,8 @@ export async function runMailAgent(
 		}
 
 		const retrieved = await gatherWithTools(
+			auth,
+			userEmail,
 			client,
 			auth.accountId,
 			input.message,
@@ -392,7 +456,8 @@ export async function runMailAgent(
 			input.timeZone,
 			new Date(input.todayStartMs).toISOString().slice(0, 10)
 		);
-		if (retrieved) parts.push(`MAILBOX RETRIEVAL\n${retrieved}`);
+		if (retrieved.context) parts.push(`MAILBOX RETRIEVAL\n${retrieved.context}`);
+		foundEvents = retrieved.calendarEvents;
 
 		context = parts.join('\n\n');
 	}
@@ -422,7 +487,69 @@ Set destination to todoist, linear, or notion only when the user explicitly name
 		};
 	}
 
-	const instructions: Record<Exclude<MailAgentAction, 'propose_task'>, string> = {
+	if (action === 'propose_event') {
+		const todayIso = new Date(input.todayStartMs).toISOString().slice(0, 10);
+		const content = await runAIChat({
+			system: `${normalSystemPrompt(input.timeZone)}
+Prepare exactly one calendar change from the user's request and the supplied context. Return JSON only.
+Today is ${todayIso}. The user's timezone is ${input.timeZone}.
+
+For action "create": give a title, and start/end as local wall-clock times with no zone —
+"YYYY-MM-DDTHH:mm" for timed events, "YYYY-MM-DD" for all-day (end exclusive). Set allDay
+accordingly. Resolve relative dates ("next Tuesday", "tomorrow morning") yourself. Do not
+invent a time the user did not give; if none is stated and none can be inferred, leave start empty.
+
+For action "delete": set eventId to the id of an event from the CALENDAR results above.
+Never guess an id. If no result matches what the user described, use action "create" with an
+empty title so the request is refused rather than deleting the wrong event.`,
+			messages: [...conversation, { role: 'user', content: userMessage }],
+			temperature: 0,
+			format: EVENT_PROPOSAL_SCHEMA
+		});
+
+		const parsed = (() => {
+			const start = content.indexOf('{');
+			const end = content.lastIndexOf('}');
+			if (start === -1 || end <= start) return null;
+			try {
+				return JSON.parse(content.slice(start, end + 1)) as Record<string, unknown>;
+			} catch {
+				return null;
+			}
+		})();
+
+		if (parsed?.action === 'delete') {
+			// Resolve against events the tool loop actually retrieved. An id the
+			// model made up matches nothing and is refused, rather than being
+			// passed to the confirmation card as a plausible deletion.
+			const targetId = typeof parsed.eventId === 'string' ? parsed.eventId : '';
+			const match = foundEvents.find((event) => event.id === targetId);
+			if (!match) {
+				return {
+					message:
+						'I could not find that event on your calendar, so I have not prepared anything to delete. Tell me its title and roughly when it is.'
+				};
+			}
+			return {
+				message: 'This would delete the event below. Nothing has changed yet.',
+				calendarProposal: buildDeleteProposal(match)
+			};
+		}
+
+		const proposal = parsed ? parseCreateProposal(parsed, input.timeZone) : null;
+		if (!proposal) {
+			return {
+				message:
+					'I could not work out a specific date and time for that, so I have not prepared an event. Tell me when it should be.'
+			};
+		}
+		return {
+			message: 'I prepared this event for your review. Nothing has been added yet.',
+			calendarProposal: proposal
+		};
+	}
+
+	const instructions: Record<Exclude<MailAgentAction, 'propose_task' | 'propose_event'>, string> = {
 		chat:
 			'Answer the user from the supplied context — the open email, the mail search results, or both.',
 		summarize_today:
