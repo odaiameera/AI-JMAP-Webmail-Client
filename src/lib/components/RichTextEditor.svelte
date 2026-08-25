@@ -97,7 +97,7 @@
 <style>
 	.toolbar-btn {
 		display: flex; align-items: center; justify-content: center;
-		width: 26px; height: 26px; border-radius: 4px; font-size: 13px;
+		width: 26px; height: 26px; border-radius: 4px; font-size: var(--text-xs);
 		color: var(--color-text-secondary); cursor: pointer;
 		transition: background 0.1s, color 0.1s;
 		border: none; background: transparent;
@@ -108,6 +108,9 @@
 
 	.prose-editor :global(.ProseMirror) {
 		outline: none; min-height: 140px;
+		/* Calibri at 14px is what the recipient sees, so this deliberately
+		   sits outside the app's type scale — the compose view has to show the
+		   message at its real size, not at the app's. */
 		font-family: Calibri, 'Segoe UI', Arial, sans-serif;
 		font-size: 14px; line-height: 1.6; color: var(--color-text);
 	}

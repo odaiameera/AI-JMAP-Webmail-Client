@@ -375,6 +375,12 @@
 	z-[35] clears in-pane dropdowns (z-30) while staying under the composer
 	backdrop (z-40). While closed, `pointer-events-none` lets clicks reach the
 	reading pane it covers.
+
+	Square on purpose — no radius. The pane beneath is a rounded tray; a drawer
+	pulled across it covers the corners it reaches rather than repeating them,
+	which is what makes it read as sliding over the tray instead of being
+	another panel beside it. It is not clipped by the tray (different grid
+	column), so its own edges are the ones that show.
 -->
 <aside
 	aria-label="AI mail agent"
@@ -674,12 +680,24 @@
 	.agent-markdown :global(li) {
 		margin: 0.2rem 0;
 	}
-	.agent-markdown :global(h3),
+	/*
+	 * em, not rem: these size against the bubble's own text rather than the
+	 * document root. As rem they came out at ~14px inside a ~15px bubble —
+	 * headings smaller than the paragraphs beneath them.
+	 *
+	 * A chat reply is short enough that weight carries the hierarchy; only h3
+	 * steps up in size, and barely.
+	 */
+	.agent-markdown :global(h3) {
+		margin: 0.75rem 0 0.35rem;
+		font-size: 1.05em;
+		font-weight: 600;
+	}
 	.agent-markdown :global(h4),
 	.agent-markdown :global(h5),
 	.agent-markdown :global(h6) {
 		margin: 0.75rem 0 0.35rem;
-		font-size: 0.8125rem;
+		font-size: 1em;
 		font-weight: 600;
 	}
 	.agent-markdown :global(code) {
@@ -726,7 +744,8 @@
 		display: block;
 		overflow-x: auto;
 		border-collapse: collapse;
-		font-size: 0.8125rem;
+		/* Dense data earns a step down, relative to the bubble. */
+		font-size: 0.92em;
 	}
 	.agent-markdown :global(th),
 	.agent-markdown :global(td) {
