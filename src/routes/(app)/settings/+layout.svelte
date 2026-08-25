@@ -48,7 +48,7 @@
 
 		<nav class="flex-1 overflow-y-auto py-2 px-2">
 			{#each grouped as [group, list] (group)}
-				<p class="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 pt-3 pb-1">{group}</p>
+				<p class="text-3xs font-semibold uppercase tracking-wider text-text-tertiary px-3 pt-3 pb-1">{group}</p>
 				{#each list as item (item.slug)}
 					<a
 						href="/settings/{item.slug}"

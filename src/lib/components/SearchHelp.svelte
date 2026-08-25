@@ -28,7 +28,7 @@
 	class="absolute top-full left-0 mt-2 w-[520px] bg-surface border border-border rounded-lg shadow-xl z-50 p-4 max-h-[400px] overflow-y-auto"
 >
 	<p class="text-xs font-semibold text-text mb-2">Search operators</p>
-	<p class="text-[11px] text-text-tertiary mb-3">
+	<p class="text-2xs text-text-tertiary mb-3">
 		Combine operators with spaces (implicit AND). Quote values with spaces.
 	</p>
 	<div class="grid grid-cols-[180px_1fr] gap-x-3 gap-y-1.5 text-xs">

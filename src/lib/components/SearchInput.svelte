@@ -255,7 +255,7 @@
 						<span class="text-sm text-text">{t.raw}</span>
 					{:else}
 						<span
-							class="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-medium leading-none {pillClass(t)}"
+							class="inline-flex items-center h-5 px-1.5 rounded text-2xs font-medium leading-none {pillClass(t)}"
 							title={t.kind === 'error' ? t.reason : pillLabel(t)}
 						>
 							{pillLabel(t)}
@@ -280,7 +280,7 @@
 
 		<!-- Keyboard hint, hidden once the field is engaged. -->
 		{#if !focused && value.length === 0}
-			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded border border-border bg-surface text-[10px] font-medium text-text-tertiary pointer-events-none select-none">
+			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded border border-border bg-surface text-3xs font-medium text-text-tertiary pointer-events-none select-none">
 				⌘K
 			</kbd>
 		{/if}
@@ -304,11 +304,11 @@
 		<div class="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg shadow-lg p-2 z-30">
 			{#if value.trim().length === 0 && recents.length > 0}
 				<div class="flex items-center justify-between px-1 pb-1.5">
-					<span class="text-[11px] uppercase tracking-wider text-text-tertiary">Recent searches</span>
+					<span class="text-2xs uppercase tracking-wider text-text-tertiary">Recent searches</span>
 					<button
 						type="button"
 						onmousedown={(e) => { e.preventDefault(); clearRecentSearches(); recents = []; }}
-						class="text-[11px] text-text-tertiary hover:text-text cursor-pointer"
+						class="text-2xs text-text-tertiary hover:text-text cursor-pointer"
 					>
 						Clear
 					</button>

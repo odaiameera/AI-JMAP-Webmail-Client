@@ -287,7 +287,7 @@
 				<p class="text-sm text-text truncate">
 					{describeDevice(s.userAgent)}
 					{#if s.current}
-						<span class="ml-2 text-[10px] uppercase tracking-wide text-accent font-semibold">This device</span>
+						<span class="ml-2 text-3xs uppercase tracking-wide text-accent font-semibold">This device</span>
 					{/if}
 				</p>
 				<p class="text-xs text-text-tertiary mt-0.5">

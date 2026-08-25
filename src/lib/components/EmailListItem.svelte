@@ -176,7 +176,7 @@
 			<span class="truncate">{email.subject || '(no subject)'}</span>
 			{#if reminderAt}
 				<span
-					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent text-[10px] font-medium px-1.5 py-0.5"
+					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent text-3xs font-medium px-1.5 py-0.5"
 					title="Snoozed — returns to the inbox automatically"
 				>
 					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -190,11 +190,11 @@
 		{#if appliedLabels.length > 0}
 			<div class="email-chips flex items-center gap-1 mt-0.5">
 				{#each appliedLabels.slice(0, 2) as label}
-					<span class="rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none"
+					<span class="rounded-sm px-1.5 py-0.5 text-2xs font-medium leading-none"
 						style="background-color: {label.color}; color: {textColorForBg(label.color)}">{label.name}</span>
 				{/each}
 				{#if appliedLabels.length > 2}
-					<span class="text-[10px] text-text-tertiary font-medium">+{appliedLabels.length - 2}</span>
+					<span class="text-3xs text-text-tertiary font-medium">+{appliedLabels.length - 2}</span>
 				{/if}
 			</div>
 		{/if}

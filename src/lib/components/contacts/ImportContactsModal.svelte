@@ -160,7 +160,7 @@
 			<header class="h-14 shrink-0 px-5 border-b border-border flex items-center justify-between">
 				<div>
 					<h2 id="import-contacts-title" class="text-lg font-semibold text-text">Import contacts</h2>
-					<p class="text-[11px] text-text-tertiary">Apple or Google vCard, or Google Contacts CSV</p>
+					<p class="text-2xs text-text-tertiary">Apple or Google vCard, or Google Contacts CSV</p>
 				</div>
 				<button type="button" aria-label="Close import" class="p-2 rounded-lg text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" onclick={cancel}>×</button>
 			</header>
@@ -208,7 +208,7 @@
 						<div class="max-h-72 overflow-y-auto divide-y divide-border">
 							{#each rows.slice(0, 200) as row (row.sourceIndex)}
 								<div class="px-3 py-2 flex items-start gap-3">
-									<span class="mt-0.5 w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide {row.status === 'ready' ? 'text-success' : row.status === 'duplicate' ? 'text-warning' : 'text-danger'}">{row.status}</span>
+									<span class="mt-0.5 w-16 shrink-0 text-3xs font-semibold uppercase tracking-wide {row.status === 'ready' ? 'text-success' : row.status === 'duplicate' ? 'text-warning' : 'text-danger'}">{row.status}</span>
 									<div class="min-w-0 flex-1">
 										<p class="text-sm text-text truncate">{row.form.name || row.form.emails[0]?.address || row.form.phones[0]?.number || `Row ${row.sourceIndex}`}</p>
 										{#if row.reason}<p class="text-xs text-text-tertiary mt-0.5">{row.reason}</p>{/if}

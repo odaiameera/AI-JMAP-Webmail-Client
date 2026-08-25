@@ -6,6 +6,7 @@ import type {
 	EventInstance,
 	EventWritePayload
 } from '$lib/calendar/types';
+import { DEFAULT_CALENDAR_COLOR } from '$lib/calendar/types';
 import { LABEL_COLORS } from '$lib/constants/colors';
 import {
 	calendarHref,
@@ -68,7 +69,7 @@ export async function listCalendarsWithMeta(
 		const m = meta.get(c.id);
 		const idx = sorted.findIndex((s) => s.id === c.id);
 		const isDefault = c.id === DEFAULT_CALENDAR_ID;
-		const fallback = isDefault ? '#6366F1' : LABEL_COLORS[(idx * 3 + 10) % LABEL_COLORS.length].hex;
+		const fallback = isDefault ? DEFAULT_CALENDAR_COLOR : LABEL_COLORS[(idx * 3 + 10) % LABEL_COLORS.length].hex;
 		return {
 			id: c.id,
 			name: c.name,

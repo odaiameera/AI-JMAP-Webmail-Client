@@ -187,10 +187,10 @@
 				<div class="flex items-center gap-2 min-w-0">
 					<p class="text-sm font-medium text-text truncate">{account.email}</p>
 					{#if isActive}
-						<span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-accent/15 text-accent">Active</span>
+						<span class="shrink-0 text-3xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-accent/15 text-accent">Active</span>
 					{/if}
 					{#if i === 0}
-						<span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-surface-hover text-text-tertiary" title="Opens by default when you sign in">Default</span>
+						<span class="shrink-0 text-3xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-surface-hover text-text-tertiary" title="Opens by default when you sign in">Default</span>
 					{/if}
 				</div>
 				{#if account.needsReauth}

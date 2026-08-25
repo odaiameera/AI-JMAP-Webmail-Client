@@ -199,7 +199,7 @@
 					<div class="flex items-center gap-2">
 						<span class="flex-1 truncate text-sm">{sig.name}</span>
 						{#if sig.isDefault}
-							<span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
+							<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
 								Default
 							</span>
 						{/if}
@@ -321,7 +321,7 @@
 						{/if}
 					</div>
 					{#if identity.isPrimary}
-						<span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
+						<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
 							Primary
 						</span>
 					{/if}

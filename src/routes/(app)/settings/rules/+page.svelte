@@ -469,7 +469,7 @@
 								{/if}
 								<button
 									onclick={() => { condition.negate = !condition.negate; }}
-									class="text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors
+									class="text-3xs px-1.5 py-0.5 rounded border cursor-pointer transition-colors
 										{condition.negate ? 'border-danger/50 text-danger bg-danger/10' : 'border-border text-text-tertiary hover:border-text-tertiary'}"
 								>NOT</button>
 								<button
@@ -528,7 +528,7 @@
 									</select>
 								{/if}
 								{#if isStaleTarget(action)}
-									<span class="w-full text-[11px] text-warning">
+									<span class="w-full text-2xs text-warning">
 										⚠ The {action.type === 'moveToFolder' ? 'folder' : 'label'} this rule pointed at no longer exists — pick a new one and save, or the rule will do nothing.
 									</span>
 								{/if}
@@ -549,7 +549,7 @@
 					</div>
 
 					<!-- Summary line -->
-					<p class="text-[11px] text-text-tertiary italic">
+					<p class="text-2xs text-text-tertiary italic">
 						{rule.actions.map(actionSummary).join(' · ') || 'No actions'}
 					</p>
 

@@ -325,7 +325,7 @@
 								}}
 							>
 								{opt.label}
-								<span class="text-[10px] text-text-tertiary border border-border rounded px-1 py-px">{opt.shortcut}</span>
+								<span class="text-3xs text-text-tertiary border border-border rounded px-1 py-px">{opt.shortcut}</span>
 							</button>
 						{/each}
 					</div>

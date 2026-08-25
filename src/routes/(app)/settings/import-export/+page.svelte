@@ -106,7 +106,7 @@
 				<ul class="mt-2 pl-3 space-y-1">
 					{#each exportedKeys as item (item.key)}
 						<li>
-							<code class="text-[11px] bg-surface-hover rounded px-1 py-0.5">{item.key}</code>
+							<code class="text-2xs bg-surface-hover rounded px-1 py-0.5">{item.key}</code>
 							— {item.description}
 						</li>
 					{/each}

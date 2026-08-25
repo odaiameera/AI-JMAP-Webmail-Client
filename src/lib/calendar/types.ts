@@ -107,6 +107,18 @@ export interface EventWritePayload {
 	status?: EventStatus;
 }
 
+/**
+ * Colour used for a calendar that has none of its own.
+ *
+ * Deliberately a literal rather than the accent token: calendar colours are
+ * data — they are stored per calendar, shown as swatches, and compared
+ * against each other — so they must resolve to a concrete value in contexts
+ * where a CSS variable cannot (inline `style` on canvas-drawn event blocks,
+ * colour-picker equality checks). It matches the accent by choice; changing
+ * the palette means changing this too, which is now one edit rather than five.
+ */
+export const DEFAULT_CALENDAR_COLOR = '#6366F1';
+
 /** Which occurrences a recurring-event edit/delete applies to. */
 export type EditScope = 'instance' | 'following' | 'all';
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
+	import { DEFAULT_CALENDAR_COLOR } from '$lib/calendar/types';
 	import {
 		dayKey,
 		formatTime,
@@ -70,7 +71,7 @@
 	}
 
 	function chipColor(ev: EventInstance): string {
-		return colorOf.get(ev.calendarId) ?? '#6366F1';
+		return colorOf.get(ev.calendarId) ?? DEFAULT_CALENDAR_COLOR;
 	}
 </script>
 
@@ -131,14 +132,14 @@
 									}}
 								>
 									<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {chipColor(ev)};"></span>
-									<span class="text-[11px] text-text-tertiary shrink-0">{formatTime(instanceDate(ev.start, false))}</span>
-									<span class="text-[11px] text-text truncate">{ev.title || '(untitled)'}</span>
+									<span class="text-2xs text-text-tertiary shrink-0">{formatTime(instanceDate(ev.start, false))}</span>
+									<span class="text-2xs text-text truncate">{ev.title || '(untitled)'}</span>
 								</button>
 							{/each}
 							{#if hidden > 0}
 								<button
 									type="button"
-									class="w-full px-1.5 h-[19px] rounded text-left text-[11px] text-text-secondary font-medium hover:bg-surface-hover transition-colors cursor-pointer"
+									class="w-full px-1.5 h-[19px] rounded text-left text-2xs text-text-secondary font-medium hover:bg-surface-hover transition-colors cursor-pointer"
 									onclick={(e) => {
 										e.stopPropagation();
 										onSelectDay(day);
@@ -155,7 +156,7 @@
 				{#each layout.visibleSegs as seg (seg.event.id + (seg.event.recurrenceId ?? '') + seg.startCol)}
 					<button
 						type="button"
-						class="absolute h-[19px] px-1.5 flex items-center text-[11px] text-white font-medium truncate cursor-pointer hover:opacity-90 transition-opacity
+						class="absolute h-[19px] px-1.5 flex items-center text-2xs text-white font-medium truncate cursor-pointer hover:opacity-90 transition-opacity
 							{seg.continuesBefore ? '' : 'rounded-l'} {seg.continuesAfter ? '' : 'rounded-r'}"
 						style="
 							top: {26 + seg.lane * 21}px;
