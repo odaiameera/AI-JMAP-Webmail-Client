@@ -232,8 +232,20 @@
 		onToggleCollapse={() => { sidebarCollapsed = !sidebarCollapsed; }}
 	/>
 
-	<!-- Row 2, Col 2: Main content -->
-	<main class="overflow-hidden min-w-0 bg-bg rounded-tl-xl rounded-tr-xl">
+	<!--
+		Row 2, Col 2: Main content — the tray.
+
+		Mail list and reading pane sit on the app's dark canvas, rounded on all
+		four corners, inset from the bottom of the window so the surface colour
+		shows beneath. The chrome around it (sidebar, app rail, header) stays on
+		that surface colour and runs to the window edge, so the lighter tone is
+		continuous with the browser frame and the darker content reads as
+		something resting on it.
+
+		Only the bottom is inset: left and right already meet grey chrome, so
+		the corners alone separate them.
+	-->
+	<main class="mb-2 overflow-hidden min-w-0 bg-bg rounded-xl">
 		{@render children()}
 	</main>
 
@@ -247,7 +259,7 @@
 		the reading pane. Height comes from the row, so the drawer needs no
 		hard-coded header offset.
 	-->
-	<div class="relative">
+	<div class="relative mb-2">
 		<AIAssistantRail
 			open={assistantOpen}
 			aiEnabled={data.aiEnabled}

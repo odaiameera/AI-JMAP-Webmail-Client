@@ -375,6 +375,12 @@
 	z-[35] clears in-pane dropdowns (z-30) while staying under the composer
 	backdrop (z-40). While closed, `pointer-events-none` lets clicks reach the
 	reading pane it covers.
+
+	Square on purpose — no radius. The pane beneath is a rounded tray; a drawer
+	pulled across it covers the corners it reaches rather than repeating them,
+	which is what makes it read as sliding over the tray instead of being
+	another panel beside it. It is not clipped by the tray (different grid
+	column), so its own edges are the ones that show.
 -->
 <aside
 	aria-label="AI mail agent"
