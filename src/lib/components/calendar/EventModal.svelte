@@ -599,7 +599,7 @@
 <style>
 	.cal-input {
 		height: 32px;
-		font-size: 13px;
+		font-size: var(--text-xs);
 		padding: 0 8px;
 		background: var(--color-surface-hover);
 		border: 1px solid var(--color-border);

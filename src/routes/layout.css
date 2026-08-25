@@ -116,15 +116,22 @@ body {
 	outline: none;
 }
 
+/*
+ * Formatting-toolbar controls, shared by the composer and the calendar
+ * modals. These lived here AND as :global() rules inside ComposerShell, in
+ * two chunks that both shipped — the route chunk loaded second, so the live
+ * appearance was a per-property merge of the two. Consolidated here, holding
+ * exactly what that merge computed to, so nothing moves.
+ */
 .fc-btn {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 28px;
+	min-width: 26px;
 	height: 26px;
-	padding: 0 4px;
+	padding: 0 5px;
 	border-radius: 4px;
-	font-size: 13px;
+	font-size: var(--text-xs);
 	color: var(--color-text-secondary);
 	cursor: pointer;
 	border: none;
@@ -151,9 +158,9 @@ body {
 }
 .fc-select {
 	height: 26px;
-	font-size: 12px;
+	font-size: var(--text-xs);
 	padding: 0 6px;
-	background: var(--color-surface-hover);
+	background: var(--color-bg);
 	border: 1px solid var(--color-border);
 	border-radius: 4px;
 	color: var(--color-text);
@@ -177,6 +184,8 @@ body {
 	min-height: 300px;
 	height: auto;
 	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+	/* px, not the app scale: this is the message body at the size it will
+	   be sent — see .prose-editor in RichTextEditor.svelte. */
 	font-size: 14px; line-height: 1.5; color: var(--color-text);
 }
 .full-composer-editor :global(.ProseMirror p) { margin: 0; }

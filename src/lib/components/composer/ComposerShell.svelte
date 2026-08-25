@@ -863,54 +863,12 @@
 		color: var(--color-text);
 	}
 
-	:global(.fc-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 26px;
-		height: 26px;
-		padding: 0 5px;
-		border-radius: 4px;
-		font-size: 13px;
-		color: var(--color-text-secondary);
-		cursor: pointer;
-		transition: background 0.1s, color 0.1s;
-		border: none;
-		background: transparent;
-	}
-	:global(.fc-btn:hover) {
-		background: var(--color-surface-hover);
-		color: var(--color-text);
-	}
-	:global(.fc-active) {
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-	}
-	:global(.fc-active-red) {
-		background: color-mix(in srgb, var(--color-danger) 15%, transparent);
-		color: var(--color-danger);
-	}
-	:global(.fc-active-blue) {
-		background: color-mix(in srgb, var(--color-info) 15%, transparent);
-		color: var(--color-info);
-	}
-	:global(.fc-sep) {
-		width: 1px;
-		height: 16px;
-		background: var(--color-border);
-		margin: 0 4px;
-	}
-	:global(.fc-select) {
-		height: 26px;
-		padding: 0 6px;
-		font-size: 12px;
-		border-radius: 4px;
-		border: 1px solid var(--color-border);
-		background: var(--color-bg);
-		color: var(--color-text);
-		cursor: pointer;
-	}
-
+	/*
+	 * The .fc-* toolbar rules live in routes/layout.css. They were duplicated
+	 * here as :global() overrides, which shipped in a second chunk and silently
+	 * won on some properties — including a plain :hover that highlighted
+	 * disabled buttons. One definition now.
+	 */
 	:global(.full-composer-editor .ProseMirror) {
 		outline: none;
 		min-height: 200px;
