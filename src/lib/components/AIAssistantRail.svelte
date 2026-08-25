@@ -680,12 +680,24 @@
 	.agent-markdown :global(li) {
 		margin: 0.2rem 0;
 	}
-	.agent-markdown :global(h3),
+	/*
+	 * em, not rem: these size against the bubble's own text rather than the
+	 * document root. As rem they came out at ~14px inside a ~15px bubble —
+	 * headings smaller than the paragraphs beneath them.
+	 *
+	 * A chat reply is short enough that weight carries the hierarchy; only h3
+	 * steps up in size, and barely.
+	 */
+	.agent-markdown :global(h3) {
+		margin: 0.75rem 0 0.35rem;
+		font-size: 1.05em;
+		font-weight: 600;
+	}
 	.agent-markdown :global(h4),
 	.agent-markdown :global(h5),
 	.agent-markdown :global(h6) {
 		margin: 0.75rem 0 0.35rem;
-		font-size: 0.8125rem;
+		font-size: 1em;
 		font-weight: 600;
 	}
 	.agent-markdown :global(code) {
@@ -732,7 +744,8 @@
 		display: block;
 		overflow-x: auto;
 		border-collapse: collapse;
-		font-size: 0.8125rem;
+		/* Dense data earns a step down, relative to the bubble. */
+		font-size: 0.92em;
 	}
 	.agent-markdown :global(th),
 	.agent-markdown :global(td) {
