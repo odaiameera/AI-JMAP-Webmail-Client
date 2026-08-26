@@ -84,7 +84,7 @@
 					{isSelected
 						? 'bg-accent text-white font-semibold'
 						: isToday
-							? 'text-accent font-semibold hover:bg-accent/10'
+							? 'text-accent-fg font-semibold hover:bg-accent/10'
 							: outside
 								? 'text-text-tertiary/60 hover:bg-surface-hover'
 								: 'text-text-secondary hover:bg-surface-hover'}"

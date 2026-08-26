@@ -471,8 +471,8 @@
 					class="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent placeholder-text-tertiary"
 				/>
 				<div class="flex items-center justify-end gap-1.5 mt-2">
-					<button type="button" onclick={() => (showLinkPopover = false)} class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded cursor-pointer">Cancel</button>
-					<button type="button" onclick={applyLink} class="text-xs bg-accent hover:bg-accent-hover text-white px-2.5 py-1 rounded cursor-pointer">Apply</button>
+					<button type="button" onclick={() => (showLinkPopover = false)} class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded-md cursor-pointer">Cancel</button>
+					<button type="button" onclick={applyLink} class="text-xs bg-accent hover:bg-accent-hover text-white px-2.5 py-1 rounded-md cursor-pointer">Apply</button>
 				</div>
 			</div>
 		{/if}
@@ -514,14 +514,14 @@
 					<button
 						onclick={(e) => { e.stopPropagation(); restoreFromMinimized(); }}
 						aria-label="Restore"
-						class="text-text-tertiary hover:text-text w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover"
+						class="text-text-tertiary hover:text-text w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-hover"
 					>
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
 					</button>
 					<button
 						onclick={(e) => { e.stopPropagation(); handleDiscard(); }}
 						aria-label="Close"
-						class="text-text-tertiary hover:text-danger w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover"
+						class="text-text-tertiary hover:text-danger w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-hover"
 					>
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 					</button>
@@ -602,7 +602,7 @@
 					{#if showEmojiPicker}
 						<div class="absolute bottom-8 left-0 z-50 bg-surface border border-border rounded-lg p-2 grid grid-cols-5 gap-1 shadow-lg">
 							{#each EMOJIS as emoji}
-								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded hover:bg-surface-hover cursor-pointer">{emoji}</button>
+								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
 							{/each}
 						</div>
 					{/if}
@@ -701,7 +701,7 @@
 					{#if showEmojiPicker}
 						<div class="absolute bottom-8 left-0 z-50 bg-surface border border-border rounded-lg p-2 grid grid-cols-5 gap-1 shadow-lg">
 							{#each EMOJIS as emoji}
-								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded hover:bg-surface-hover cursor-pointer">{emoji}</button>
+								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
 							{/each}
 						</div>
 					{/if}
@@ -746,7 +746,7 @@
 			<div bind:this={editorEl} class="min-h-full full-composer-editor"></div>
 			{#if dragOver}
 				<div class="absolute inset-2 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
-					<span class="text-sm font-medium text-accent">Drop files to attach</span>
+					<span class="text-sm font-medium text-accent-fg">Drop files to attach</span>
 				</div>
 			{/if}
 		</div>
@@ -766,7 +766,7 @@
 							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" class="shrink-0 text-text-tertiary"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
 							<span class="truncate" title={a.name}>{a.name}</span>
 							<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
-							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded hover:bg-surface-hover hover:text-danger cursor-pointer" aria-label={`Remove ${a.name}`}>
+							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded-md hover:bg-surface-hover hover:text-danger cursor-pointer" aria-label={`Remove ${a.name}`}>
 								<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 							</button>
 						</span>

@@ -84,7 +84,7 @@
 				onclick={onToggleAI}
 				class="w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer
 					{aiOpen
-						? 'text-accent bg-accent/10 shadow-sm'
+						? 'text-accent-fg bg-accent/10 shadow-sm'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
 			>
 				{@html item.icon}
@@ -97,7 +97,7 @@
 				aria-current={isActive(item.href) ? 'page' : undefined}
 				class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 					{isActive(item.href)
-						? 'text-accent bg-accent/10'
+						? 'text-accent-fg bg-accent/10'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
 			>
 				{@html item.icon}
@@ -120,7 +120,7 @@
 		aria-current={settingsActive ? 'page' : undefined}
 		class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 			{settingsActive
-				? 'text-accent bg-accent/10'
+				? 'text-accent-fg bg-accent/10'
 				: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
 	>
 		<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">

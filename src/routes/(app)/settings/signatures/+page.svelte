@@ -199,7 +199,7 @@
 					<div class="flex items-center gap-2">
 						<span class="flex-1 truncate text-sm">{sig.name}</span>
 						{#if sig.isDefault}
-							<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
+							<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-accent/15 text-accent-fg shrink-0">
 								Default
 							</span>
 						{/if}
@@ -253,7 +253,7 @@
 					</button>
 					{#if selection?.kind === 'existing'}
 						{#if selectedSignature?.isDefault}
-							<span class="text-xs uppercase tracking-wider px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent">
+							<span class="text-xs uppercase tracking-wider px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent-fg">
 								Default
 							</span>
 						{:else}
@@ -321,7 +321,7 @@
 						{/if}
 					</div>
 					{#if identity.isPrimary}
-						<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">
+						<span class="text-3xs uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-accent/15 text-accent-fg shrink-0">
 							Primary
 						</span>
 					{/if}

@@ -235,15 +235,22 @@
 	<!--
 		Row 2, Col 2: Main content — the tray.
 
-		Mail list and reading pane sit on the app's dark canvas, rounded on all
-		four corners, inset from the bottom of the window so the surface colour
+		Mail list and reading pane sit on --color-bg, rounded on all four
+		corners and inset from the bottom of the window so the chrome colour
 		shows beneath. The chrome around it (sidebar, app rail, header) stays on
-		that surface colour and runs to the window edge, so the lighter tone is
-		continuous with the browser frame and the darker content reads as
-		something resting on it.
+		--color-surface and runs to the window edge.
 
-		Only the bottom is inset: left and right already meet grey chrome, so
-		the corners alone separate them.
+		Note the direction: under the Primer palette the CHROME is the recessed
+		tone and the CONTENT is the raised one — #010409 chrome under a #0d1117
+		tray in dark, #f6f8fa chrome under a #ffffff tray in light. That is
+		GitHub's own model, where the global header and sidebars sit behind the
+		page rather than above it, and it holds in both themes. (It is the
+		reverse of what this app did before, when the content was the darker
+		tone; if the tray ever stops reading as raised, that inversion is the
+		first thing to check.)
+
+		Only the bottom is inset: left and right already meet the chrome, so the
+		corners alone separate them.
 	-->
 	<main class="mb-2 overflow-hidden min-w-0 bg-bg rounded-xl">
 		{@render children()}

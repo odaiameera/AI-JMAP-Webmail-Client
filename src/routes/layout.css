@@ -2,27 +2,80 @@
 @import '@fontsource-variable/cairo';
 
 @theme {
-	--color-bg: #09090B;
-	--color-surface: #18181B;
-	--color-surface-hover: #27272A;
-	--color-border: #27272A;
-	--color-text: #FAFAFA;
-	--color-text-secondary: #A1A1AA;
-	--color-text-tertiary: #71717A;
-	--color-accent: #6366F1;
-	--color-accent-hover: #818CF8;
-	--color-unread: #3B82F6;
 	/*
-	 * Semantic status colors. Dark-mode defaults use the bright -400 shades
-	 * that read well on the near-black canvas; html.light swaps them for
-	 * darker -600/-700 shades that keep contrast on a light background.
-	 * Use these (text-danger, bg-danger/10, …) instead of raw red-400 etc.
+	 * Palette: GitHub Primer (@primer/primitives v11.10.0), dark theme.
+	 * Values are the published token values, not approximations — each line
+	 * names the Primer token it came from so a future change has one source
+	 * of truth to check against.
+	 *
+	 * The two ground tokens are not interchangeable, and the naming is worth
+	 * reading carefully: `surface` is the CHROME (rail, sidebar, header,
+	 * overlays) and `bg` is the CONTENT PANEL that floats inside it. That is
+	 * the layout this app already had — see the `<main>` comment in
+	 * (app)/+layout.svelte — so surface takes Primer's recessed inset colour
+	 * and bg takes the default page colour, not the other way round.
 	 */
-	--color-danger: #f87171;
-	--color-success: #34d399;
-	--color-warning: #fbbf24;
-	--color-info: #60a5fa;
+	--color-bg: #0d1117;            /* bgColor-default  — content panel */
+	--color-surface: #010409;       /* bgColor-inset    — chrome + overlays */
+	/*
+	 * bgColor-muted, not control-bgColor-hover (#262c36). This token is both
+	 * the hover for ~124 controls AND the static fill for ~67 table headers
+	 * and chips, and it has to stay visible on two very different grounds:
+	 * the #010409 chrome and the #0d1117 tray. #262c36 clears that easily but
+	 * lifts a full-width list row far harder than the light theme's hover
+	 * does, which made row hover the loudest thing on the screen. #151b23 is
+	 * what GitHub itself uses for row hover and box headers, and it still
+	 * reads on both grounds.
+	 */
+	--color-surface-hover: #151b23; /* bgColor-muted */
+	--color-border: #3d444d;        /* borderColor-default */
+	--color-text: #f0f6fc;          /* fgColor-default */
+	--color-text-secondary: #9198a1;/* fgColor-muted */
+	--color-text-tertiary: #656c76; /* fgColor-disabled */
+	/*
+	 * Accent is deliberately two tokens, because GitHub uses two blues and
+	 * they do not substitute for each other. `accent` is the emphasis blue
+	 * that sits BEHIND white text (buttons, active fills); `accent-fg` is the
+	 * lighter link blue that sits ON the dark ground. Using the link blue as
+	 * a button background gives white-on-#4493f8 at 2.9:1, which fails WCAG
+	 * AA — hence the split. In light mode both collapse to #0969da, which
+	 * clears 5.2:1 in both directions, so the divergence is dark-mode only.
+	 */
+	--color-accent: #1f6feb;        /* bgColor-accent-emphasis */
+	--color-accent-hover: #388bfd;  /* base-color-blue-4 */
+	--color-accent-fg: #4493f8;     /* fgColor-accent — links, active text */
+	--color-accent-fg-hover: #58a6ff;/* base-color-blue-3 */
+	--color-unread: #4493f8;        /* fgColor-accent */
+	/*
+	 * Semantic status colors. Dark-mode defaults use Primer's dark-theme
+	 * foreground shades, which read well on the near-black canvas; html.light
+	 * swaps them for the light-theme shades that keep contrast on a light
+	 * background. Use these (text-danger, bg-danger/10, …) instead of raw
+	 * red-400 etc.
+	 */
+	--color-danger: #f85149;        /* fgColor-danger */
+	--color-success: #3fb950;       /* fgColor-success */
+	--color-warning: #d29922;       /* fgColor-attention */
+	--color-info: #4493f8;          /* fgColor-accent */
 	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
+	/*
+	 * Corner radius, matched to Primer's shape scale. GitHub's default is
+	 * 6px, which is squarer than this app's previous 8–12px and is a large
+	 * part of why its chrome reads the way it does. Remapping the scale here
+	 * rather than rewriting ~300 `rounded-*` classes means the shape language
+	 * is one edit, and individual components keep whatever relative emphasis
+	 * they were already expressing.
+	 *
+	 * lg collapses onto md on purpose: `rounded-lg` is the app's workhorse
+	 * (200+ uses) and is what should land on Primer's 6px default.
+	 */
+	--radius-xs: 3px;               /* borderRadius-small */
+	--radius-sm: 3px;               /* borderRadius-small */
+	--radius-md: 6px;               /* borderRadius-medium (default) */
+	--radius-lg: 6px;               /* borderRadius-medium (default) */
+	--radius-xl: 12px;              /* borderRadius-large */
+	--radius-2xl: 12px;             /* borderRadius-large */
+	--radius-3xl: 12px;             /* borderRadius-large */
 	/*
 	 * Micro type, below Tailwind's text-xs (12px): badges, chips, metadata,
 	 * keyboard hints. These were 71 hand-written `text-[10px]`/`text-[11px]`
@@ -55,23 +108,31 @@ html {
 }
 
 html.light {
-	--color-bg: #F4F4F5;
-	--color-surface: #FFFFFF;
-	/* Must stay distinct from --color-bg or hover states on bg-colored areas
-	   (list rows, toolbar buttons, pagination) become invisible. */
-	--color-surface-hover: #E8E8EB;
-	--color-border: #E4E4E7;
-	--color-text: #09090B;
-	--color-text-secondary: #52525B;
-	--color-text-tertiary: #A1A1AA;
-	--color-accent: #6366F1;
-	/* Hover should darken on light, not lighten — keeps white text legible. */
-	--color-accent-hover: #4F46E5;
-	--color-unread: #3B82F6;
-	--color-danger: #DC2626;
-	--color-success: #059669;
-	--color-warning: #D97706;
-	--color-info: #2563EB;
+	/* GitHub Primer, light theme. Same token-by-token sourcing as @theme. */
+	--color-bg: #ffffff;            /* bgColor-default  — content panel */
+	/* Chrome is the grey here, content is the white panel inside it — the
+	   inverse of the dark theme's relationship, which is what keeps the panes
+	   separable in both. Must stay distinct from --color-surface-hover or
+	   hover states on the sidebar and rail become invisible. */
+	--color-surface: #f6f8fa;       /* bgColor-muted    — chrome + overlays */
+	--color-surface-hover: #eff2f5; /* control-bgColor-hover */
+	--color-border: #d1d9e0;        /* borderColor-default */
+	--color-text: #1f2328;          /* fgColor-default */
+	--color-text-secondary: #59636e;/* fgColor-muted */
+	--color-text-tertiary: #818b98; /* fgColor-disabled */
+	/* One blue does both jobs in light mode: #0969da is 5.2:1 as white-on-blue
+	   for buttons and 5.2:1 as blue-on-white for links, so accent and
+	   accent-fg deliberately hold the same value here. */
+	--color-accent: #0969da;        /* bgColor-accent-emphasis / fgColor-accent */
+	/* Hover darkens on light, not lightens — keeps white button text legible. */
+	--color-accent-hover: #0550ae;  /* base-color-blue-6 */
+	--color-accent-fg: #0969da;     /* fgColor-accent */
+	--color-accent-fg-hover: #0550ae;/* base-color-blue-6 */
+	--color-unread: #0969da;        /* fgColor-accent */
+	--color-danger: #d1242f;        /* fgColor-danger */
+	--color-success: #1a7f37;       /* fgColor-success */
+	--color-warning: #9a6700;       /* fgColor-attention */
+	--color-info: #0969da;          /* fgColor-accent */
 }
 
 body {

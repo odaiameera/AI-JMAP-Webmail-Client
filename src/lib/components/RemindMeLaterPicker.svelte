@@ -135,7 +135,7 @@
 			<input
 				type="datetime-local"
 				bind:value={customValue}
-				class="bg-surface-hover border border-border rounded px-2 py-1.5 text-xs text-text outline-none focus:border-accent"
+				class="bg-surface-hover border border-border rounded-md px-2 py-1.5 text-xs text-text outline-none focus:border-accent"
 			/>
 			<div class="flex items-center justify-between">
 				<button
@@ -148,7 +148,7 @@
 				<button
 					type="button"
 					onclick={pickCustom}
-					class="bg-accent hover:bg-accent-hover text-white text-xs font-medium px-3 py-1 rounded cursor-pointer"
+					class="bg-accent hover:bg-accent-hover text-white text-xs font-medium px-3 py-1 rounded-md cursor-pointer"
 				>
 					Remind me
 				</button>

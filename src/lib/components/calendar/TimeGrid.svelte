@@ -218,7 +218,7 @@
 				class="flex-1 py-1.5 flex flex-col items-center gap-0.5 hover:bg-surface-hover/40 transition-colors cursor-pointer border-l border-border first:border-l-0"
 				onclick={() => onSelectDay(day)}
 			>
-				<span class="text-2xs font-medium uppercase tracking-wide {isToday ? 'text-accent' : 'text-text-tertiary'}">
+				<span class="text-2xs font-medium uppercase tracking-wide {isToday ? 'text-accent-fg' : 'text-text-tertiary'}">
 					{day.toLocaleDateString(undefined, { weekday: 'short' })}
 				</span>
 				<span

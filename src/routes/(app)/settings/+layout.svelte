@@ -54,7 +54,7 @@
 						href="/settings/{item.slug}"
 						class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all border-l-2
 							{isActive(item.slug)
-								? 'bg-accent/10 text-accent border-l-accent'
+								? 'bg-accent/10 text-accent-fg border-l-accent'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text border-l-transparent'}"
 					>
 						<span class="flex-1 truncate">{item.label}</span>

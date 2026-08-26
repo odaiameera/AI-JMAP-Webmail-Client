@@ -117,7 +117,7 @@ export interface EventWritePayload {
  * colour-picker equality checks). It matches the accent by choice; changing
  * the palette means changing this too, which is now one edit rather than five.
  */
-export const DEFAULT_CALENDAR_COLOR = '#6366F1';
+export const DEFAULT_CALENDAR_COLOR = '#0969da';
 
 /** Which occurrences a recurring-event edit/delete applies to. */
 export type EditScope = 'instance' | 'following' | 'all';

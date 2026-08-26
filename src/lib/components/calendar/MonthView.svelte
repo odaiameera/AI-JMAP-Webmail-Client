@@ -125,7 +125,7 @@
 							{#each visibleTimed as ev (ev.id + (ev.recurrenceId ?? ''))}
 								<button
 									type="button"
-									class="w-full flex items-center gap-1 px-1 h-[21px] rounded text-left hover:bg-surface-hover transition-colors cursor-pointer"
+									class="w-full flex items-center gap-1 px-1 h-[21px] rounded-md text-left hover:bg-surface-hover transition-colors cursor-pointer"
 									onclick={(e) => {
 										e.stopPropagation();
 										onEventClick(ev, e.clientX, e.clientY);
@@ -139,7 +139,7 @@
 							{#if hidden > 0}
 								<button
 									type="button"
-									class="w-full px-1.5 h-[19px] rounded text-left text-2xs text-text-secondary font-medium hover:bg-surface-hover transition-colors cursor-pointer"
+									class="w-full px-1.5 h-[19px] rounded-md text-left text-2xs text-text-secondary font-medium hover:bg-surface-hover transition-colors cursor-pointer"
 									onclick={(e) => {
 										e.stopPropagation();
 										onSelectDay(day);

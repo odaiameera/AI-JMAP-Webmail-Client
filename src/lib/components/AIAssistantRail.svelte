@@ -391,7 +391,7 @@
 >
 	<div class="flex h-full min-h-0 flex-col">
 		<header class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
 				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
 				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 					<path d="M12 8V4H8"/>
@@ -490,7 +490,7 @@
 							<p class="whitespace-pre-wrap">{message.content}</p>
 						{/if}
 						{#if message.link}
-							<a href={message.link} target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-medium text-accent hover:underline">Open task &nearr;</a>
+							<a href={message.link} target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-medium text-accent-fg hover:underline">Open task &nearr;</a>
 						{/if}
 						{#if message.calendarProposal}
 							<!--
@@ -499,7 +499,7 @@
 								the only path to /api/ai/calendar.
 							-->
 							<div class="mt-3 rounded-xl border p-3 text-text {message.calendarProposal.action === 'delete' ? 'border-danger/40 bg-danger/5' : 'border-border bg-bg'}">
-								<p class="text-3xs font-semibold uppercase tracking-wider {message.calendarProposal.action === 'delete' ? 'text-danger' : 'text-accent'}">
+								<p class="text-3xs font-semibold uppercase tracking-wider {message.calendarProposal.action === 'delete' ? 'text-danger' : 'text-accent-fg'}">
 									{message.calendarProposal.action === 'delete' ? 'Delete event' : 'New event'}
 								</p>
 
@@ -539,7 +539,7 @@
 						{/if}
 						{#if message.proposal}
 							<div class="mt-3 rounded-xl border border-border bg-bg p-3 text-text">
-								<p class="text-3xs font-semibold uppercase tracking-wider text-accent">Task proposal</p>
+								<p class="text-3xs font-semibold uppercase tracking-wider text-accent-fg">Task proposal</p>
 								<p class="mt-1 font-medium">{message.proposal.title}</p>
 								{#if message.proposal.description}
 									<p class="mt-1 text-xs text-text-secondary">{message.proposal.description}</p>
@@ -555,7 +555,7 @@
 												onclick={() => selectProvider(message.id, provider)}
 												class="cursor-pointer rounded-full border px-2.5 py-1 text-3xs font-medium transition-colors
 													{message.selectedProvider === provider
-														? 'border-accent bg-accent/10 text-accent'
+														? 'border-accent bg-accent/10 text-accent-fg'
 														: 'border-border text-text-secondary hover:border-accent/50'}"
 											>
 												{providerLabel(provider)}
@@ -588,14 +588,14 @@
 			{#if !hasConversation}
 				<div class="grid grid-cols-2 gap-2 pt-1">
 					<button type="button" onclick={() => ask('summarize_today', "Summarize today's email and highlight anything that needs my attention.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v16H4zM8 9h8M8 13h6M8 17h4"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Today’s mail</span>
 						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and priorities</span>
 					</button>
 					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Tomorrow</span>
@@ -603,7 +603,7 @@
 					</button>
 					{#if currentEmailId}
 						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-							<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+							<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
 								<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
 							</span>
 							<span class="block text-xs font-medium text-text">This email</span>
@@ -611,7 +611,7 @@
 						</button>
 					{/if}
 					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
 							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
 						</span>
 						<span class="block text-xs font-medium text-text">Create task</span>

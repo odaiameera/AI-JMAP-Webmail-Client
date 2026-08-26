@@ -8,7 +8,7 @@
 	let { data }: { data: PageData } = $props();
 
 	function pillClass(kind: string): string {
-		if (kind === 'field') return 'bg-accent/15 text-accent ring-1 ring-accent/30';
+		if (kind === 'field') return 'bg-accent/15 text-accent-fg ring-1 ring-accent/30';
 		if (kind === 'flag') return 'bg-success/15 text-success ring-1 ring-success/30';
 		if (kind === 'error') return 'bg-danger/15 text-danger ring-1 ring-danger/30';
 		return 'bg-surface-hover text-text-secondary ring-1 ring-border';
@@ -51,7 +51,7 @@
 				<button
 					type="button"
 					onclick={() => removeToken(t)}
-					class="group inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors {pillClass(t.kind)}"
+					class="group inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-md text-xs font-medium cursor-pointer transition-colors {pillClass(t.kind)}"
 					title={t.kind === 'error' && 'reason' in t ? t.reason : `Remove "${label}"`}
 				>
 					<span>{label}</span>
@@ -63,7 +63,7 @@
 			<button
 				type="button"
 				onclick={() => goto('/inbox')}
-				class="text-xs text-text-tertiary hover:text-text px-1.5 py-0.5 rounded hover:bg-surface-hover cursor-pointer"
+				class="text-xs text-text-tertiary hover:text-text px-1.5 py-0.5 rounded-md hover:bg-surface-hover cursor-pointer"
 			>
 				Clear all
 			</button>

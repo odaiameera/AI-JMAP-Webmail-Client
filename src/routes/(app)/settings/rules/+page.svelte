@@ -393,7 +393,7 @@
 							<button
 								onclick={(e) => { e.stopPropagation(); deleteRule(rule.id); }}
 								title="Delete rule"
-								class="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-danger p-1 rounded cursor-pointer transition-opacity"
+								class="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-danger p-1 rounded-md cursor-pointer transition-opacity"
 							>
 								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 							</button>
@@ -469,13 +469,13 @@
 								{/if}
 								<button
 									onclick={() => { condition.negate = !condition.negate; }}
-									class="text-3xs px-1.5 py-0.5 rounded border cursor-pointer transition-colors
+									class="text-3xs px-1.5 py-0.5 rounded-md border cursor-pointer transition-colors
 										{condition.negate ? 'border-danger/50 text-danger bg-danger/10' : 'border-border text-text-tertiary hover:border-text-tertiary'}"
 								>NOT</button>
 								<button
 									onclick={() => removeCondition(condition.id)}
 									title="Remove condition"
-									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded"
+									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded-md"
 									aria-label="Remove condition"
 								>
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -484,7 +484,7 @@
 						{/each}
 						<button
 							onclick={addCondition}
-							class="text-xs text-accent hover:text-accent-hover cursor-pointer self-start"
+							class="text-xs text-accent-fg hover:text-accent-fg-hover cursor-pointer self-start"
 						>+ Add condition</button>
 					</div>
 
@@ -535,7 +535,7 @@
 								<button
 									onclick={() => removeAction(idx)}
 									title="Remove action"
-									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded"
+									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded-md"
 									aria-label="Remove action"
 								>
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -544,7 +544,7 @@
 						{/each}
 						<button
 							onclick={addAction}
-							class="text-xs text-accent hover:text-accent-hover cursor-pointer self-start"
+							class="text-xs text-accent-fg hover:text-accent-fg-hover cursor-pointer self-start"
 						>+ Add action</button>
 					</div>
 

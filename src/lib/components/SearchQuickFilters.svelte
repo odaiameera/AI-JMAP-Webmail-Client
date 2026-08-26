@@ -154,7 +154,7 @@
 
 	const activeBase =
 		'inline-flex items-center gap-1 pl-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border';
-	const activeOn = 'bg-accent/15 text-accent border-accent/40';
+	const activeOn = 'bg-accent/15 text-accent-fg border-accent/40';
 	const activeOff = 'bg-transparent text-text-tertiary border-border hover:text-text-secondary hover:border-text-tertiary';
 </script>
 

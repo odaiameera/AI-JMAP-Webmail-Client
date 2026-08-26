@@ -472,7 +472,7 @@
 					</select>
 					<span
 						class="w-3 h-3 rounded-full shrink-0"
-						style="background: {calendars.find((c) => c.id === calendarId)?.color ?? '#6366F1'};"
+						style="background: {calendars.find((c) => c.id === calendarId)?.color ?? '#0969da'};"
 					></span>
 				</div>
 
@@ -507,7 +507,7 @@
 					{#if alarms.length < 5}
 						<button
 							type="button"
-							class="text-sm text-accent hover:text-accent-hover transition-colors cursor-pointer"
+							class="text-sm text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer"
 							onclick={() => (alarms = [...alarms, 30])}
 						>
 							+ Add reminder

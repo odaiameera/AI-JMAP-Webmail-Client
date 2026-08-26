@@ -76,7 +76,7 @@
 			<span class="text-xs font-semibold text-text-tertiary uppercase tracking-wide">My calendars</span>
 			<button
 				type="button"
-				class="w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
+				class="w-5 h-5 rounded-md flex items-center justify-center text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
 				title="New calendar"
 				aria-label="New calendar"
 				onclick={() => {
@@ -94,14 +94,14 @@
 					type="checkbox"
 					checked={!cal.hidden}
 					onchange={() => toggleVisibility(cal)}
-					class="w-3.5 h-3.5 rounded cursor-pointer shrink-0"
+					class="w-3.5 h-3.5 rounded-md cursor-pointer shrink-0"
 					style="accent-color: {cal.color};"
 					aria-label="Show {cal.name}"
 				/>
 				<span class="text-sm text-text flex-1 truncate" class:opacity-50={cal.hidden}>{cal.name}</span>
 				<button
 					type="button"
-					class="w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-text opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+					class="w-5 h-5 rounded-md flex items-center justify-center text-text-tertiary hover:text-text opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
 					aria-label="Calendar options"
 					onclick={(e) => {
 						e.stopPropagation();

@@ -62,7 +62,7 @@
 	<div>
 		<h1 class="text-xl font-semibold text-text">Labels</h1>
 		<p class="text-sm text-text-tertiary mt-1 max-w-prose">
-			Labels sync to Apple Mail and Thunderbird as folders under <code class="text-xs bg-surface-hover rounded px-1 py-0.5">Labels/</code>.
+			Labels sync to Apple Mail and Thunderbird as folders under <code class="text-xs bg-surface-hover rounded-md px-1 py-0.5">Labels/</code>.
 			Apply them to emails from anywhere in the app; create, rename, recolor, and delete them here.
 		</p>
 	</div>
@@ -98,12 +98,12 @@
 					<button
 						type="button"
 						onclick={() => openEdit(label)}
-						class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
+						class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded-md hover:bg-surface transition-colors cursor-pointer"
 					>Edit</button>
 					<button
 						type="button"
 						onclick={() => deleteLabel(label)}
-						class="text-xs text-text-tertiary hover:text-danger px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
+						class="text-xs text-text-tertiary hover:text-danger px-2 py-1 rounded-md hover:bg-surface transition-colors cursor-pointer"
 					>Delete</button>
 				</div>
 			{/each}

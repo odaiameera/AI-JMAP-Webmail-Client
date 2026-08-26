@@ -142,7 +142,7 @@
 				<fieldset>
 					<div class="flex items-center justify-between mb-2">
 						<legend class="text-sm font-medium text-text">Email addresses</legend>
-						<button type="button" class="text-xs text-accent hover:underline cursor-pointer" onclick={addEmail}>+ Add email</button>
+						<button type="button" class="text-xs text-accent-fg hover:underline cursor-pointer" onclick={addEmail}>+ Add email</button>
 					</div>
 					<div class="space-y-2">
 						{#each form.emails as email, index}
@@ -167,7 +167,7 @@
 				<fieldset>
 					<div class="flex items-center justify-between mb-2">
 						<legend class="text-sm font-medium text-text">Phone numbers</legend>
-						<button type="button" class="text-xs text-accent hover:underline cursor-pointer" onclick={addPhone}>+ Add phone</button>
+						<button type="button" class="text-xs text-accent-fg hover:underline cursor-pointer" onclick={addPhone}>+ Add phone</button>
 					</div>
 					{#if form.phones.length === 0}
 						<p class="text-xs text-text-tertiary">No phone numbers.</p>

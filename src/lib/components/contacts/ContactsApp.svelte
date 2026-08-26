@@ -283,7 +283,7 @@
 									aria-current={selectedId === contact.id ? 'true' : undefined}
 									class="w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors cursor-pointer {selectedId === contact.id ? 'bg-accent/10' : 'hover:bg-surface-hover'}"
 								>
-									<span class="w-9 h-9 shrink-0 rounded-full bg-accent/15 text-accent grid place-items-center text-sm font-semibold">
+									<span class="w-9 h-9 shrink-0 rounded-full bg-accent/15 text-accent-fg grid place-items-center text-sm font-semibold">
 										{contactDisplayName(contact).slice(0, 1).toUpperCase()}
 									</span>
 									<span class="min-w-0">
@@ -300,11 +300,11 @@
 			<section class="min-h-0 overflow-y-auto {selected ? 'block' : 'hidden md:block'}" aria-label="Contact details">
 				{#if selected}
 					<div class="max-w-3xl mx-auto px-5 md:px-10 py-6 md:py-10">
-						<button type="button" class="md:hidden mb-5 text-sm text-accent cursor-pointer" onclick={() => selectedId = null}>
+						<button type="button" class="md:hidden mb-5 text-sm text-accent-fg cursor-pointer" onclick={() => selectedId = null}>
 							← All contacts
 						</button>
 						<div class="flex flex-col sm:flex-row sm:items-start gap-5 pb-7 border-b border-border">
-							<div class="w-20 h-20 shrink-0 rounded-full bg-accent/15 text-accent grid place-items-center text-2xl font-semibold">
+							<div class="w-20 h-20 shrink-0 rounded-full bg-accent/15 text-accent-fg grid place-items-center text-2xl font-semibold">
 								{contactDisplayName(selected).slice(0, 1).toUpperCase()}
 							</div>
 							<div class="min-w-0 flex-1">
@@ -338,7 +338,7 @@
 									<h3 class="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Email</h3>
 									<div class="space-y-2">
 										{#each contactEmails(selected) as email}
-											<a class="block text-sm text-accent hover:underline" href={`mailto:${encodeURIComponent(email.address)}`}>{email.address}</a>
+											<a class="block text-sm text-accent-fg hover:underline" href={`mailto:${encodeURIComponent(email.address)}`}>{email.address}</a>
 										{/each}
 									</div>
 								</div>

@@ -85,8 +85,8 @@
 				{#each sheets as s, i}
 					<button
 						onclick={() => (activeSheet = i)}
-						class="px-3 py-1 text-xs rounded whitespace-nowrap transition-colors cursor-pointer
-							{activeSheet === i ? 'bg-accent/10 text-accent' : 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
+						class="px-3 py-1 text-xs rounded-md whitespace-nowrap transition-colors cursor-pointer
+							{activeSheet === i ? 'bg-accent/10 text-accent-fg' : 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
 					>
 						{s.name}
 					</button>
