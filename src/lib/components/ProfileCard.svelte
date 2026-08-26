@@ -374,7 +374,7 @@
 					{#if account.needsReauth}
 						<span class="text-3xs text-danger shrink-0" title="Reconnect required">!</span>
 					{:else if accountUnread[account.id]}
-						<span class="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-accent/15 text-accent text-2xs font-semibold flex items-center justify-center">
+						<span class="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-accent/15 text-accent-fg text-2xs font-semibold flex items-center justify-center">
 							{accountUnread[account.id] > 99 ? '99+' : accountUnread[account.id]}
 						</span>
 					{/if}

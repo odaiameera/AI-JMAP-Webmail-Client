@@ -264,7 +264,7 @@
 					title={mailbox.name}
 					class="flex items-center justify-center py-2 rounded-lg transition-colors
 						{isMailboxActive(mailbox)
-							? 'bg-accent/10 text-accent'
+							? 'bg-accent/10 text-accent-fg'
 							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(pseudoRole(mailbox))}</span>
@@ -275,7 +275,7 @@
 						title="Starred"
 						class="flex items-center justify-center py-2 rounded-lg transition-colors
 							{flaggedActive
-								? 'bg-accent/10 text-accent'
+								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 					>
 						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
@@ -292,7 +292,7 @@
 					title={mailbox.name}
 					class="flex items-center justify-center py-2 rounded-lg transition-colors
 						{isMailboxActive(mailbox)
-							? 'bg-accent/10 text-accent'
+							? 'bg-accent/10 text-accent-fg'
 							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html folderIcon}</span>
@@ -327,15 +327,15 @@
 					ondrop={droppable ? (e) => onRowDrop(e, mailbox.id, false) : undefined}
 					class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
 						{dragOverId === mailbox.id
-							? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+							? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 							: isMailboxActive(mailbox)
-								? 'bg-accent/10 text-accent'
+								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(pseudoRole(mailbox))}</span>
 					<span class="flex-1 truncate">{mailbox.name}</span>
 					{#if mailbox.unreadEmails > 0}
-						<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">{mailbox.unreadEmails}</span>
+						<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full">{mailbox.unreadEmails}</span>
 					{/if}
 				</a>
 				{#if pseudoRole(mailbox) === 'inbox'}
@@ -343,7 +343,7 @@
 						href="/flagged"
 						class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
 							{flaggedActive
-								? 'bg-accent/10 text-accent'
+								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 					>
 						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
@@ -402,15 +402,15 @@
 								ondrop={(e) => onRowDrop(e, label.id, true)}
 								class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors
 									{dragOverId === label.id
-										? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+										? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 										: isLabelActive(label)
-											? 'bg-accent/10 text-accent'
+											? 'bg-accent/10 text-accent-fg'
 											: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 							>
 								<span class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20" style="background-color: {label.color}"></span>
 								<span class="flex-1 truncate">{label.name}</span>
 								{#if getLabelUnread(label.id) > 0}
-									<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full shrink-0">{getLabelUnread(label.id)}</span>
+									<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full shrink-0">{getLabelUnread(label.id)}</span>
 								{/if}
 							</a>
 						{/each}
@@ -457,9 +457,9 @@
 			ondrop={(e) => onRowDrop(e, node.id, false)}
 			class="flex items-center gap-1 pr-1 py-1.5 rounded-lg text-sm transition-colors
 				{dragOverId === node.id
-					? 'bg-accent/20 text-accent ring-1 ring-accent/40'
+					? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 					: isMailboxActive(node)
-						? 'bg-accent/10 text-accent'
+						? 'bg-accent/10 text-accent-fg'
 						: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 			style="padding-left: {depth * 12}px"
 		>
@@ -489,7 +489,7 @@
 				>{@html folderIcon}</span>
 				<span class="flex-1 truncate">{node.name}</span>
 				{#if node.unreadEmails > 0}
-					<span class="text-xs font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded-full shrink-0">{node.unreadEmails}</span>
+					<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full shrink-0">{node.unreadEmails}</span>
 				{/if}
 			</a>
 		</div>

@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
-  "theme_color": "#09090B",
-  "background_color": "#09090B",
+  "theme_color": "#010409",
+  "background_color": "#010409",
   "categories": ["productivity", "email"],
   "icons": [
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },

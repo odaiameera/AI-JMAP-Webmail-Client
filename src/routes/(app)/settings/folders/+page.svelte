@@ -110,7 +110,7 @@
 						>
 							<span
 								class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10"
-								style="background-color: {meta?.color ?? '#6b7280'}"
+								style="background-color: {meta?.color ?? '#59636e'}"
 							></span>
 							<span class="flex-1 truncate text-sm text-text">{folder.name}</span>
 							{#if folder.unreadEmails > 0}
@@ -123,12 +123,12 @@
 							<button
 								type="button"
 								onclick={() => openEdit(folder)}
-								class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
+								class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded-md hover:bg-surface transition-colors cursor-pointer"
 							>Edit</button>
 							<button
 								type="button"
 								onclick={() => deleteFolder(folder)}
-								class="text-xs text-text-tertiary hover:text-danger px-2 py-1 rounded hover:bg-surface transition-colors cursor-pointer"
+								class="text-xs text-text-tertiary hover:text-danger px-2 py-1 rounded-md hover:bg-surface transition-colors cursor-pointer"
 							>Delete</button>
 						</div>
 					{/if}

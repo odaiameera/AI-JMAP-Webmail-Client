@@ -37,7 +37,7 @@
 	<h1 class="text-xl font-semibold text-text">Calendar</h1>
 	<p class="text-sm text-text-tertiary mt-1">
 		Display preferences for the calendar app. Event notifications live under
-		<a href="/settings/notifications" class="text-accent hover:text-accent-hover transition-colors">Notifications</a>.
+		<a href="/settings/notifications" class="text-accent-fg hover:text-accent-fg-hover transition-colors">Notifications</a>.
 	</p>
 </header>
 

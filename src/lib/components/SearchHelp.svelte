@@ -33,7 +33,7 @@
 	</p>
 	<div class="grid grid-cols-[180px_1fr] gap-x-3 gap-y-1.5 text-xs">
 		{#each examples as ex}
-			<code class="text-accent font-mono">{ex.token}</code>
+			<code class="text-accent-fg font-mono">{ex.token}</code>
 			<span class="text-text-secondary">{ex.meaning}</span>
 		{/each}
 	</div>

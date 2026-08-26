@@ -17,7 +17,7 @@ export interface Label {
 export const LABELS_PARENT_NAME = 'Labels';
 
 /** Default color for labels that have no meta entry. */
-export const DEFAULT_LABEL_COLOR = '#6366F1';
+export const DEFAULT_LABEL_COLOR = '#0969da';
 
 /** Cookie marker for the one-shot keyword→mailbox migration (value `v1`). */
 export const LABEL_MIGRATION_COOKIE = 'mail_labels_migrated';

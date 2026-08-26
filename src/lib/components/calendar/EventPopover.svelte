@@ -62,7 +62,7 @@
 	>
 		<div class="flex items-start justify-between gap-2 mb-2">
 			<div class="flex items-start gap-2.5 min-w-0">
-				<span class="w-3.5 h-3.5 rounded mt-1 shrink-0" style="background: {calendar?.color ?? '#6366F1'};"></span>
+				<span class="w-3.5 h-3.5 rounded-md mt-1 shrink-0" style="background: {calendar?.color ?? '#0969da'};"></span>
 				<div class="min-w-0">
 					<h3 class="text-base font-semibold text-text leading-snug break-words">
 						{event.title || '(untitled event)'}

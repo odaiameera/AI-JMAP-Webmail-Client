@@ -197,7 +197,7 @@
 			<div class="bg-danger/10 border border-danger/20 text-danger text-sm rounded-lg px-3 py-2">{pwError}</div>
 		{/if}
 		{#if pwSaved}
-			<div class="bg-accent/10 border border-accent/20 text-accent text-sm rounded-lg px-3 py-2">
+			<div class="bg-accent/10 border border-accent/20 text-accent-fg text-sm rounded-lg px-3 py-2">
 				Password changed. Other devices have been signed out.
 			</div>
 		{/if}
@@ -287,7 +287,7 @@
 				<p class="text-sm text-text truncate">
 					{describeDevice(s.userAgent)}
 					{#if s.current}
-						<span class="ml-2 text-3xs uppercase tracking-wide text-accent font-semibold">This device</span>
+						<span class="ml-2 text-3xs uppercase tracking-wide text-accent-fg font-semibold">This device</span>
 					{/if}
 				</p>
 				<p class="text-xs text-text-tertiary mt-0.5">

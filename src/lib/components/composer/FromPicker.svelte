@@ -33,7 +33,7 @@
 			value={currentIdentity?.jmapId ?? ''}
 			onchange={handleChange}
 			aria-label="From address"
-			class="flex-1 bg-transparent text-sm text-text outline-none cursor-pointer hover:text-accent transition-colors"
+			class="flex-1 bg-transparent text-sm text-text outline-none cursor-pointer hover:text-accent-fg transition-colors"
 		>
 			{#each identities as identity (identity.jmapId)}
 				<option value={identity.jmapId}>

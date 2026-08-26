@@ -64,7 +64,7 @@
 	.docx-preview :global(li) { margin: 0.25em 0; }
 	.docx-preview :global(table) { border-collapse: collapse; width: 100%; margin: 1em 0; }
 	.docx-preview :global(td), .docx-preview :global(th) {
-		border: 1px solid #e4e4e7; padding: 6px 10px; vertical-align: top;
+		border: 1px solid #d1d9e0; padding: 6px 10px; vertical-align: top;
 	}
 	.docx-preview :global(img) { max-width: 100%; height: auto; }
 	.docx-preview :global(strong) { font-weight: 600; }

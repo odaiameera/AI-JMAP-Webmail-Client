@@ -116,7 +116,7 @@
 				<span
 					class="inline-flex items-center gap-1 h-6 pl-2 pr-1 rounded-md text-xs max-w-full
 						{valid
-						? 'bg-accent/15 text-accent'
+						? 'bg-accent/15 text-accent-fg'
 						: 'bg-danger/15 text-danger ring-1 ring-danger/30'}"
 					title={valid ? chip : `${chip} — not a valid address`}
 				>
@@ -124,7 +124,7 @@
 					<button
 						type="button"
 						onclick={() => removeChip(i)}
-						class="shrink-0 p-0.5 rounded hover:bg-black/20 cursor-pointer"
+						class="shrink-0 p-0.5 rounded-md hover:bg-black/20 cursor-pointer"
 						aria-label={`Remove ${chip}`}
 					>
 						<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -151,7 +151,7 @@
 						type="button"
 						onmousedown={(e) => { e.preventDefault(); pickSuggestion(s); }}
 						class="w-full text-left px-3 py-1.5 text-xs cursor-pointer truncate
-							{i === highlight ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+							{i === highlight ? 'bg-accent/15 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 					>
 						{s}
 					</button>

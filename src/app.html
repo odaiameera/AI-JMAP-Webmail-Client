@@ -7,7 +7,11 @@
 
 		<!-- PWA: installable as a Chrome/Brave app + system mail handler -->
 		<link rel="manifest" href="/manifest.webmanifest" />
-		<meta name="theme-color" content="#09090B" />
+		<!-- Matches --color-surface (the app chrome), so the mobile browser bar
+		     continues the shell rather than cutting a band across it. Kept in sync
+		     with the theme by the bootstrap script below and by the appearance
+		     setting; both write the light value when html.light is on. -->
+		<meta name="theme-color" content="#010409" />
 		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 		<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -16,7 +20,7 @@
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="ameera." />
 		<script>
-			try{if(document.cookie.match(/theme=([^;]+)/)?.[1]==='light')document.documentElement.classList.add('light')}catch(e){}
+			try{if(document.cookie.match(/theme=([^;]+)/)?.[1]==='light'){document.documentElement.classList.add('light');document.querySelector('meta[name=theme-color]')?.setAttribute('content','#f6f8fa')}}catch(e){}
 		</script>
 		%sveltekit.head%
 	</head>

@@ -318,14 +318,14 @@
 								role="option"
 								aria-selected={data.view === opt.value}
 								class="w-full flex items-center justify-between px-3 py-1.5 text-sm transition-colors cursor-pointer
-									{data.view === opt.value ? 'text-accent font-medium' : 'text-text hover:bg-surface-hover'}"
+									{data.view === opt.value ? 'text-accent-fg font-medium' : 'text-text hover:bg-surface-hover'}"
 								onclick={() => {
 									viewMenuOpen = false;
 									navigate(opt.value, selectedDate);
 								}}
 							>
 								{opt.label}
-								<span class="text-3xs text-text-tertiary border border-border rounded px-1 py-px">{opt.shortcut}</span>
+								<span class="text-3xs text-text-tertiary border border-border rounded-md px-1 py-px">{opt.shortcut}</span>
 							</button>
 						{/each}
 					</div>

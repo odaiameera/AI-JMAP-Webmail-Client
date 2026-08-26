@@ -106,7 +106,7 @@
 				<ul class="mt-2 pl-3 space-y-1">
 					{#each exportedKeys as item (item.key)}
 						<li>
-							<code class="text-2xs bg-surface-hover rounded px-1 py-0.5">{item.key}</code>
+							<code class="text-2xs bg-surface-hover rounded-md px-1 py-0.5">{item.key}</code>
 							— {item.description}
 						</li>
 					{/each}
@@ -129,7 +129,7 @@
 				or mis-typed fields are ignored so a bad file can't break anything.
 			</p>
 			{#if importResult}
-				<p class="text-xs mt-2 {importResult.ok ? 'text-accent' : 'text-danger'}">{importResult.message}</p>
+				<p class="text-xs mt-2 {importResult.ok ? 'text-accent-fg' : 'text-danger'}">{importResult.message}</p>
 			{/if}
 		</div>
 		<input

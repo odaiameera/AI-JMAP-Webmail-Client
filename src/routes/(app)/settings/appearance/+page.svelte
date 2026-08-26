@@ -37,6 +37,10 @@
 		theme = next;
 		if (typeof document !== 'undefined') {
 			document.documentElement.classList.toggle('light', next === 'light');
+			// Keep the PWA/mobile browser bar on --color-surface for the new theme.
+			document
+				.querySelector('meta[name=theme-color]')
+				?.setAttribute('content', next === 'light' ? '#f6f8fa' : '#010409');
 		}
 		await save('/api/preferences/theme', { value: next }, (s) => (themeState = s));
 	}

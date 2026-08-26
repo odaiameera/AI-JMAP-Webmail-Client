@@ -21,7 +21,7 @@
 			{#if toast.action}
 				<button
 					onclick={() => handleAction(toast.id, toast.action!.onClick)}
-					class="text-xs font-medium text-accent hover:text-accent-hover transition-colors cursor-pointer shrink-0"
+					class="text-xs font-medium text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer shrink-0"
 				>
 					{toast.action.label}
 				</button>
@@ -29,7 +29,7 @@
 			<button
 				onclick={() => dismissToast(toast.id)}
 				title="Dismiss"
-				class="p-1 rounded text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer shrink-0"
+				class="p-1 rounded-md text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer shrink-0"
 			>
 				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
 					<line x1="18" y1="6" x2="6" y2="18" />

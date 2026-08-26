@@ -26,8 +26,8 @@
 		aria-label="Filter messages"
 		aria-haspopup="menu"
 		aria-expanded={open}
-		class="p-1.5 rounded transition-colors cursor-pointer
-			{active !== 'all' || open ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
+		class="p-1.5 rounded-md transition-colors cursor-pointer
+			{active !== 'all' || open ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
 	>
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 			<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
@@ -49,7 +49,7 @@
 					aria-checked={active === f.key}
 					onclick={() => select(f.key)}
 					class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer
-						{active === f.key ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
+						{active === f.key ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
 				>
 					<span>{f.label}</span>
 					{#if active === f.key}

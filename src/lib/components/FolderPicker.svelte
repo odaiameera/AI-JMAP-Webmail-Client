@@ -254,10 +254,10 @@
 					onclick={() => onPick(item.id)}
 					onmouseenter={() => { highlight = i; }}
 					class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors cursor-pointer
-						{highlight === i ? 'bg-accent/10 text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+						{highlight === i ? 'bg-accent/10 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					{#if item.kind === 'label'}
-						<span class="w-3 h-3 rounded-full shrink-0 border border-white/20" style="background-color: {item.color ?? '#6366F1'}"></span>
+						<span class="w-3 h-3 rounded-full shrink-0 border border-white/20" style="background-color: {item.color ?? '#0969da'}"></span>
 					{:else}
 						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-current">{@html iconFor(item)}</span>
 					{/if}

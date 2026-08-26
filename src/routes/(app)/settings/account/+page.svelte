@@ -60,6 +60,6 @@
 
 	<div class="mt-4 text-xs text-text-tertiary">
 		Manage signatures on the
-		<a href="/settings/signatures" class="text-accent hover:underline">Signatures</a> page.
+		<a href="/settings/signatures" class="text-accent-fg hover:underline">Signatures</a> page.
 	</div>
 </section>

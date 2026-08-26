@@ -245,7 +245,7 @@
 			aria-label="Bold"
 			title="Bold (⌘B)"
 			class="w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
-				{activeMarks.bold ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+				{activeMarks.bold ? 'bg-accent/15 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 		>
 			B
 		</button>
@@ -257,7 +257,7 @@
 			aria-label="Italic"
 			title="Italic (⌘I)"
 			class="w-7 h-7 rounded-md flex items-center justify-center text-sm italic transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
-				{activeMarks.italic ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+				{activeMarks.italic ? 'bg-accent/15 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 		>
 			I
 		</button>
@@ -269,7 +269,7 @@
 			aria-label={activeMarks.link ? 'Remove link' : 'Add link'}
 			title={activeMarks.link ? 'Remove link' : 'Add link'}
 			class="w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
-				{activeMarks.link ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+				{activeMarks.link ? 'bg-accent/15 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 		>
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>

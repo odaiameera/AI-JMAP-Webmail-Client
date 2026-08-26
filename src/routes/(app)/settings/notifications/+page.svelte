@@ -102,7 +102,7 @@
 						disabled={!enabled}
 						checked={selectedFolders.has(mb.id)}
 						onchange={(e) => toggleFolder(mb.id, (e.currentTarget as HTMLInputElement).checked)}
-						class="w-3.5 h-3.5 rounded border-border accent-accent cursor-pointer disabled:cursor-not-allowed"
+						class="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed"
 					/>
 					<span class="text-sm text-text flex-1 truncate">{mb.name}</span>
 					{#if mb.unreadEmails > 0}

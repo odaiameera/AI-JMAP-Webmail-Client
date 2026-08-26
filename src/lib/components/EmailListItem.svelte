@@ -139,7 +139,7 @@
 				{selected ? 'opacity-100' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto'}"
 		>
 			<div
-				class="w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors bg-surface outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface
+				class="w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors bg-surface outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface
 					{selected ? 'bg-accent border-accent' : 'border-text-tertiary hover:border-text-secondary'}"
 				onclick={(e) => { e.preventDefault(); e.stopPropagation(); onSelect?.(email.id, !selected); }}
 				onkeydown={(e) => { if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelect?.(email.id, !selected); } }}
@@ -169,14 +169,14 @@
 		</div>
 		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5 flex items-center gap-1.5">
 			{#if wasReminded}
-				<span class="inline-flex items-center text-accent shrink-0" title="Returned from Remind Me Later">
+				<span class="inline-flex items-center text-accent-fg shrink-0" title="Returned from Remind Me Later">
 					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 				</span>
 			{/if}
 			<span class="truncate">{email.subject || '(no subject)'}</span>
 			{#if reminderAt}
 				<span
-					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent text-3xs font-medium px-1.5 py-0.5"
+					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent-fg text-3xs font-medium px-1.5 py-0.5"
 					title="Snoozed — returns to the inbox automatically"
 				>
 					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

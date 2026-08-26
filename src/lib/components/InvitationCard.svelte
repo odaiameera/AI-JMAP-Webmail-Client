@@ -153,7 +153,7 @@
 
 			<!-- Date tile -->
 			<div class="w-12 shrink-0 rounded-lg border border-border overflow-hidden text-center select-none self-start">
-				<div class="text-3xs uppercase tracking-wide py-0.5 {isCancellation ? 'bg-danger/15 text-danger' : 'bg-accent/15 text-accent'}">
+				<div class="text-3xs uppercase tracking-wide py-0.5 {isCancellation ? 'bg-danger/15 text-danger' : 'bg-accent/15 text-accent-fg'}">
 					{monthShort}
 				</div>
 				<div class="text-lg font-semibold text-text leading-7">{startDate.getDate()}</div>
@@ -161,7 +161,7 @@
 
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-2 flex-wrap">
-					<span class="text-2xs font-medium uppercase tracking-wide {isCancellation ? 'text-danger' : 'text-accent'}">
+					<span class="text-2xs font-medium uppercase tracking-wide {isCancellation ? 'text-danger' : 'text-accent-fg'}">
 						{isCancellation ? 'Event cancelled' : isInvite ? 'Invitation' : 'Event attached'}
 					</span>
 					{#if onCalendar && !isCancellation}
@@ -247,7 +247,7 @@
 					{#if onCalendar && !isCancellation}
 						<button
 							type="button"
-							class="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer"
+							class="text-xs text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer"
 							onclick={viewInCalendar}
 						>
 							View in calendar

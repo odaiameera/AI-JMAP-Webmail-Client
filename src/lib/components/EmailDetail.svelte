@@ -195,11 +195,11 @@
 		<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 		<base target="_blank">
 		<style>
-			body { margin: 16px; font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: 14px; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; color: #1a1a1a; background: #fff; }
+			body { margin: 16px; font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: 14px; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; color: #1f2328; background: #fff; }
 			img { max-width: 100%; height: auto; }
-			a { color: #6366F1; }
+			a { color: #0969da; }
 			pre { white-space: pre-wrap; }
-			blockquote { border-left: 3px solid #6366F1; padding-left: 1em; margin-left: 0; color: #71717A; }
+			blockquote { border-left: 3px solid #0969da; padding-left: 1em; margin-left: 0; color: #59636e; }
 		</style>
 	</head><body>${getBodyHtml()}</body></html>`);
 
@@ -239,7 +239,7 @@
 	}
 
 	function getBodyHtml(): string {
-		return renderEmailBodyHtml(email) || '<p style="color: #71717A;">No content</p>';
+		return renderEmailBodyHtml(email) || '<p style="color: #59636e;">No content</p>';
 	}
 
 	function getHtmlQuotedBlock(): string {
@@ -248,7 +248,7 @@
 		const dateStr = formatDate(email.receivedAt);
 		const fromStr = sender.name ? `${sender.name} &lt;${sender.email}&gt;` : sender.email;
 		const originalBody = getBodyHtml();
-		return `<br><br><blockquote style="margin: 0 0 0 0.8ex; border-left: 3px solid #6366F1; padding-left: 1ex; color: #71717A;"><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${email.subject ?? ''}</div><br>${originalBody}</blockquote>`;
+		return `<br><br><blockquote style="margin: 0 0 0 0.8ex; border-left: 3px solid #0969da; padding-left: 1ex; color: #59636e;"><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${email.subject ?? ''}</div><br>${originalBody}</blockquote>`;
 	}
 
 	function handleAddSenderToContacts() {
@@ -293,7 +293,7 @@
 		const toStr = toList.map((a) => a.name || a.email).join(', ');
 		openCompose({
 			to: '', cc: '', subject: fwdSubject, isForward: true,
-			body: `<br><br><div style="border-top: 1px solid #ccc; padding-top: 1em; color: #71717A;"><div><strong>---------- Forwarded message ----------</strong></div><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${originalSubject}</div><div><strong>To:</strong> ${toStr}</div><br>${getBodyHtml()}</div>`
+			body: `<br><br><div style="border-top: 1px solid #d1d9e0; padding-top: 1em; color: #59636e;"><div><strong>---------- Forwarded message ----------</strong></div><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${originalSubject}</div><div><strong>To:</strong> ${toStr}</div><br>${getBodyHtml()}</div>`
 		});
 	}
 
@@ -589,7 +589,7 @@
 							onclick={handleAddSenderToContacts}
 							aria-label="Add sender to contacts"
 							title="Add to Contacts"
-							class="p-1 rounded text-text-tertiary hover:text-accent hover:bg-accent/10 cursor-pointer"
+							class="p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
 						>
 							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
 						</button>
@@ -630,13 +630,13 @@
 					Edit draft
 				</button>
 			{:else}
-				<button onclick={handleReply} title="Reply" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+				<button onclick={handleReply} title="Reply" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
 				</button>
-				<button onclick={handleReplyAll} title="Reply All" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+				<button onclick={handleReplyAll} title="Reply All" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
 				</button>
-				<button onclick={handleForward} title="Forward" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+				<button onclick={handleForward} title="Forward" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
 				</button>
 			{/if}
@@ -647,8 +647,8 @@
 					onclick={() => { assistantOpen = !assistantOpen; }}
 					title="Open mail assistant"
 					aria-pressed={assistantOpen}
-					class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer
-						{assistantOpen ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-accent'}"
+					class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer
+						{assistantOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-accent-fg'}"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/>
@@ -661,14 +661,14 @@
 				title={isFlagged ? 'Unstar' : 'Star'}
 				aria-label={isFlagged ? 'Unstar' : 'Star'}
 				aria-pressed={isFlagged}
-				class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer
+				class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer
 					{isFlagged ? 'text-warning' : 'text-text-secondary hover:text-warning'}"
 			>
 				<svg width="16" height="16" viewBox="0 0 24 24" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 					<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
 				</svg>
 			</button>
-			<button onclick={() => doAction(isRead ? 'markUnread' : 'markRead')} title={isRead ? 'Mark Unread' : 'Mark Read'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+			<button onclick={() => doAction(isRead ? 'markUnread' : 'markRead')} title={isRead ? 'Mark Unread' : 'Mark Read'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				{#if isRead}
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
 				{:else}
@@ -680,8 +680,8 @@
 				onclick={(e) => { e.stopPropagation(); showMovePicker = !showMovePicker; }}
 				title="Move to…"
 				disabled={actionLoading === 'move'}
-				class="p-1.5 rounded hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
-					{showMovePicker ? 'text-accent bg-accent/10' : 'text-text-secondary hover:text-text'}"
+				class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
+					{showMovePicker ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
@@ -701,7 +701,7 @@
 					onClose={() => { showMovePicker = false; }}
 				/>
 			{/if}
-			<button onclick={() => doAction('archive')} title="Archive" disabled={actionLoading === 'archive'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
+			<button onclick={() => doAction('archive')} title="Archive" disabled={actionLoading === 'archive'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 			</button>
 			{#if isInJunk}
@@ -709,7 +709,7 @@
 					onclick={() => doAction('notSpam')}
 					title="Not spam — move back to Inbox and train the classifier"
 					disabled={actionLoading === 'notSpam'}
-					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-success transition-colors cursor-pointer disabled:opacity-50"
+					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-success transition-colors cursor-pointer disabled:opacity-50"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -721,16 +721,16 @@
 					onclick={() => doAction('spam')}
 					title="Mark as spam — move to Junk and train the classifier"
 					disabled={actionLoading === 'spam'}
-					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
+					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
 				</button>
 			{/if}
-			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50">
+			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 			</button>
 			<div class="w-px h-4 bg-border mx-0.5"></div>
-			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
+			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
 			</button>
 			{#if aiEnabled && !isDraft}
@@ -738,7 +738,7 @@
 					onclick={extractEventWithAI}
 					title="Create calendar event from this email (AI)"
 					disabled={aiBusy}
-					class="p-1.5 rounded hover:bg-surface-hover text-text-secondary hover:text-accent transition-colors cursor-pointer disabled:opacity-50"
+					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-accent-fg transition-colors cursor-pointer disabled:opacity-50"
 				>
 					{#if aiBusy}
 						<span class="block w-4 h-4 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
@@ -768,7 +768,7 @@
 							: unsubInfo.mode === 'mailto'
 								? 'Send unsubscribe email'
 								: 'Open sender\'s unsubscribe page'}
-						class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 					>
 						{#if unsubLoading}
 							<span class="w-3 h-3 rounded-full border-2 border-danger/40 border-t-red-400 animate-spin"></span>
@@ -837,7 +837,7 @@
 			srcdoc={iframeContent}
 			sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
 			title="Email content"
-			class="w-full h-full border-none rounded bg-white"
+			class="w-full h-full border-none rounded-md bg-white"
 		></iframe>
 	</div>
 
@@ -865,7 +865,7 @@
 				{unsubToast.kind === 'success' ? 'border-border text-text' : 'border-danger/40 text-danger'}"
 		>
 			{#if unsubToast.kind === 'success'}
-				<svg class="text-accent shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<svg class="text-accent-fg shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="20 6 9 17 4 12"/>
 				</svg>
 			{:else}

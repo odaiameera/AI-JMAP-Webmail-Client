@@ -220,7 +220,7 @@
 	});
 
 	function pillClass(token: Token): string {
-		if (token.kind === 'field') return 'bg-accent/15 text-accent';
+		if (token.kind === 'field') return 'bg-accent/15 text-accent-fg';
 		if (token.kind === 'flag') return 'bg-success/15 text-success';
 		if (token.kind === 'error') return 'bg-danger/15 text-danger';
 		return '';
@@ -255,7 +255,7 @@
 						<span class="text-sm text-text">{t.raw}</span>
 					{:else}
 						<span
-							class="inline-flex items-center h-5 px-1.5 rounded text-2xs font-medium leading-none {pillClass(t)}"
+							class="inline-flex items-center h-5 px-1.5 rounded-md text-2xs font-medium leading-none {pillClass(t)}"
 							title={t.kind === 'error' ? t.reason : pillLabel(t)}
 						>
 							{pillLabel(t)}
@@ -280,7 +280,7 @@
 
 		<!-- Keyboard hint, hidden once the field is engaged. -->
 		{#if !focused && value.length === 0}
-			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded border border-border bg-surface text-3xs font-medium text-text-tertiary pointer-events-none select-none">
+			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded-md border border-border bg-surface text-3xs font-medium text-text-tertiary pointer-events-none select-none">
 				⌘K
 			</kbd>
 		{/if}
@@ -288,7 +288,7 @@
 		<button
 			type="button"
 			onmousedown={(e) => { e.preventDefault(); helpOpen = !helpOpen; }}
-			class="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
+			class="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-md text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
 			aria-label="Search help"
 			title="Search operators"
 		>
@@ -317,7 +317,7 @@
 					<button
 						type="button"
 						onmousedown={(e) => { e.preventDefault(); runRecent(r); }}
-						class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm text-text-secondary hover:bg-surface-hover hover:text-text cursor-pointer"
+						class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm text-text-secondary hover:bg-surface-hover hover:text-text cursor-pointer"
 					>
 						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-text-tertiary"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 						<span class="truncate">{r}</span>
