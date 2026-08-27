@@ -10,6 +10,8 @@ import { unreadBadges } from '$lib/server/auth/unread-badges';
 import { listLabels, migrateKeywordLabelsIfNeeded } from '$lib/server/labels';
 import { syncIdentities } from '$lib/server/db/queries/identities';
 import { loadRules } from '$lib/server/rules-store';
+import { readPreferences } from '$lib/server/preferences';
+import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	if (!locals.user) {
@@ -28,11 +30,18 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		const activeAccount = accounts.find((a) => a.id === locals.activeAccountId);
 		const userEmail = activeAccount?.email ?? '';
 
-		const readingPane = cookies.get('reading_pane') ?? 'on';
-		const theme = cookies.get('theme') ?? 'dark';
-		const density = cookies.get('density') ?? 'comfortable';
+		// Preferences come from SQLite keyed to the webmail login, so they are
+		// the same on every browser and every linked account. The first call
+		// after the upgrade imports the old cookies and clears them.
+		const prefs = readPreferences(locals.user.id, cookies);
+
+		const readingPane = prefs.reading_pane ?? 'on';
+		const theme = prefs.theme ?? 'dark';
+		const density = prefs.density ?? 'comfortable';
+		// The person's own name wins; the active account's name and finally the
+		// local-part stand in for it until they set one.
 		const displayName =
-			cookies.get('display_name') ??
+			getDisplayName(locals.user.id) ??
 			activeAccount?.displayName ??
 			userEmail.split('@')[0] ??
 			'';
@@ -87,24 +96,24 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		// Sidebar expand/collapse state — Record<id, boolean>. Absence means
 		// "default": section headers expanded, individual folders collapsed.
 		let folderExpanded: Record<string, boolean> = {};
-		const rawExpanded = cookies.get('folder_expanded');
+		const rawExpanded = prefs.folder_expanded;
 		if (rawExpanded) {
 			try {
-				const parsed = JSON.parse(decodeURIComponent(rawExpanded));
+				const parsed = JSON.parse(rawExpanded);
 				if (parsed && typeof parsed === 'object') folderExpanded = parsed;
 			} catch {
-				// Ignore malformed cookie.
+				// Ignore a malformed blob.
 			}
 		}
 
 		// Notification prefs are surfaced here (not just in the settings
 		// layout) so the realtime layer can decide whether to fire desktop
 		// notifications for new mail without a second round-trip.
-		const notificationsEnabled = cookies.get('notifications') === 'on';
+		const notificationsEnabled = prefs.notifications === 'on';
 		// Calendar notification channels default to on once the master
 		// toggle is enabled; users opt out per-channel.
-		const notifyCalendarEvents = cookies.get('notify_calendar_events') !== 'off';
-		const notifyEventReminders = cookies.get('notify_event_reminders') !== 'off';
+		const notifyCalendarEvents = prefs.notify_calendar_events !== 'off';
+		const notifyEventReminders = prefs.notify_event_reminders !== 'off';
 
 		return {
 			mailboxes,

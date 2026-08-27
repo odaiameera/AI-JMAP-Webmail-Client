@@ -1,22 +1,15 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { writePreferences } from '$lib/server/preferences';
 
-const COOKIE_NAME = 'folder_expanded';
-
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) error(401, 'Not signed in');
 	const { value } = (await request.json()) as { value: Record<string, boolean> };
 
-	if (!value || typeof value !== 'object') {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		return json({ error: 'value must be an object' }, { status: 400 });
 	}
 
-	cookies.set(COOKIE_NAME, encodeURIComponent(JSON.stringify(value)), {
-		path: '/',
-		maxAge: 60 * 60 * 24 * 365,
-		httpOnly: false,
-		sameSite: 'strict',
-		secure: true
-	});
-
+	writePreferences(locals.user.id, { folder_expanded: JSON.stringify(value) });
 	return json({ success: true });
 };

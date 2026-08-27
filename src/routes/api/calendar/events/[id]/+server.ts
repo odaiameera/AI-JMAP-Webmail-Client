@@ -5,6 +5,7 @@ import { deleteEvent, updateEvent } from '$lib/server/calendar/service';
 import { CalDAVError } from '$lib/server/calendar/caldav';
 import { validatePayload } from '$lib/server/calendar/validate';
 import type { EditScope } from '$lib/calendar/types';
+import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 
 function parseScope(value: unknown): EditScope {
 	return value === 'instance' || value === 'following' ? value : 'all';
@@ -31,7 +32,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request, cookies }
 	}
 
 	try {
-		const displayName = cookies.get('display_name') ?? null;
+		const displayName = locals.user ? getDisplayName(locals.user.id) : null;
 		const result = await updateEvent(
 			locals.auth,
 			userEmail,

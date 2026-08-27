@@ -27,6 +27,7 @@ export interface MailAccountRow {
 	color: string;
 	sort_order: number;
 	needs_reauth: number;
+	avatar_data: string | null;
 }
 
 /** Safe to ship to the client — no secret material. */
@@ -53,6 +54,13 @@ function prepareStmts() {
 		),
 		setSort: db.prepare(`UPDATE mail_accounts SET sort_order = ? WHERE id = ? AND user_id = ?`),
 		setColor: db.prepare(`UPDATE mail_accounts SET color = ? WHERE id = ? AND user_id = ?`),
+		setDisplayName: db.prepare(
+			`UPDATE mail_accounts SET display_name = ? WHERE id = ? AND user_id = ?`
+		),
+		setAvatar: db.prepare(
+			`UPDATE mail_accounts SET avatar_data = ? WHERE id = ? AND user_id = ?`
+		),
+		getAvatar: db.prepare(`SELECT avatar_data FROM mail_accounts WHERE id = ?`),
 		setReauth: db.prepare(`UPDATE mail_accounts SET needs_reauth = ? WHERE id = ?`),
 		updateSecret: db.prepare(
 			`UPDATE mail_accounts
@@ -169,6 +177,36 @@ export function reorderAccounts(userId: string, orderedIds: string[]): void {
 
 export function setAccountColor(userId: string, id: string, color: string): void {
 	stmts().setColor.run(color, id, userId);
+}
+
+/**
+ * Rename a linked account. An empty name clears the override, so the UI falls
+ * back to the address rather than showing a blank row.
+ */
+export function setAccountDisplayName(userId: string, id: string, displayName: string): void {
+	const trimmed = displayName.trim();
+	stmts().setDisplayName.run(trimmed === '' ? null : trimmed, id, userId);
+}
+
+/**
+ * Store an account's avatar as a data: URL, matching the personal avatar's
+ * contract so the client can reuse the same compressor.
+ *
+ * Read back via {@link getAccountAvatar} and served from its own endpoint —
+ * never through `toPublic()`, whose output is embedded in every page's server
+ * payload, where image bytes would be re-sent on every navigation.
+ */
+export function setAccountAvatar(userId: string, id: string, dataUrl: string): void {
+	stmts().setAvatar.run(dataUrl, id, userId);
+}
+
+export function clearAccountAvatar(userId: string, id: string): void {
+	stmts().setAvatar.run(null, id, userId);
+}
+
+export function getAccountAvatar(id: string): string | null {
+	const row = stmts().getAvatar.get(id) as { avatar_data: string | null } | undefined;
+	return row?.avatar_data ?? null;
 }
 
 /** Flag set when the mail server rejects the stored credentials (password changed). */

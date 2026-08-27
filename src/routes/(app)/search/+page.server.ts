@@ -3,15 +3,15 @@ import type { PageServerLoad } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { queryAndFetchEmailsWithFilter } from '$lib/jmap/email';
 import { userEmailFromAuth } from '$lib/server/user';
-import { getDefaultPageSize } from '$lib/server/db/queries/user-settings';
+import { getDefaultPageSize } from '$lib/server/db/queries/app-prefs';
 import { parseSearch } from '$lib/search/parse';
 import { buildJmapFilter, type FilterContext } from '$lib/search/build-filter';
 import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
 
-function parsePagination(url: URL, userEmail: string): { page: number; pageSize: number } {
-	const defaultSize = getDefaultPageSize(userEmail);
+function parsePagination(url: URL, userId: string): { page: number; pageSize: number } {
+	const defaultSize = getDefaultPageSize(userId);
 	const rawSize = parseInt(url.searchParams.get('pageSize') ?? '', 10);
 	const pageSize = ALLOWED_PAGE_SIZES.includes(rawSize) ? rawSize : defaultSize;
 	const rawPage = parseInt(url.searchParams.get('page') ?? '', 10);
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 
 	const raw = url.searchParams.get('q')?.trim() ?? '';
 	const userEmail = userEmailFromAuth(locals.auth);
-	const { page, pageSize } = parsePagination(url, userEmail);
+	const { page, pageSize } = parsePagination(url, locals.user?.id ?? '');
 
 	const tokens = parseSearch(raw);
 

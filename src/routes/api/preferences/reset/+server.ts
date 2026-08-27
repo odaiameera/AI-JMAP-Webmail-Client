@@ -1,11 +1,13 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { PREF_COOKIE_KEYS, deletePref } from '$lib/server/prefs';
+import { resetPreferences, PREF_KEYS } from '$lib/server/preferences';
 
-/** Clear every preference cookie the app writes. Session auth is not touched. */
-export const POST: RequestHandler = async ({ cookies }) => {
-	for (const key of PREF_COOKIE_KEYS) {
-		deletePref(cookies, key);
-	}
-	return json({ success: true, cleared: PREF_COOKIE_KEYS.length });
+/**
+ * Clear every stored preference, plus any legacy cookie still lying around.
+ * Session auth, identity (name and avatar) and mail data are not touched.
+ */
+export const POST: RequestHandler = async ({ cookies, locals }) => {
+	if (!locals.user) error(401, 'Not signed in');
+	resetPreferences(locals.user.id, cookies);
+	return json({ success: true, cleared: PREF_KEYS.length });
 };

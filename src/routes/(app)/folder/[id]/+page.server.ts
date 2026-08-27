@@ -4,14 +4,14 @@ import { createClient } from '$lib/jmap/auth';
 import { queryAndFetchEmails } from '$lib/jmap/email';
 import { mailboxDisplayName } from '$lib/utils/mailbox-display';
 import { userEmailFromAuth } from '$lib/server/user';
-import { getDefaultPageSize } from '$lib/server/db/queries/user-settings';
+import { getDefaultPageSize } from '$lib/server/db/queries/app-prefs';
 import { listMarkedIds, listReminders } from '$lib/server/db/queries/reminders';
 import { parseListFilter, listFilterCondition } from '$lib/email-filters';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
 
-function parsePagination(url: URL, userEmail: string): { page: number; pageSize: number } {
-	const defaultSize = getDefaultPageSize(userEmail);
+function parsePagination(url: URL, userId: string): { page: number; pageSize: number } {
+	const defaultSize = getDefaultPageSize(userId);
 	const rawSize = parseInt(url.searchParams.get('pageSize') ?? '', 10);
 	const pageSize = ALLOWED_PAGE_SIZES.includes(rawSize) ? rawSize : defaultSize;
 	const rawPage = parseInt(url.searchParams.get('page') ?? '', 10);
@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 	}
 
 	const userEmail = userEmailFromAuth(locals.auth);
-	const { page, pageSize } = parsePagination(url, userEmail);
+	const { page, pageSize } = parsePagination(url, locals.user?.id ?? '');
 	const filter = parseListFilter(url.searchParams.get('filter'));
 
 	const result = await queryAndFetchEmails(client, locals.auth.accountId, mailbox.id, {
