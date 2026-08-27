@@ -1,4 +1,7 @@
+import { error } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { readPreferences } from '$lib/server/preferences';
+import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 
 function num(value: string | undefined, fallback: number): number {
 	if (value === undefined) return fallback;
@@ -7,18 +10,22 @@ function num(value: string | undefined, fallback: number): number {
 }
 
 /**
- * Load every preference cookie the settings pages care about. `parent()`
- * gives us the mailboxes/labels/rules already loaded by the (app) layout
- * so child sections don't re-fetch.
+ * Load every preference the settings pages care about. These live in SQLite
+ * keyed to the webmail login, so they are identical on every browser and every
+ * linked account. `parent()` gives us the mailboxes/labels/rules already
+ * loaded by the (app) layout so child sections don't re-fetch.
  */
-export const load: LayoutServerLoad = async ({ cookies, parent }) => {
+export const load: LayoutServerLoad = async ({ cookies, locals, parent }) => {
 	const { mailboxes, labels, rules } = await parent();
+	if (!locals.user) error(401, 'Not signed in');
+
+	const prefs = readPreferences(locals.user.id, cookies);
 
 	let notificationFolders: string[] = ['inbox'];
 	try {
-		const raw = cookies.get('notification_folders');
+		const raw = prefs.notification_folders;
 		if (raw) {
-			const parsed = JSON.parse(decodeURIComponent(raw));
+			const parsed = JSON.parse(raw);
 			if (Array.isArray(parsed)) notificationFolders = parsed;
 		}
 	} catch {
@@ -27,32 +34,32 @@ export const load: LayoutServerLoad = async ({ cookies, parent }) => {
 
 	return {
 		// Account / identity
-		displayName: cookies.get('display_name') ?? '',
+		displayName: getDisplayName(locals.user.id) ?? '',
 		// Appearance
-		theme: cookies.get('theme') ?? 'dark',
-		density: cookies.get('density') ?? 'comfortable',
-		readingPane: cookies.get('reading_pane') ?? 'on',
+		theme: prefs.theme ?? 'dark',
+		density: prefs.density ?? 'comfortable',
+		readingPane: prefs.reading_pane ?? 'on',
 		// Composer
-		composerFont: cookies.get('composer_font') ?? 'Calibri',
-		composerFontSize: cookies.get('composer_font_size') ?? '12',
-		autoSaveInterval: num(cookies.get('autosave_interval'), 10),
+		composerFont: prefs.composer_font ?? 'Calibri',
+		composerFontSize: prefs.composer_font_size ?? '12',
+		autoSaveInterval: num(prefs.autosave_interval, 10),
 		// Mail
-		conversationView: cookies.get('conversation_view') === 'on',
-		markReadDelay: num(cookies.get('mark_read_delay'), 1000),
-		autoLoadImages: cookies.get('auto_load_images') ?? 'contacts_only',
-		defaultSort: cookies.get('default_sort') ?? 'date_desc',
-		keyboardShortcuts: cookies.get('keyboard_shortcuts') !== 'off',
+		conversationView: prefs.conversation_view === 'on',
+		markReadDelay: num(prefs.mark_read_delay, 1000),
+		autoLoadImages: prefs.auto_load_images ?? 'contacts_only',
+		defaultSort: prefs.default_sort ?? 'date_desc',
+		keyboardShortcuts: prefs.keyboard_shortcuts !== 'off',
 		// Notifications
-		notificationsEnabled: cookies.get('notifications') === 'on',
+		notificationsEnabled: prefs.notifications === 'on',
 		notificationFolders,
-		notifyCalendarEvents: cookies.get('notify_calendar_events') !== 'off',
-		notifyEventReminders: cookies.get('notify_event_reminders') !== 'off',
+		notifyCalendarEvents: prefs.notify_calendar_events !== 'off',
+		notifyEventReminders: prefs.notify_event_reminders !== 'off',
 		// Calendar
-		calendarWeekStart: cookies.get('calendar_week_start') === '0' ? 0 : cookies.get('calendar_week_start') === '6' ? 6 : 1,
+		calendarWeekStart: prefs.calendar_week_start === '0' ? 0 : prefs.calendar_week_start === '6' ? 6 : 1,
 		// Auto-reply
-		autoReplyEnabled: cookies.get('auto_reply_enabled') === 'on',
-		autoReplySubject: decodeURIComponent(cookies.get('auto_reply_subject') ?? ''),
-		autoReplyBody: decodeURIComponent(cookies.get('auto_reply_body') ?? ''),
+		autoReplyEnabled: prefs.auto_reply_enabled === 'on',
+		autoReplySubject: prefs.auto_reply_subject ?? '',
+		autoReplyBody: prefs.auto_reply_body ?? '',
 		// Piped through for section pages that need them
 		mailboxes,
 		labels,

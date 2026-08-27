@@ -4,6 +4,7 @@ import { buildSieveContext, compileRulesToSieve } from '$lib/server/sieve';
 import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { Rule } from '$lib/types/rules';
+import { readPreferences } from '$lib/server/preferences';
 
 const JMAP_USING = ['urn:ietf:params:jmap:core', 'urn:ietf:params:jmap:sieve'];
 
@@ -34,7 +35,7 @@ async function jmapRequest(
 }
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
+	if (!locals.auth || !locals.user) return json({ error: 'Not authenticated' }, { status: 401 });
 
 	const { rules } = await request.json() as { rules: Rule[] };
 	// The session's own JMAP base — never a hardcoded host, so deploys work
@@ -47,13 +48,14 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	const client = createClient(locals.auth);
 	const mailboxes = await getMailboxes(client, accountId);
 
-	// Auto-reply lives in cookies (the auto-reply page saves them). Pass
-	// the current config through so the compiled script includes the
-	// vacation block when enabled.
+	// Auto-reply is stored with the rest of the preferences (the auto-reply
+	// page saves it there). Pass the current config through so the compiled
+	// script includes the vacation block when enabled.
+	const prefs = readPreferences(locals.user.id, cookies);
 	const autoReply = {
-		enabled: cookies.get('auto_reply_enabled') === 'on',
-		subject: decodeURIComponent(cookies.get('auto_reply_subject') ?? ''),
-		body: decodeURIComponent(cookies.get('auto_reply_body') ?? '')
+		enabled: prefs.auto_reply_enabled === 'on',
+		subject: prefs.auto_reply_subject ?? '',
+		body: prefs.auto_reply_body ?? ''
 	};
 
 	const script = compileRulesToSieve(rules, buildSieveContext(mailboxes), autoReply);

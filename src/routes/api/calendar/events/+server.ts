@@ -4,6 +4,7 @@ import { userEmailFromAuth } from '$lib/server/user';
 import { createEvent, getEventsInRange } from '$lib/server/calendar/service';
 import { CalDAVError } from '$lib/server/calendar/caldav';
 import { validatePayload } from '$lib/server/calendar/validate';
+import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.auth) return json({ error: 'Unauthorized' }, { status: 401 });
@@ -37,7 +38,7 @@ export const POST: RequestHandler = async ({ locals, request, cookies }) => {
 	if (typeof payload === 'string') return json({ error: payload }, { status: 400 });
 
 	try {
-		const displayName = cookies.get('display_name') ?? null;
+		const displayName = locals.user ? getDisplayName(locals.user.id) : null;
 		const { id } = await createEvent(locals.auth, userEmail, payload, displayName);
 		return json({ success: true, id });
 	} catch (err) {

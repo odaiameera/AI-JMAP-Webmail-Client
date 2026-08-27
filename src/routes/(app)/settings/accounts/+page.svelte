@@ -3,6 +3,7 @@
 	import { pageTitle } from '$lib/utils/title';
 	import ColorGrid from '$lib/components/modals/ColorGrid.svelte';
 	import { colorByHex, DEFAULT_LABEL_COLOR } from '$lib/constants/colors';
+	import { fileToAvatarDataUrl } from '$lib/utils/image';
 	import type { LayoutData } from '../$types';
 
 	let { data }: { data: LayoutData } = $props();
@@ -27,6 +28,85 @@
 	let confirmRemoveId = $state<string | null>(null);
 	let colorPickerId = $state<string | null>(null);
 	let rowBusy = $state(false);
+
+	// Inline rename.
+	let editingNameId = $state<string | null>(null);
+	let nameDraft = $state('');
+	let nameInputEl = $state<HTMLInputElement | null>(null);
+
+	/**
+	 * The avatar endpoint falls back to BIMI/favicon/Gravatar when nothing has
+	 * been uploaded, so we just point an <img> at it and let a 404 mean "draw
+	 * the initial instead". `avatarVersion` busts the browser cache after an
+	 * upload or removal, since the URL itself never changes.
+	 */
+	let avatarVersion = $state<Record<string, number>>({});
+	let avatarMissing = $state<Record<string, boolean>>({});
+	let avatarBusyId = $state<string | null>(null);
+	let fileInputs: Record<string, HTMLInputElement | null> = {};
+
+	function avatarSrc(id: string): string {
+		return `/api/accounts/${id}/avatar?v=${avatarVersion[id] ?? 0}`;
+	}
+
+	function refreshAvatar(id: string) {
+		avatarVersion = { ...avatarVersion, [id]: (avatarVersion[id] ?? 0) + 1 };
+		avatarMissing = { ...avatarMissing, [id]: false };
+	}
+
+	function startRename(id: string, current: string) {
+		editingNameId = id;
+		nameDraft = current;
+		setTimeout(() => nameInputEl?.focus(), 0);
+	}
+
+	async function commitRename(id: string) {
+		const next = nameDraft.trim();
+		editingNameId = null;
+		await fetch(`/api/accounts/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ displayName: next })
+		});
+		await invalidateAll();
+	}
+
+	function handleNameKeydown(e: KeyboardEvent, id: string) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitRename(id);
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			editingNameId = null;
+		}
+	}
+
+	async function uploadAvatar(id: string, file: File) {
+		avatarBusyId = id;
+		try {
+			const data = await fileToAvatarDataUrl(file);
+			const res = await fetch(`/api/accounts/${id}/avatar`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ data })
+			});
+			if (res.ok) refreshAvatar(id);
+		} finally {
+			avatarBusyId = null;
+		}
+	}
+
+	async function removeAvatar(id: string) {
+		avatarBusyId = id;
+		try {
+			const res = await fetch(`/api/accounts/${id}/avatar`, { method: 'DELETE' });
+			// The resolver fallback may still supply one, so re-fetch rather
+			// than assuming the circle is now empty.
+			if (res.ok) refreshAvatar(id);
+		} finally {
+			avatarBusyId = null;
+		}
+	}
 
 	function openAdd() {
 		addEmail = '';
@@ -155,28 +235,72 @@
 	{#each accounts as account, i (account.id)}
 		{@const isActive = account.id === activeAccountId}
 		<div class="group relative flex items-center gap-3.5 px-4 py-3.5 border-b border-border last:border-b-0">
-			<!-- Avatar / color picker -->
+			<!-- Avatar: uploaded photo, else a resolved one, else the initial -->
 			<div class="relative shrink-0">
+				<input
+					type="file"
+					accept="image/*"
+					class="hidden"
+					bind:this={fileInputs[account.id]}
+					onchange={(e) => {
+						const file = (e.currentTarget as HTMLInputElement).files?.[0];
+						if (file) uploadAvatar(account.id, file);
+						(e.currentTarget as HTMLInputElement).value = '';
+					}}
+				/>
 				<button
 					type="button"
-					title="Change color"
+					title="Change photo or color"
+					aria-label="Change photo or color for {account.email}"
 					onclick={() => (colorPickerId = colorPickerId === account.id ? null : account.id)}
-					class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold cursor-pointer transition-shadow hover:ring-2 hover:ring-offset-2 hover:ring-offset-surface"
+					class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-semibold cursor-pointer transition-shadow hover:ring-2 hover:ring-offset-2 hover:ring-offset-surface"
 					class:ring-2={isActive}
 					class:ring-offset-2={isActive}
 					class:ring-offset-surface={isActive}
 					style="background-color: {account.color}; --tw-ring-color: {account.color};"
 				>
-					{account.email[0]?.toUpperCase()}
+					{#if avatarMissing[account.id]}
+						{(account.displayName || account.email)[0]?.toUpperCase()}
+					{:else}
+						<img
+							src={avatarSrc(account.id)}
+							alt=""
+							class="w-full h-full object-cover"
+							onerror={() => (avatarMissing = { ...avatarMissing, [account.id]: true })}
+						/>
+					{/if}
 				</button>
 				{#if colorPickerId === account.id}
 					<button
 						type="button"
 						class="fixed inset-0 z-20 cursor-default"
-						aria-label="Close color picker"
+						aria-label="Close appearance picker"
 						onclick={() => (colorPickerId = null)}
 					></button>
 					<div class="absolute z-30 top-11 left-0 w-max rounded-xl border border-border bg-surface p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+						<p class="text-xs font-medium text-text-secondary mb-2.5">Photo</p>
+						<div class="flex items-center gap-2 mb-4">
+							<button
+								type="button"
+								disabled={avatarBusyId === account.id}
+								onclick={() => fileInputs[account.id]?.click()}
+								class="px-2.5 py-1.5 text-xs font-medium text-text-secondary border border-border hover:text-text hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+							>
+								{avatarBusyId === account.id ? 'Uploading…' : 'Upload'}
+							</button>
+							<button
+								type="button"
+								disabled={avatarBusyId === account.id}
+								onclick={() => removeAvatar(account.id)}
+								class="px-2.5 py-1.5 text-xs text-text-tertiary hover:text-danger hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+							>
+								Remove
+							</button>
+						</div>
+						<p class="text-3xs text-text-tertiary mb-4 max-w-[15rem] leading-relaxed">
+							With no photo uploaded, the account's own avatar is looked up automatically
+							and the initial is used only if none is found.
+						</p>
 						<p class="text-xs font-medium text-text-secondary mb-2.5">Account color</p>
 						<ColorGrid value={colorByHex(account.color)} onChange={(c) => setColor(account.id, c.hex)} />
 					</div>
@@ -185,7 +309,26 @@
 
 			<div class="flex-1 min-w-0">
 				<div class="flex items-center gap-2 min-w-0">
-					<p class="text-sm font-medium text-text truncate">{account.email}</p>
+					{#if editingNameId === account.id}
+						<input
+							bind:this={nameInputEl}
+							bind:value={nameDraft}
+							onblur={() => commitRename(account.id)}
+							onkeydown={(e) => handleNameKeydown(e, account.id)}
+							placeholder={account.email}
+							aria-label="Account name"
+							class="min-w-0 flex-1 bg-surface-hover border border-accent rounded-md px-2 py-1 text-sm text-text placeholder-text-tertiary outline-none"
+						/>
+					{:else}
+						<button
+							type="button"
+							title="Rename this account"
+							onclick={() => startRename(account.id, account.displayName ?? '')}
+							class="min-w-0 text-left text-sm font-medium text-text truncate hover:text-accent-fg transition-colors cursor-pointer"
+						>
+							{account.displayName || account.email}
+						</button>
+					{/if}
 					{#if isActive}
 						<span class="shrink-0 text-3xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-accent/15 text-accent-fg">Active</span>
 					{/if}
@@ -193,6 +336,9 @@
 						<span class="shrink-0 text-3xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-surface-hover text-text-tertiary" title="Opens by default when you sign in">Default</span>
 					{/if}
 				</div>
+				{#if account.displayName && editingNameId !== account.id}
+					<p class="text-xs text-text-tertiary truncate mt-0.5">{account.email}</p>
+				{/if}
 				{#if account.needsReauth}
 					<p class="text-xs text-danger mt-0.5">Reconnect required — the mail server rejected the stored password.</p>
 				{/if}

@@ -1,14 +1,14 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { exportPrefs } from '$lib/server/prefs';
+import { exportPreferences } from '$lib/server/preferences';
 
-/** Export every known preference cookie as a JSON blob the user can back up. */
-export const GET: RequestHandler = async ({ cookies }) => {
-	const prefs = exportPrefs(cookies);
+/** Export every stored preference as a JSON blob the user can back up. */
+export const GET: RequestHandler = async ({ locals }) => {
+	if (!locals.user) error(401, 'Not signed in');
 	const payload = {
 		version: 1,
 		exportedAt: new Date().toISOString(),
-		prefs
+		prefs: exportPreferences(locals.user.id)
 	};
 	return json(payload, {
 		headers: {

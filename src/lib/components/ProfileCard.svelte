@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import type { LinkedAccount } from '$lib/types/accounts';
+	import { resizeImage } from '$lib/utils/image';
 
 	let { displayName, email, accounts = [], activeAccountId = null, accountUnread = {}, onClose }: {
 		displayName: string;
@@ -117,31 +118,6 @@
 			return;
 		}
 		fileInput?.click();
-	}
-
-	/**
-	 * Downscale and re-encode to JPEG to keep localStorage small and
-	 * rendering fast. Output max dim 256px, quality 0.85.
-	 */
-	async function resizeImage(dataUrl: string): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const img = new Image();
-			img.onload = () => {
-				const maxDim = 256;
-				const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-				const w = Math.round(img.width * scale);
-				const h = Math.round(img.height * scale);
-				const canvas = document.createElement('canvas');
-				canvas.width = w;
-				canvas.height = h;
-				const ctx = canvas.getContext('2d');
-				if (!ctx) return reject(new Error('no ctx'));
-				ctx.drawImage(img, 0, 0, w, h);
-				resolve(canvas.toDataURL('image/jpeg', 0.85));
-			};
-			img.onerror = () => reject(new Error('image load failed'));
-			img.src = dataUrl;
-		});
 	}
 
 	function handleFileChange(e: Event) {

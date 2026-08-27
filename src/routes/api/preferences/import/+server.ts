@@ -1,14 +1,16 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { PREF_COOKIE_KEYS, PREF_COOKIE_OPTIONS } from '$lib/server/prefs';
+import { importPreferences, PREF_KEYS } from '$lib/server/preferences';
 
 /**
- * Restore preferences from an export payload. Only the keys we know
- * about are honored; everything else is dropped to avoid cookie
- * injection through a stale / tampered export.
+ * Restore preferences from an export payload. Only known keys are honoured;
+ * everything else is dropped so a stale or tampered export can't write
+ * arbitrary keys into the stored blob.
  */
-export const POST: RequestHandler = async ({ request, cookies }) => {
-	let body: { version?: number; prefs?: Record<string, string> };
+export const POST: RequestHandler = async ({ request, cookies, locals }) => {
+	if (!locals.user) error(401, 'Not signed in');
+
+	let body: { version?: number; prefs?: Record<string, unknown> };
 	try {
 		body = (await request.json()) as typeof body;
 	} catch {
@@ -19,14 +21,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Missing prefs object' }, { status: 400 });
 	}
 
-	const known = new Set<string>(PREF_COOKIE_KEYS);
-	let imported = 0;
-	for (const [key, value] of Object.entries(body.prefs)) {
-		if (!known.has(key)) continue;
-		if (typeof value !== 'string') continue;
-		cookies.set(key, value, PREF_COOKIE_OPTIONS);
-		imported++;
-	}
+	const known = new Set<string>(PREF_KEYS);
+	const imported = Object.entries(body.prefs).filter(
+		([key, value]) => known.has(key) && typeof value === 'string'
+	).length;
+
+	importPreferences(locals.user.id, body.prefs, cookies);
 
 	return json({ success: true, imported });
 };

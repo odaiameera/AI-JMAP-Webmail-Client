@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { userEmailFromAuth } from '$lib/server/user';
+import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 import {
 	parseConfirmedProposal,
 	validTimeZone
@@ -85,7 +86,7 @@ export const POST: RequestHandler = async ({ cookies, locals, request }) => {
 			},
 			// Same source the calendar UI's own create route uses, so an event
 			// added here carries the identical organizer name.
-			cookies.get('display_name') ?? null
+			locals.user ? getDisplayName(locals.user.id) : null
 		);
 
 		return json({

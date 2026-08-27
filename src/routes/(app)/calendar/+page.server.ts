@@ -3,6 +3,7 @@ import { redirect } from '@sveltejs/kit';
 import { getEventsInRange } from '$lib/server/calendar/service';
 import { userEmailFromAuth } from '$lib/server/user';
 import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
+import { readPreferences } from '$lib/server/preferences';
 
 export type CalendarView = 'month' | 'week' | 'workweek' | '3day' | 'day';
 
@@ -49,7 +50,9 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		rangeEnd = anchor + 2 * DAY_MS;
 	}
 
-	const weekStartCookie = cookies.get('calendar_week_start');
+	const weekStartCookie = locals.user
+		? readPreferences(locals.user.id, cookies).calendar_week_start
+		: undefined;
 	const weekStart = weekStartCookie === '0' ? 0 : weekStartCookie === '6' ? 6 : 1;
 
 	const userEmail = userEmailFromAuth(locals.auth);

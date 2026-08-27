@@ -6,6 +6,10 @@
 		label: string;
 		href?: string;
 		icon: string; // inline SVG
+		/** Routes to the /apps placeholder rather than a built feature. Dims the
+		 *  icon and says so in the tooltip, so the rail doesn't promise a screen
+		 *  that isn't there yet. */
+		comingSoon?: boolean;
 	};
 
 	let {
@@ -22,7 +26,16 @@
 
 	// All icons share the same visual language: 20×20, stroke-width 1.75,
 	// no fill, round linecaps/joins, currentColor stroke.
+	// Order is deliberate: AI first (it acts across everything below it), then
+	// the three built surfaces in the order they get used, then what isn't built.
 	const items: RailItem[] = [
+		{
+			id: 'ai',
+			label: 'AI mail agent',
+			// Robot head — head rect centred on (12, 14), antenna + ears keep the
+			// overall visual centre on viewBox centre (12, 12).
+			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`
+		},
 		{
 			id: 'mail',
 			label: 'Mail',
@@ -30,11 +43,10 @@
 			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>`
 		},
 		{
-			id: 'ai',
-			label: 'AI mail agent',
-			// Robot head — head rect centred on (12, 14), antenna + ears keep the
-			// overall visual centre on viewBox centre (12, 12).
-			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`
+			id: 'calendar',
+			label: 'Calendar',
+			href: '/calendar',
+			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`
 		},
 		{
 			id: 'contacts',
@@ -46,13 +58,8 @@
 			id: 'tasks',
 			label: 'Tasks',
 			href: '/apps/tasks',
+			comingSoon: true,
 			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`
-		},
-		{
-			id: 'calendar',
-			label: 'Calendar',
-			href: '/calendar',
-			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`
 		}
 	];
 
@@ -92,13 +99,14 @@
 		{:else}
 			<a
 				href={item.href}
-				title={item.label}
-				aria-label={item.label}
+				title={item.comingSoon ? `${item.label} (coming soon)` : item.label}
+				aria-label={item.comingSoon ? `${item.label} (coming soon)` : item.label}
 				aria-current={isActive(item.href) ? 'page' : undefined}
 				class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 					{isActive(item.href)
 						? 'text-accent-fg bg-accent/10'
-						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
+						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}
+					{item.comingSoon && !isActive(item.href) ? 'opacity-50' : ''}"
 			>
 				{@html item.icon}
 			</a>

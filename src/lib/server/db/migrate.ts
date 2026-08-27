@@ -41,9 +41,17 @@ export function runMigrations(): void {
 
 		try {
 			tx();
-		} catch {
-			// Silent — failures surface through subsequent request errors
-			// rather than spamming logs on every container start.
+		} catch (err) {
+			// A failed migration used to be swallowed entirely, on the theory
+			// that it would surface through later request errors. It does not:
+			// the app boots, the build passes and the tests pass, while the
+			// schema silently lacks whatever the migration was adding, and the
+			// first symptom is an unrelated-looking query error much later.
+			// One line per failure, once per start, is not log spam.
+			console.error(
+				`[migrate] ${name} failed and was not applied:`,
+				err instanceof Error ? err.message : err
+			);
 		}
 	}
 }
