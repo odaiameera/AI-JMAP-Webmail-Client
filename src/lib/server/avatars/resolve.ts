@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { resolveTxt } from 'node:dns/promises';
 import { safeFetch } from './net';
-import { sniffImage } from './image';
+import { imageSize, sniffImage } from './image';
 
 /**
  * The individual avatar sources. Each returns the resolved image or null.
@@ -118,29 +118,64 @@ export async function resolveBimi(domain: string): Promise<Resolved> {
 
 const LINK_TAG_RE = /<link\b[^>]*>/gi;
 
-/** Pick the best icon link from a homepage's <head>, preferring apple-touch
- *  icons and larger declared sizes (they're higher-resolution PNGs). */
-function bestIconHref(html: string, baseUrl: string): string | null {
-	let best: { href: string; score: number } | null = null;
+/**
+ * Every icon link in a homepage's <head>, best first.
+ *
+ * This used to return only the single highest-scoring link, which is how
+ * low-resolution avatars got in: a site declaring a 16x16 .ico in <head> had
+ * that one candidate tried, and if it fetched successfully the 180px
+ * apple-touch-icon below was never reached. Returning the ranked list lets the
+ * caller keep looking for something bigger.
+ *
+ * Vector icons score highest — an SVG is sharp at any size, which is the whole
+ * problem here — then declared `sizes`, then the apple-touch convention (180px
+ * by convention, and usually a clean square mark).
+ */
+function iconHrefs(html: string, baseUrl: string): string[] {
+	const found: Array<{ href: string; score: number }> = [];
 	for (const tag of html.match(LINK_TAG_RE) ?? []) {
 		if (!/\brel\s*=\s*["'][^"']*icon[^"']*["']/i.test(tag)) continue;
 		const href = tag.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
 		if (!href) continue;
+
 		let score = 1;
-		if (/apple-touch-icon/i.test(tag)) score = 4;
+		if (/apple-touch-icon/i.test(tag)) score = 6;
 		const size = tag.match(/\bsizes\s*=\s*["'](\d+)x\d+["']/i);
-		if (size) score = Math.max(score, Math.min(6, Math.floor(Number(size[1]) / 32) + 1));
+		if (size) score = Math.max(score, Math.min(9, Math.floor(Number(size[1]) / 32) + 2));
+		if (/\.svg\b/i.test(href) || /type\s*=\s*["']image\/svg/i.test(tag)) score = 10;
+
 		try {
-			const abs = new URL(href, baseUrl).toString();
-			if (!best || score > best.score) best = { href: abs, score };
+			found.push({ href: new URL(href, baseUrl).toString(), score });
 		} catch {
 			// skip unparseable href
 		}
 	}
-	return best?.href ?? null;
+	found.sort((a, b) => b.score - a.score);
+
+	// De-duplicate, keeping the best-scoring occurrence of each URL.
+	const seen = new Set<string>();
+	return found.filter(({ href }) => !seen.has(href) && seen.add(href)).map((f) => f.href);
 }
 
-/** Favicon: parse the homepage for a declared icon, else try well-known paths. */
+/**
+ * Stop looking once a candidate is this big. Rows draw avatars at 32-40 CSS
+ * px, so 128 already covers a retina display with room to spare; anything
+ * larger cannot look better and only costs another round-trip.
+ */
+const IDEAL_SIZE = 128;
+
+/** Bound on how many candidate URLs we will actually fetch per domain. */
+const MAX_ICON_FETCHES = 5;
+
+/**
+ * Favicon: parse the homepage for declared icons, else try well-known paths,
+ * and keep the highest-resolution one rather than the first that parses.
+ *
+ * Taking the first working candidate is what produced blurry avatars — plenty
+ * of sites still declare a 16x16 .ico first. Each candidate's real pixel size
+ * is read from its header (see `imageSize`), so the choice is made on what the
+ * bytes actually are, not on what the markup claims.
+ */
 export async function resolveFavicon(domain: string): Promise<Resolved> {
 	const candidates: string[] = [];
 
@@ -150,31 +185,57 @@ export async function resolveFavicon(domain: string): Promise<Resolved> {
 		maxBytes: 512 * 1024
 	});
 	if (home && home.status === 200 && /text\/html/i.test(home.contentType ?? '')) {
-		const href = bestIconHref(home.bytes.toString('utf8'), `https://${domain}/`);
-		if (href) candidates.push(href);
+		candidates.push(...iconHrefs(home.bytes.toString('utf8'), `https://${domain}/`));
 	}
-	// Conventional locations as a fallback. apple-touch-icon first — it's a
-	// proper PNG at a useful size on most sites.
-	candidates.push(`https://${domain}/apple-touch-icon.png`, `https://${domain}/favicon.ico`);
+	// Conventional locations, best first: a vector mark, then the apple-touch
+	// convention (180px), then the 16x16-era .ico as a last resort.
+	candidates.push(
+		`https://${domain}/favicon.svg`,
+		`https://${domain}/apple-touch-icon.png`,
+		`https://${domain}/apple-touch-icon-precomposed.png`,
+		`https://${domain}/favicon.ico`
+	);
+
+	const seen = new Set<string>();
+	let best: { resolved: NonNullable<Resolved>; size: number } | null = null;
+	let fetches = 0;
 
 	for (const url of candidates) {
+		if (seen.has(url)) continue;
+		seen.add(url);
+		if (fetches >= MAX_ICON_FETCHES) break;
+		fetches++;
+
 		const blob = await safeFetch(url, { accept: 'image/*', timeoutMs: 3000, maxBytes: 256 * 1024 });
 		if (!blob || blob.status !== 200) continue;
 		const mime = sniffImage(blob.bytes);
 		if (!mime) continue; // not a real image (e.g. SPA returned index.html)
-		return { contentType: mime, bytes: blob.bytes, source: 'favicon' };
+
+		const size = imageSize(blob.bytes, mime);
+		if (!best || size > best.size) {
+			best = { resolved: { contentType: mime, bytes: blob.bytes, source: 'favicon' }, size };
+		}
+		// Good enough that a further round-trip cannot improve it.
+		if (size >= IDEAL_SIZE) break;
 	}
-	return null;
+
+	// A small mark is still served if it is all the domain offers — a soft
+	// logo beats a bare initial — but only after every larger candidate above
+	// has had its chance.
+	return best?.resolved ?? null;
 }
 
 /** Gravatar: a globally-recognised avatar for the exact address. d=404 makes
  *  "no avatar set" a clean 404 we can negative-cache. */
 export async function resolveGravatar(email: string): Promise<Resolved> {
 	const hash = createHash('md5').update(email.trim().toLowerCase()).digest('hex');
-	const blob = await safeFetch(`https://www.gravatar.com/avatar/${hash}?d=404&s=160`, {
+	// s=256: avatars are drawn up to 80 CSS px (profile card, account rows),
+	// which is 160 device pixels on a retina display; 160 was exactly at that
+	// limit with nothing spare. Still a small JPEG/PNG at this size.
+	const blob = await safeFetch(`https://www.gravatar.com/avatar/${hash}?d=404&s=256`, {
 		accept: 'image/*',
 		timeoutMs: 3000,
-		maxBytes: 128 * 1024
+		maxBytes: 256 * 1024
 	});
 	if (!blob || blob.status !== 200) return null;
 	const mime = sniffImage(blob.bytes);
