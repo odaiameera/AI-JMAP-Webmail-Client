@@ -55,11 +55,15 @@
 			are designed against, and an opaque photo covers it entirely, so it
 			only ever shows where it helps.
 
-			`object-contain`, not `cover`: cover crops to fill the circle, which
-			eats the edges of a wide wordmark. Square sources (almost all
-			favicons and every Gravatar) render identically either way, so
-			contain costs nothing and saves the rest. The small inset keeps a
-			full-bleed mark off the exact rim of the circle.
+			`object-cover`, deliberately, after trying `contain`. Plenty of
+			favicons are an opaque brand square — NVIDIA's green, Substack's
+			orange — and those are meant to fill the disc edge to edge, which is
+			how they already looked. `contain` plus padding shrinks them into a
+			rounded square floating on a white circle with the corners showing:
+			strictly worse for the common case, to protect a wide wordmark that
+			favicons almost never are. Cover keeps opaque marks exactly as they
+			were and still fixes the transparent ones, which only ever needed the
+			plate underneath to change.
 
 			The hairline ring is what stops a white plate from disappearing into
 			a white row in light mode — without it the disc has no edge and the
@@ -72,8 +76,8 @@
 			height={size}
 			loading="lazy"
 			decoding="async"
-			class="absolute inset-0 w-full h-full bg-white object-contain transition-opacity duration-150"
-			style="opacity:{loaded ? 1 : 0};padding:{Math.max(1, Math.round(size * 0.06))}px;box-shadow:inset 0 0 0 1px var(--color-border)"
+			class="absolute inset-0 w-full h-full bg-white object-cover transition-opacity duration-150"
+			style="opacity:{loaded ? 1 : 0};box-shadow:inset 0 0 0 1px var(--color-border)"
 			draggable="false"
 			onload={() => (loaded = true)}
 			onerror={() => (loaded = false)}
