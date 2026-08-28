@@ -116,6 +116,24 @@
 		return Number.isFinite(parsed) ? parsed : null;
 	});
 	const spamStatus = $derived(email['header:x-spam-status:asText']?.toLowerCase() ?? '');
+
+	/**
+	 * The individual rules behind the score, when the server publishes them.
+	 * Stalwart's filter is a stack of rules (authentication results, DNS
+	 * blocklists, the Bayes classifier, heuristics), and only the breakdown
+	 * tells you which of them objected — a legitimate newsletter flagged by
+	 * BAYES_SPAM needs training, one flagged by a DMARC failure needs the
+	 * sender to fix their DNS, and the two look identical from the score.
+	 */
+	const spamRules = $derived.by<string[]>(() => {
+		const raw =
+			email['header:x-spam-result:asText'] ?? email['header:x-spam-status:asText'] ?? '';
+		return raw
+			.split(/[,;]/)
+			.map((part: string) => part.trim())
+			.filter((part: string) => /^[A-Z][A-Z0-9_]{2,}/.test(part));
+	});
+	let showSpamRules = $state(false);
 	const isFlaggedSpam = $derived(spamStatus.startsWith('yes'));
 	const isInJunk = $derived(
 		Object.keys(email.mailboxIds).some((id) => {
@@ -297,13 +315,13 @@
 		});
 	}
 
-	async function doAction(action: string) {
+	async function doAction(action: string, extra: Record<string, unknown> = {}) {
 		actionLoading = action;
 		try {
 			await fetch(`/api/email/${email.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action, sourceMailboxId })
+				body: JSON.stringify({ action, sourceMailboxId, ...extra })
 			});
 			if (action === 'trash' || action === 'archive' || action === 'spam') {
 				goto('/inbox');
@@ -605,17 +623,41 @@
 			<div class="flex flex-col items-end gap-1 shrink-0">
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
 				{#if spamScore !== null}
-					<span
+					<!-- The score is a button when there is a breakdown to show: a
+					     number on its own cannot tell you whether to train the
+					     classifier or chase a DNS record. -->
+					<svelte:element
+						this={spamRules.length > 0 ? 'button' : 'span'}
+						role={spamRules.length > 0 ? 'button' : undefined}
+						tabindex={spamRules.length > 0 ? 0 : undefined}
+						onclick={spamRules.length > 0 ? () => (showSpamRules = !showSpamRules) : undefined}
 						class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full
+							{spamRules.length > 0 ? 'cursor-pointer' : ''}
 							{isFlaggedSpam
 								? 'bg-danger/10 text-danger'
 								: spamScore > 3
 									? 'bg-warning/10 text-warning'
 									: 'bg-text-tertiary/10 text-text-tertiary'}"
-						title={isFlaggedSpam ? 'Flagged as spam by the classifier' : 'Spam classifier score'}
+						title={spamRules.length > 0
+							? 'Spam score — click to see which rules fired'
+							: isFlaggedSpam
+								? 'Flagged as spam by the classifier'
+								: 'Spam classifier score'}
 					>
 						Spam score: {spamScore.toFixed(1)}
-					</span>
+						{#if spamRules.length > 0}
+							<span aria-hidden="true">{showSpamRules ? '▴' : '▾'}</span>
+						{/if}
+					</svelte:element>
+					{#if showSpamRules && spamRules.length > 0}
+						<div class="mt-1 max-w-xs flex flex-wrap justify-end gap-1">
+							{#each spamRules as rule (rule)}
+								<span class="text-3xs font-mono px-1.5 py-0.5 rounded-md bg-surface-hover text-text-secondary">
+									{rule}
+								</span>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</div>
 		</div>
@@ -705,6 +747,24 @@
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
 			</button>
 			{#if isInJunk}
+				<!--
+					Trusting the sender is the durable fix where "not spam" is the
+					one-off one: Stalwart exempts mail from anyone in the address
+					book regardless of score, so this stops the same newsletter
+					being re-flagged next month without loosening the filter for
+					anything else.
+				-->
+				<button
+					onclick={() =>
+						doAction('trustSender', { address: from?.email, name: from?.name })}
+					title="Trust this sender — add them to Contacts so their mail is never filtered as spam"
+					disabled={actionLoading === 'trustSender' || !from?.email}
+					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-accent-fg transition-colors cursor-pointer disabled:opacity-50"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+					</svg>
+				</button>
 				<button
 					onclick={() => doAction('notSpam')}
 					title="Not spam — move back to Inbox and train the classifier"
