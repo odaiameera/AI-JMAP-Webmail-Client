@@ -145,6 +145,8 @@ export interface Email {
 	'header:x-spam-status:asText'?: string | null;
 	/** Numeric spam score; higher = more spammy. */
 	'header:x-spam-score:asText'?: string | null;
+	/** Per-rule breakdown behind the score, where the server publishes one. */
+	'header:x-spam-result:asText'?: string | null;
 }
 
 export interface EmailQueryResult {

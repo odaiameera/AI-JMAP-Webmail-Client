@@ -128,7 +128,17 @@ html.light {
 	--color-surface-hover: #eff2f5; /* control-bgColor-hover */
 	--color-border: #d1d9e0b3;      /* borderColor-muted */
 	--color-text: #1f2328;          /* fgColor-default */
-	--color-text-secondary: #59636e;/* fgColor-muted */
+	/*
+	 * One step darker than Primer's fgColor-muted (#59636e). A deliberate
+	 * deviation: that value is tuned for GitHub's prose and 14px UI, while
+	 * this is a dense mail list where read senders, subjects and every
+	 * sidebar folder name all render in it. At #59636e those rows read as
+	 * disabled rather than merely secondary. Computed as a step from
+	 * fgColor-muted toward fgColor-default, so it stays on the same hue
+	 * ramp; still comfortably short of the primary text colour, so the
+	 * read/unread hierarchy holds.
+	 */
+	--color-text-secondary: #434b54;
 	--color-text-tertiary: #818b98; /* fgColor-disabled */
 	/* One blue does both jobs in light mode: #0969da is 5.2:1 as white-on-blue
 	   for buttons and 5.2:1 as blue-on-white for links, so accent and
@@ -147,6 +157,22 @@ html.light {
 
 body {
 	font-family: var(--font-sans);
+}
+
+/*
+ * Font smoothing is per-theme, and this is why light mode looked lighter
+ * despite both themes using the same Cairo at the same weights.
+ *
+ * `antialiased` switches macOS/WebKit from subpixel to greyscale rendering,
+ * which thins every glyph. On the dark theme that is exactly what you want —
+ * light-on-dark text blooms optically and needs thinning back. Applied to
+ * light mode it removes weight that dark-on-light text did not have to spare,
+ * on top of the same optical effect already working against it.
+ *
+ * So: keep it for dark, let light render with the browser's default subpixel
+ * antialiasing, which puts the weight back without touching the font.
+ */
+html:not(.light) body {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }

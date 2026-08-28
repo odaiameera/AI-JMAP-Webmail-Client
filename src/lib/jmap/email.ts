@@ -78,7 +78,13 @@ export async function getEmailDetail(
 					'header:list-unsubscribe:asText',
 					'header:list-unsubscribe-post:asText',
 					'header:x-spam-status:asText',
-					'header:x-spam-score:asText'
+					'header:x-spam-score:asText',
+					// The per-rule breakdown behind the score. A number alone says a
+					// message was flagged but not why, and "why" is the only thing
+					// that distinguishes a mis-trained classifier from a genuine
+					// authentication failure. Not every server emits it; absent
+					// header simply renders nothing.
+					'header:x-spam-result:asText'
 				],
 				fetchAllBodyValues: true
 			},
