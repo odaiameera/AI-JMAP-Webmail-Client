@@ -27,7 +27,9 @@ Three principles shape the design:
 
 ## What's here today
 
-**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Sender trust through the address book, with visible reasons when a message is flagged.
+**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before.
+
+**Sender avatars** — Resolves sender images from BIMI, site favicons, and Gravatar, cached server-side on the persistent volume so every device shares one lookup and a fresh browser loads instantly. Lookups that find nothing are negative-cached rather than retried on every render.
 
 **Calendar** — CalDAV calendars with invitation handling, and the ICS parsing to go with it.
 
@@ -62,8 +64,8 @@ The value of one workspace is cross-app context. Once Notes and Tasks exist, the
 
 ### Also planned
 
-- **Contacts** — groups, avatars, vCard export, duplicate detection and merge
-- **Composer** — unified recipient autocomplete over saved contacts and learned previous recipients, with contacts always ranking first and learned addresses never silently becoming visible contacts ([design](PLAN.md))
+- **Contacts** — distribution groups, contact photos, vCard export, and merging duplicates already in the address book
+- **Composer** — the recipient autocomplete currently suggests from addresses you've emailed before, held in the browser. Planned: fold saved contacts and a server-side index of previous recipients into the same dropdown, with contacts ranking first and learned addresses never silently becoming visible contacts ([design](PLAN.md))
 - **Packaging** — a published container image, so deployment is a `docker compose up` rather than a build
 
 Nothing here has a date on it. This is a personal project built in the open, and the roadmap describes intent rather than a commitment.
