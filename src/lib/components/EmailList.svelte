@@ -365,12 +365,24 @@
 			{#if emails.length === 0}
 				<div class="flex items-center justify-center h-full text-text-tertiary"><p>No messages</p></div>
 			{:else}
+				<!--
+					Date headers use surface-HOVER, not surface. When surface meant
+					"elevated panel" it was the lighter tone and this read as a strip
+					sitting just above the rows. Under the Primer palette surface is
+					the chrome — the darkest tone, #010409 — and these headers sit
+					inside the content tray at #0d1117, so they turned into a
+					near-black band darker than everything around them, which merged
+					with the toolbar above and buried the divider between the two.
+					surface-hover is #151b23 in dark and #eff2f5 in light: a step away
+					from the row colour in each theme, which is what a header strip
+					wants, and what GitHub uses for the header of a box.
+				-->
 				{#each groups as group (group.key)}
 					{@const isCollapsed = collapsedGroups.has(group.key)}
 					<button
 						type="button"
 						onclick={() => toggleGroup(group.key)}
-						class="w-full sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-surface/95 backdrop-blur-sm border-b border-border text-left hover:bg-surface-hover transition-colors cursor-pointer"
+						class="w-full sticky top-0 z-10 flex items-center gap-2 px-4 py-1.5 bg-surface-hover/95 backdrop-blur-sm border-b border-border text-left hover:bg-surface-hover transition-colors cursor-pointer"
 					>
 						<span
 							class="inline-flex items-center justify-center w-4 h-4 text-text-tertiary transition-transform"
