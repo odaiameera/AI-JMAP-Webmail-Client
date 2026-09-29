@@ -7,7 +7,7 @@ import { isIP } from 'node:net';
  * naive `fetch('https://' + domain + '/favicon.ico')` is an SSRF vector: a
  * crafted sender domain could resolve to a host on the homelab's private
  * network. Every request here:
- *   - is https-only,
+ *   - is https-only (unless the caller opts into http),
  *   - has its hostname resolved and every resulting IP checked against
  *     private/loopback/link-local/reserved ranges before connecting,
  *   - re-checks the final URL host after redirects,
@@ -89,7 +89,14 @@ const MAX_REDIRECTS = 4;
 
 export async function safeFetch(
 	rawUrl: string,
-	opts: { accept?: string; maxBytes?: number; timeoutMs?: number } = {}
+	opts: {
+		accept?: string;
+		maxBytes?: number;
+		/** Covers the whole exchange, body included. */
+		timeoutMs?: number;
+		/** Also accept plain-http URLs (mail images still use them). */
+		allowHttp?: boolean;
+	} = {}
 ): Promise<FetchedBlob | null> {
 	const max = opts.maxBytes ?? DEFAULT_MAX_BYTES;
 	let target = rawUrl;
@@ -106,47 +113,51 @@ export async function safeFetch(
 		} catch {
 			return null;
 		}
-		if (url.protocol !== 'https:') return null;
+		if (url.protocol !== 'https:' && !(opts.allowHttp && url.protocol === 'http:')) return null;
 		try {
 			await assertPublicHost(url.hostname);
 		} catch {
 			return null;
 		}
 
+		// The timer stays armed through the body read: a server that sends
+		// headers promptly and then trickles bytes must not hold the request.
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-		let res: Response;
 		try {
-			res = await fetch(url, {
-				signal: controller.signal,
-				redirect: 'manual',
-				headers: {
-					'User-Agent': BROWSER_UA,
-					...(opts.accept ? { Accept: opts.accept } : {})
-				}
-			});
-		} catch {
-			clearTimeout(timer);
-			return null;
-		}
-		clearTimeout(timer);
-
-		if (res.status >= 300 && res.status < 400) {
-			const location = res.headers.get('location');
-			if (!location) return null;
+			let res: Response;
 			try {
-				target = new URL(location, url).toString(); // re-vetted at loop top
+				res = await fetch(url, {
+					signal: controller.signal,
+					redirect: 'manual',
+					headers: {
+						'User-Agent': BROWSER_UA,
+						...(opts.accept ? { Accept: opts.accept } : {})
+					}
+				});
 			} catch {
 				return null;
 			}
-			continue;
-		}
 
-		const declared = Number(res.headers.get('content-length') ?? '');
-		if (Number.isFinite(declared) && declared > max) return null;
-		const bytes = await readCapped(res, max);
-		if (!bytes) return null;
-		return { bytes, contentType: res.headers.get('content-type'), status: res.status };
+			if (res.status >= 300 && res.status < 400) {
+				const location = res.headers.get('location');
+				if (!location) return null;
+				try {
+					target = new URL(location, url).toString(); // re-vetted at loop top
+				} catch {
+					return null;
+				}
+				continue;
+			}
+
+			const declared = Number(res.headers.get('content-length') ?? '');
+			if (Number.isFinite(declared) && declared > max) return null;
+			const bytes = await readCapped(res, max).catch(() => null);
+			if (!bytes) return null;
+			return { bytes, contentType: res.headers.get('content-type'), status: res.status };
+		} finally {
+			clearTimeout(timer);
+		}
 	}
 
 	return null; // too many redirects

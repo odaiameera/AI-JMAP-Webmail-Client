@@ -472,7 +472,14 @@
 			{/if}
 			{#if previewEmail}
 				{#key previewEmail.id}
-					<EmailDetail email={previewEmail} compact />
+					<EmailDetail
+						email={previewEmail}
+						compact
+						onRemoved={() => {
+							previewEmail = null;
+							previewSelectedId = null;
+						}}
+					/>
 				{/key}
 			{:else if loadingPreview}
 				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading…</div>

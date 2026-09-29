@@ -29,6 +29,8 @@ export const PREF_KEYS = [
 	'mark_read_delay',
 	'auto_load_images',
 	'default_sort',
+	'trash_retention_days',
+	'otp_trash_after_copy',
 	'keyboard_shortcuts',
 	'notifications',
 	'notification_folders',

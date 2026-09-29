@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { writePreferences } from '$lib/server/preferences';
+import { TRASH_RETENTION_CHOICES } from '$lib/constants/trash-retention';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Not signed in');
@@ -10,6 +11,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		autoLoadImages?: string;
 		defaultSort?: string;
 		keyboardShortcuts?: boolean;
+		trashRetentionDays?: number;
+		otpTrashAfterCopy?: boolean;
 	};
 
 	const patch: Record<string, string> = {};
@@ -33,6 +36,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	if (body.keyboardShortcuts !== undefined) {
 		patch.keyboard_shortcuts = body.keyboardShortcuts ? 'on' : 'off';
+	}
+	if (body.trashRetentionDays !== undefined) {
+		if (!(TRASH_RETENTION_CHOICES as readonly number[]).includes(body.trashRetentionDays)) {
+			return json({ error: 'invalid trashRetentionDays' }, { status: 400 });
+		}
+		patch.trash_retention_days = String(body.trashRetentionDays);
+	}
+	if (body.otpTrashAfterCopy !== undefined) {
+		patch.otp_trash_after_copy = body.otpTrashAfterCopy ? 'on' : 'off';
 	}
 	writePreferences(locals.user.id, patch);
 	return json({ success: true });

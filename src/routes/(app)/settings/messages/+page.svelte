@@ -14,6 +14,8 @@
 	let autoLoadImages = $state(data.autoLoadImages);
 	let defaultSort = $state(data.defaultSort);
 	let keyboardShortcuts = $state(data.keyboardShortcuts);
+	let trashRetentionDays = $state(String(data.trashRetentionDays));
+	let otpTrashAfterCopy = $state(data.otpTrashAfterCopy);
 
 	const defaultPageSize = $derived(
 		typeof $userState.settings.defaultPageSize === 'number'
@@ -130,6 +132,38 @@
 					{ value: 'contacts_only', label: 'Contacts only' },
 					{ value: 'always', label: 'Always' }
 				]}
+			/>
+		{/snippet}
+	</SettingRow>
+
+	<SettingRow
+		title="Empty Trash automatically"
+		description="Permanently delete messages once they have been in Trash this long, in every linked account. Messages already in Trash when you turn this on get the full period."
+		state={states.trashRetentionDays ?? 'idle'}
+	>
+		{#snippet control()}
+			<Select
+				value={trashRetentionDays}
+				ariaLabel="Empty Trash automatically"
+				onchange={(v) => { trashRetentionDays = v; save({ trashRetentionDays: parseInt(v, 10) }, 'trashRetentionDays'); }}
+				options={[
+					{ value: '0', label: 'Never' },
+					{ value: '7', label: 'After 7 days' },
+					{ value: '30', label: 'After 30 days' }
+				]}
+			/>
+		{/snippet}
+	</SettingRow>
+
+	<SettingRow
+		title="Trash sign-in code emails after copying"
+		description="When an email contains a verification code, a Copy button appears above it. With this on, copying the code also moves the email to Trash."
+		state={states.otpTrashAfterCopy ?? 'idle'}
+	>
+		{#snippet control()}
+			<Toggle
+				checked={otpTrashAfterCopy}
+				onChange={(v) => { otpTrashAfterCopy = v; save({ otpTrashAfterCopy: v }, 'otpTrashAfterCopy'); }}
 			/>
 		{/snippet}
 	</SettingRow>
