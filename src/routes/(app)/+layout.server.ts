@@ -114,6 +114,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		// toggle is enabled; users opt out per-channel.
 		const notifyCalendarEvents = prefs.notify_calendar_events !== 'off';
 		const notifyEventReminders = prefs.notify_event_reminders !== 'off';
+		// Whether copying a detected sign-in code also moves the email to
+		// Trash. On unless turned off in Settings → Messages.
+		const otpTrashAfterCopy = prefs.otp_trash_after_copy !== 'off';
 
 		return {
 			mailboxes,
@@ -133,6 +136,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			notificationsEnabled,
 			notifyCalendarEvents,
 			notifyEventReminders,
+			otpTrashAfterCopy,
 			// "Create event from email" (LLM extraction) only renders when an
 			// Ollama endpoint is configured server-side.
 			aiEnabled: !!(env.OLLAMA_API_KEY || env.OLLAMA_URL)

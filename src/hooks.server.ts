@@ -5,6 +5,7 @@ import {
 	processDueRemindersForUser
 } from '$lib/server/reminder-scheduler';
 import { startRulesScheduler, applyRulesForUserSafe } from '$lib/server/rules-scheduler';
+import { startTrashRetentionScheduler } from '$lib/server/trash-retention';
 import { getAppSession } from '$lib/server/auth/app-session';
 import { getUserById, hasAppUser } from '$lib/server/auth/user';
 import { authStateForAccount, listAccounts, toPublic } from '$lib/server/auth/accounts';
@@ -53,6 +54,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		runMigrations();
 		startReminderScheduler();
 		startRulesScheduler();
+		startTrashRetentionScheduler();
 		migrated = true;
 	}
 

@@ -6,6 +6,8 @@
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import { renderEmailBodyHtml } from '$lib/utils/email-body';
+	import { rewriteEmailImages } from '$lib/utils/email-images';
+	import { detectEmailVerificationCode } from '$lib/utils/otp';
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import InvitationCard from './InvitationCard.svelte';
@@ -20,7 +22,16 @@
 	const allLabels = getContext<Label[]>('labels') ?? [];
 	const aiAssistant = getContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT);
 
-	let { email, compact = false }: { email: Email; compact?: boolean } = $props();
+	let {
+		email,
+		compact = false,
+		onRemoved
+	}: {
+		email: Email;
+		compact?: boolean;
+		/** Called once this email has been moved out of the view (reading pane). */
+		onRemoved?: () => void;
+	} = $props();
 
 	$effect(() => {
 		const id = email.id;
@@ -219,7 +230,7 @@
 			pre { white-space: pre-wrap; }
 			blockquote { border-left: 3px solid #0969da; padding-left: 1em; margin-left: 0; color: #59636e; }
 		</style>
-	</head><body>${getBodyHtml()}</body></html>`);
+	</head><body>${getDisplayHtml()}</body></html>`);
 
 
 	function handleEditDraft() {
@@ -258,6 +269,19 @@
 
 	function getBodyHtml(): string {
 		return renderEmailBodyHtml(email) || '<p style="color: #59636e;">No content</p>';
+	}
+
+	/**
+	 * The body as shown in the reading view: remote images load through our
+	 * image proxy and `cid:` images from their inline parts. Replies and
+	 * forwards quote {@link getBodyHtml} instead, so recipients get the
+	 * sender's original image URLs rather than links into this webmail.
+	 */
+	function getDisplayHtml(): string {
+		return rewriteEmailImages(getBodyHtml(), {
+			emailId: email.id,
+			attachments: email.attachments ?? []
+		});
 	}
 
 	function getHtmlQuotedBlock(): string {
@@ -329,6 +353,111 @@
 				await invalidateAll();
 			}
 		} finally { actionLoading = ''; }
+	}
+
+	// --- Verification codes ---
+	//
+	// A sign-in code is often wrapped in the sender's tracking link, so
+	// double-clicking it to select opens a browser tab instead. The detected
+	// code gets its own Copy button, and — once it's copied — the email has
+	// done its job, so it goes to Trash (Settings → Messages turns that off).
+
+	const otp = $derived(isDraft ? null : detectEmailVerificationCode(email));
+	const trashMailboxId = $derived(mailboxes.find((m) => m.role === 'trash')?.id ?? '');
+	const isInTrash = $derived(!!trashMailboxId && email.mailboxIds[trashMailboxId] === true);
+	const otpTrashAfterCopy = $derived(page.data.otpTrashAfterCopy !== false);
+	let otpBusy = $state(false);
+	let otpCopied = $state(false);
+	$effect(() => {
+		void email.id;
+		otpCopied = false;
+	});
+
+	async function copyText(text: string): Promise<boolean> {
+		try {
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(text);
+				return true;
+			}
+		} catch {
+			// Permission denied or unfocused document — try the fallback.
+		}
+		// The async clipboard API only exists on https/localhost; a webmail
+		// reached over plain http on the LAN still needs Copy to work.
+		const area = document.createElement('textarea');
+		area.value = text;
+		area.setAttribute('readonly', '');
+		area.style.position = 'fixed';
+		area.style.opacity = '0';
+		document.body.appendChild(area);
+		area.select();
+		let ok = false;
+		try {
+			ok = document.execCommand('copy');
+		} catch {
+			ok = false;
+		}
+		area.remove();
+		return ok;
+	}
+
+	async function copyVerificationCode() {
+		if (!otp || otpBusy) return;
+		otpBusy = true;
+		try {
+			if (!(await copyText(otp.code))) {
+				showToast({ message: 'Could not copy the code' });
+				return;
+			}
+			otpCopied = true;
+			if (!otpTrashAfterCopy || isInTrash || !trashMailboxId) {
+				showToast({ message: 'Code copied' });
+				return;
+			}
+
+			const id = email.id;
+			const from = sourceMailboxId;
+			const trashId = trashMailboxId;
+			const res = await fetch(`/api/email/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'trash', sourceMailboxId: from })
+			}).catch(() => null);
+			if (!res?.ok) {
+				showToast({ message: 'Code copied, but the email could not be moved to Trash' });
+				return;
+			}
+			showToast({
+				message: 'Code copied · email moved to Trash',
+				duration: 6000,
+				action: from
+					? { label: 'Undo', onClick: () => void restoreFromTrash(id, from, trashId) }
+					: undefined
+			});
+			if (onRemoved) {
+				// Reading pane: stay in the list (a folder, or search results)
+				// and just clear the pane.
+				onRemoved();
+				await invalidateAll();
+			} else {
+				await goto(destAfterAction(from));
+			}
+		} finally {
+			otpBusy = false;
+		}
+	}
+
+	async function restoreFromTrash(id: string, targetMailboxId: string, trashId: string) {
+		const res = await fetch(`/api/email/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action: 'moveTo', targetMailboxId, sourceMailboxId: trashId })
+		}).catch(() => null);
+		if (!res?.ok) {
+			showToast({ message: 'Could not restore the email' });
+			return;
+		}
+		await invalidateAll();
 	}
 
 	// --- AI event extraction ("create event from this email") ---
@@ -602,14 +731,18 @@
 						<span class="text-xs text-text-tertiary">&lt;{from.email}&gt;</span>
 					{/if}
 					{#if from?.email}
+						<!-- self-center: in this baseline-aligned row, an icon-only
+						     button's baseline is the bottom of its SVG, which lifts
+						     the icon above the text. The negative margin keeps the
+						     padded hit area from making the row taller. -->
 						<button
 							type="button"
 							onclick={handleAddSenderToContacts}
 							aria-label="Add sender to contacts"
 							title="Add to Contacts"
-							class="p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
+							class="self-center -my-1 p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
 						>
-							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
+							<svg class="block" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
 						</button>
 					{/if}
 				</div>
@@ -841,6 +974,40 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if otp}
+		<div class="{compact ? 'mx-4' : 'mx-6'} mt-3 shrink-0">
+			<div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-2.5 relative overflow-hidden">
+				<div class="absolute inset-y-0 left-0 w-1 bg-accent"></div>
+				<svg class="shrink-0 text-accent-fg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>
+				</svg>
+				<div class="min-w-0">
+					<div class="text-2xs font-medium uppercase tracking-wide text-accent-fg">Verification code</div>
+					<div class="font-mono text-lg font-semibold tracking-[0.2em] text-text select-all leading-7">{otp.display}</div>
+				</div>
+				<div class="ml-auto flex flex-col items-end gap-0.5 shrink-0">
+					<button
+						type="button"
+						onclick={copyVerificationCode}
+						disabled={otpBusy}
+						class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium bg-accent hover:bg-accent-hover text-white transition-colors cursor-pointer disabled:opacity-60"
+					>
+						{#if otpCopied}
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+							Copied
+						{:else}
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+							Copy code
+						{/if}
+					</button>
+					{#if otpTrashAfterCopy && !isInTrash && trashMailboxId}
+						<span class="text-3xs text-text-tertiary">Moves this email to Trash</span>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if calendarPart}
 		{#key calendarPart.blobId}

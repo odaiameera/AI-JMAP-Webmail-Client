@@ -27,7 +27,7 @@ Three principles shape the design:
 
 ## What's here today
 
-**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before.
+**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before. Remote images in a message load through a server-side proxy, and inline `cid:` images render. Sign-in codes are detected and get a Copy button that can send the email to Trash, and Trash can empty itself after 7 or 30 days.
 
 **Sender avatars** — Resolves sender images from BIMI, site favicons, and Gravatar, cached server-side on the persistent volume so every device shares one lookup and a fresh browser loads instantly. Lookups that find nothing are negative-cached rather than retried on every render.
 
@@ -142,7 +142,7 @@ If the agent panel reports that the AI service does not serve the configured mod
 
 ### Where your data goes
 
-AI and task-app credentials stay on the server. Email content is sent only to the Ollama endpoint you configure. Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
+AI and task-app credentials stay on the server. Email content is sent only to the Ollama endpoint you configure. Remote images in the mail you read are fetched by the server, so the sender's image host sees the server's address rather than yours (it can still tell the message was opened). Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
 
 The task adapter receives a `POST` body only after confirmation:
 

@@ -64,6 +64,8 @@
 		{ key: 'mark_read_delay',       description: 'Mark-as-read delay, milliseconds' },
 		{ key: 'auto_load_images',      description: 'Remote-image policy' },
 		{ key: 'default_sort',          description: 'Default inbox sort' },
+		{ key: 'trash_retention_days',  description: 'Days before Trash is emptied (0 = never)' },
+		{ key: 'otp_trash_after_copy',  description: 'Trash sign-in code emails after copying' },
 		{ key: 'keyboard_shortcuts',    description: 'Keyboard shortcuts on / off' },
 		{ key: 'notifications',         description: 'Browser notifications on / off' },
 		{ key: 'notification_folders',  description: 'Folders that fire notifications' },

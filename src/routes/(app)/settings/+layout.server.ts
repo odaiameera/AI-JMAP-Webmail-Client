@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { readPreferences } from '$lib/server/preferences';
 import { getDisplayName } from '$lib/server/db/queries/app-prefs';
+import { parseTrashRetentionDays } from '$lib/constants/trash-retention';
 
 function num(value: string | undefined, fallback: number): number {
 	if (value === undefined) return fallback;
@@ -49,6 +50,8 @@ export const load: LayoutServerLoad = async ({ cookies, locals, parent }) => {
 		autoLoadImages: prefs.auto_load_images ?? 'contacts_only',
 		defaultSort: prefs.default_sort ?? 'date_desc',
 		keyboardShortcuts: prefs.keyboard_shortcuts !== 'off',
+		trashRetentionDays: parseTrashRetentionDays(prefs.trash_retention_days),
+		otpTrashAfterCopy: prefs.otp_trash_after_copy !== 'off',
 		// Notifications
 		notificationsEnabled: prefs.notifications === 'on',
 		notificationFolders,
