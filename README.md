@@ -27,7 +27,7 @@ Three principles shape the design:
 
 ## What's here today
 
-**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Optional Inbox tabs (Important, Updates, Newsletters, Promotions), sorted by hand for now; [JEV_PLAN.md](JEV_PLAN.md) describes automatic sorting. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before. Remote images in a message load through a server-side proxy, and inline `cid:` images render. Sign-in codes are detected and get a Copy button that can send the email to Trash, and Trash can empty itself after 7 or 30 days.
+**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Optional Inbox tabs (Important, Updates, Newsletters, Promotions), sorted by hand or by Jev. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before. Remote images in a message load through a server-side proxy, and inline `cid:` images render. Sign-in codes are detected and get a Copy button that can send the email to Trash, and Trash can empty itself after 7 or 30 days.
 
 **Sender avatars** — Resolves sender images from BIMI, site favicons, and Gravatar, cached server-side on the persistent volume so every device shares one lookup and a fresh browser loads instantly. Lookups that find nothing are negative-cached rather than retried on every render.
 
@@ -35,9 +35,11 @@ Three principles shape the design:
 
 **Contacts** — JMAP contacts synced through Stalwart, with vCard and CSV import from Apple and Google exports. A preview shows valid, duplicate, and rejected rows before anything is written.
 
+**Jev sorting** — Optional and per account: [Jev](https://docs.typesafe.ai), TypeSafe's decision model, sorts new Inbox mail into the tabs. Each email is judged once, together with facts the app works out (is the sender a contact, have you written to them, is it a mailing list); a confident pick is applied, anything else stays in Important, and the message view shows why. Jev never moves mail you've put in a tab, and a preview tries it on your last 200 emails before you switch it on. [JEV_PLAN.md](JEV_PLAN.md) has the design and what comes next.
+
 **AI assistant** — A collapsible rail that searches the whole mailbox and calendar, holds persistent conversations, answers in Markdown, drafts replies, and proposes calendar events and tasks. Task proposals can route to Todoist, Linear, Notion, a generic webhook, or an MCP bridge.
 
-**Security** — Passkey support, encrypted account credentials, server-only secret handling, and a mock mode that short-circuits every AI call and labels itself so a demo can never be mistaken for a live reply.
+**Security** — Passkey support, encrypted account credentials, server-only secret handling, and a Jev mock mode (`JEV_MOCK`) that answers on the server without calling TypeSafe and labels every answer, so a demo can never be mistaken for Jev.
 
 ---
 
@@ -123,6 +125,10 @@ The example binds to `127.0.0.1:3001`. Put it behind a TLS reverse proxy for rem
 | `NOTION_DUE_PROPERTY` | No | Optional date-property name; otherwise `Due`, `Due date`, or `Deadline` is detected. |
 | `TASK_ADAPTER_URL` | Task creation only | HTTP endpoint that accepts confirmed task proposals. |
 | `TASK_ADAPTER_API_KEY` | No | Optional bearer token for the task adapter endpoint. |
+| `TYPESAFE_API_KEY` | Jev only | TypeSafe API key. Jev sorting stays unavailable without it. |
+| `JEV_MODEL` | No | Jev model version. Defaults to the pinned `jev-1.13.0`; confidence thresholds are tuned per version. |
+| `TYPESAFE_BASE_URL` | No | Override the TypeSafe endpoint, e.g. to route through a gateway such as LiteLLM. |
+| `JEV_MOCK` | No | Set to `1` to answer locally instead of calling TypeSafe, for demos and development. |
 
 ### Choosing a model
 
@@ -142,7 +148,9 @@ If the agent panel reports that the AI service does not serve the configured mod
 
 ### Where your data goes
 
-AI and task-app credentials stay on the server. Email content is sent only to the Ollama endpoint you configure. Remote images in the mail you read are fetched by the server, so the sender's image host sees the server's address rather than yours (it can still tell the message was opened). Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
+AI and task-app credentials stay on the server. Email content is sent to the Ollama endpoint you configure and, for accounts where you switch Jev sorting on, to TypeSafe. Remote images in the mail you read are fetched by the server, so the sender's image host sees the server's address rather than yours (it can still tell the message was opened). Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
+
+For Jev, each new email in an account you switch on is sent once: sender, recipients, subject, the first 2,000 characters of the body with quoted replies removed, and facts the app works out about it. Jev returns probabilities, which the app keeps alongside those facts; it never stores the email text. "Try Jev" sends your newest 200 Inbox emails the same way, once, when you press it. TypeSafe states it does not train on customer data; its documentation does not state a retention period, and zero data retention is an enterprise option.
 
 The task adapter receives a `POST` body only after confirmation:
 

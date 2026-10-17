@@ -115,8 +115,8 @@ POST https://api.typesafe.ai/v1/systemone
 
 ### Where it runs
 
-- **Same loop as rules.** It runs inside `runApply` in [rules-scheduler.ts](src/lib/server/rules-scheduler.ts): every minute, plus the catch-up for active users in [hooks.server.ts](src/hooks.server.ts).
-- **Parallel calls are capped** (around 8).
+- **Its own loop, shaped like the rules one.** [worker.ts](src/lib/server/jev/worker.ts) runs every minute, plus a catch-up for active users in [hooks.server.ts](src/hooks.server.ts), with its own cursor per account. Phase 2 folds the rules pass into it, so each email still gets one Jev call.
+- **Parallel calls are capped** at 4 per account.
 - **Retries.** 429 and 529 responses are retried with backoff, honouring `retry-after`.
 
 ### When Jev fails
@@ -200,19 +200,32 @@ Cost doesn't limit anything here. Accuracy and privacy are the real constraints.
 
 **Done when:** tabs work from start to finish with manual moves, and nothing calls TypeSafe yet.
 
-### Phase 1: Jev sorts the Inbox
+### Phase 1: Jev sorts the Inbox — built
 
-- **New code in `src/lib/server/jev/`:**
-  - a client that uses plain `fetch`, the same way the app talks to Ollama and the task apps
-  - a state builder
-  - a question builder
-  - `decide`
-  - the worker hook in `runApply`, with pending and retry handling
-- **Category question** with a confidence threshold.
-- **"Why is this here?" chip** showing the category probabilities and the facts that were sent.
-- **"Try Jev on my last 200 emails"**, before switching categories on: where each message would land, and what it cost.
-- **Mock mode**, which returns clearly labelled stand-in answers, like the existing AI mock.
+- **New code in [src/lib/server/jev/](src/lib/server/jev):**
+  - `client.ts`: plain `fetch` to `/v1/systemone`, the same way the app talks to Ollama and the task apps
+  - `email-state.ts` and `facts.ts`: the state and its facts
+  - `categorize.ts`: the question, and the decision with its threshold (`CATEGORY_MIN_CONFIDENCE`, 0.5 to start)
+  - `worker.ts`: queue, judge, apply and retry
+- **Migration `012_jev_sorting.sql`:**
+  - `jev_settings` gains the opt-in (`auto_sort`) and the cursor
+  - new `jev_decisions` table
+  - new `jev_usage` table: tokens per account per month
+- **Settings → Jev:**
+  - per-account "Let Jev sort new mail", which needs the tabs on and a configured key
+  - what is sent
+  - model and price
+  - this month's emails sorted, emails moved by you, and cost
+  - "Try Jev on your last 200 emails", which changes nothing
+- **"Why is this here?" chip** in the message view: Jev's pick, confidence, the four probabilities, and the facts that were sent.
+- **Correction tracking.** Moving a message Jev answered for records where it went, which is where "moved by you" comes from.
+- **Mock mode (`JEV_MOCK=1`).** Labelled answers worked out on the server from the facts. The README's earlier mention of an AI-wide mock mode had no code behind it; it now describes this one.
 - **README and `.env.example`** updated.
+
+**Differences from the original plan:**
+- **Separate worker.** Jev runs in its own worker rather than inside `runApply`; Phase 2 merges the two.
+- **New `skipped` status** for mail that left the Inbox before Jev got to it.
+- **The preview applies nothing.** Sorting the existing Inbox is still Phase 5.
 
 **Done when:** after a week of real mail, you move messages between tabs rarely enough to keep it on. The Jev settings page shows that correction rate.
 

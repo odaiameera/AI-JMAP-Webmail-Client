@@ -147,6 +147,10 @@ export interface Email {
 	'header:x-spam-score:asText'?: string | null;
 	/** Per-rule breakdown behind the score, where the server publishes one. */
 	'header:x-spam-result:asText'?: string | null;
+	/** Mailing-list headers, read for Jev's facts. */
+	'header:list-id:asText'?: string | null;
+	'header:precedence:asText'?: string | null;
+	'header:auto-submitted:asText'?: string | null;
 }
 
 export interface EmailQueryResult {

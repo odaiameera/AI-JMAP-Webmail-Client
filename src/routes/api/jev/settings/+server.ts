@@ -1,13 +1,14 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { listAccounts } from '$lib/server/auth/accounts';
-import { updateJevSettings } from '$lib/server/db/queries/jev-settings';
+import { updateJevSettings, type JevSettings } from '$lib/server/db/queries/jev-settings';
+import { jevMode } from '$lib/server/jev/client';
 
-/** Change one linked account's Jev settings. */
+/** Change one linked account's Jev settings: `inboxTabs` and/or `autoSort`. */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Not signed in');
 
-	let body: { accountId?: unknown; inboxTabs?: unknown };
+	let body: { accountId?: unknown; inboxTabs?: unknown; autoSort?: unknown };
 	try {
 		body = await request.json();
 	} catch {
@@ -20,10 +21,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unknown account' }, { status: 404 });
 	}
 
-	if (typeof body.inboxTabs !== 'boolean') {
-		return json({ error: 'inboxTabs must be true or false' }, { status: 400 });
+	const patch: Partial<JevSettings> = {};
+	for (const key of ['inboxTabs', 'autoSort'] as const) {
+		if (body[key] === undefined) continue;
+		if (typeof body[key] !== 'boolean') {
+			return json({ error: `${key} must be true or false` }, { status: 400 });
+		}
+		patch[key] = body[key];
+	}
+	if (Object.keys(patch).length === 0) {
+		return json({ error: 'Nothing to change' }, { status: 400 });
+	}
+	// Turning sorting on is consent to send this account's new mail to
+	// TypeSafe, which only means something once a key is configured.
+	if (patch.autoSort === true && jevMode() === 'off') {
+		return json({ error: 'Jev isn’t configured on this server' }, { status: 409 });
 	}
 
-	const settings = updateJevSettings(accountId, { inboxTabs: body.inboxTabs });
-	return json({ success: true, settings });
+	const settings = updateJevSettings(accountId, patch);
+	return json({ success: true, settings: { inboxTabs: settings.inboxTabs, autoSort: settings.autoSort } });
 };

@@ -1,0 +1,136 @@
+<script lang="ts">
+	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
+
+	/**
+	 * "Why is this here?" — Jev's decision for one email: its pick, how sure
+	 * it was, where the probability went, and the facts that were sent with
+	 * the email. Renders nothing for mail Jev never answered for.
+	 */
+	let { emailId }: { emailId: string } = $props();
+
+	interface Decision {
+		category: InboxCategory;
+		confidence: number | null;
+		applied: InboxCategory | null;
+		correctedTo: InboxCategory | null;
+		probabilities: Record<string, number>;
+		facts: Record<string, boolean | string | null>;
+		model: string | null;
+		mock: boolean;
+	}
+
+	let decision = $state<Decision | null>(null);
+	let open = $state(false);
+
+	$effect(() => {
+		const id = emailId;
+		decision = null;
+		open = false;
+		let cancelled = false;
+		fetch(`/api/jev/decision/${encodeURIComponent(id)}`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then((body) => {
+				if (!cancelled) decision = (body?.decision as Decision | null) ?? null;
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const labelOf = (key: string) => INBOX_CATEGORIES.find((c) => c.key === key)?.label ?? key;
+	const percent = (n: number | null | undefined) => `${Math.round((n ?? 0) * 100)}%`;
+
+	// Plain-language names for the facts, phrased as the "yes" case.
+	const FACT_LABELS: Record<string, string> = {
+		sender_in_contacts: 'Sender is in your contacts',
+		you_have_written_to_sender: 'You’ve written to this sender',
+		you_have_written_in_this_thread: 'You’ve written in this conversation',
+		addressed_to_you_directly: 'Addressed to you directly',
+		has_list_unsubscribe: 'Has an unsubscribe link',
+		list_id: 'Sent through a mailing list',
+		bulk_precedence: 'Marked as bulk mail',
+		auto_submitted: 'Sent automatically',
+		sender_looks_automated: 'From a no-reply address',
+		contains_sign_in_code: 'Contains a sign-in code'
+	};
+
+	// Only these come back null for "couldn't tell"; for the rest (a missing
+	// list id, say) null simply means no.
+	const LOOKED_UP = new Set(['sender_in_contacts', 'you_have_written_to_sender', 'you_have_written_in_this_thread']);
+
+	const factRows = $derived(
+		decision
+			? Object.entries(FACT_LABELS).map(([key, label]) => {
+					const value = decision!.facts[key];
+					const unknown = LOOKED_UP.has(key) && (value === null || value === undefined);
+					return { label, state: unknown ? 'unknown' : value ? 'yes' : 'no' };
+				})
+			: []
+	);
+
+	const summary = $derived.by(() => {
+		if (!decision) return '';
+		const sure = percent(decision.confidence);
+		if (decision.correctedTo && decision.correctedTo !== (decision.applied ?? 'important')) {
+			return `Jev picked ${labelOf(decision.category)}; you moved it to ${labelOf(decision.correctedTo)}.`;
+		}
+		if (decision.applied) return `Jev put this in ${labelOf(decision.applied)} (confidence ${sure}).`;
+		return `Jev leaned to ${labelOf(decision.category)} (confidence ${sure}) — not sure enough to move it.`;
+	});
+</script>
+
+{#if decision}
+	<div class="flex flex-col items-end">
+		<button
+			type="button"
+			onclick={() => (open = !open)}
+			aria-expanded={open}
+			title="Why is this here?"
+			class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full cursor-pointer bg-accent/10 text-accent-fg hover:bg-accent/15"
+		>
+			Jev · {labelOf(decision.applied ?? decision.category)}{decision.mock ? ' (mock)' : ''}
+			<span aria-hidden="true">{open ? '▴' : '▾'}</span>
+		</button>
+
+		{#if open}
+			<div class="mt-1 w-72 rounded-lg border border-border bg-surface p-3 text-xs text-left shadow-xl">
+				<p class="text-text">{summary}</p>
+				{#if decision.mock}
+					<p class="mt-1 text-warning">
+						Mock answer: worked out locally from the facts below. Jev wasn’t asked.
+					</p>
+				{/if}
+
+				<ul class="mt-2.5 space-y-1">
+					{#each INBOX_CATEGORIES as c (c.key)}
+						{@const p = decision.probabilities[c.key] ?? 0}
+						<li class="flex items-center gap-2">
+							<span class="w-20 shrink-0 {c.key === decision.category ? 'text-text font-medium' : 'text-text-secondary'}">{c.label}</span>
+							<span class="flex-1 h-1.5 rounded-full bg-surface-hover overflow-hidden">
+								<span class="block h-full rounded-full bg-accent" style="width: {Math.round(p * 100)}%"></span>
+							</span>
+							<span class="w-9 shrink-0 text-right tabular-nums text-text-tertiary">{percent(p)}</span>
+						</li>
+					{/each}
+				</ul>
+
+				<p class="mt-3 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">
+					Sent with the email
+				</p>
+				<ul class="space-y-0.5">
+					{#each factRows as f (f.label)}
+						<li class="flex items-center gap-1.5 {f.state === 'yes' ? 'text-text-secondary' : 'text-text-tertiary'}">
+							<span class="w-3 text-center" aria-hidden="true">{f.state === 'yes' ? '✓' : f.state === 'no' ? '–' : '?'}</span>
+							<span>{f.label}{f.state === 'no' ? ': no' : f.state === 'unknown' ? ': couldn’t check' : ''}</span>
+						</li>
+					{/each}
+				</ul>
+
+				{#if decision.model}
+					<p class="mt-2 text-3xs text-text-tertiary">Model: {decision.model}</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/if}

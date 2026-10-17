@@ -11,6 +11,7 @@
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import InvitationCard from './InvitationCard.svelte';
+	import JevWhy from './JevWhy.svelte';
 	import EventModal from './calendar/EventModal.svelte';
 	import { apiCreateEvent } from '$lib/calendar/api';
 	import { fromDayKey } from '$lib/calendar/dates';
@@ -755,6 +756,9 @@
 			</div>
 			<div class="flex flex-col items-end gap-1 shrink-0">
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
+				{#if page.data.jevSorting}
+					<JevWhy emailId={email.id} />
+				{/if}
 				{#if spamScore !== null}
 					<!-- The score is a button when there is a breakdown to show: a
 					     number on its own cannot tell you whether to train the

@@ -8,7 +8,7 @@ process.env.DATABASE_PATH = join(mkdtempSync(join(tmpdir(), 'ameera-jev-')), 'te
 
 import { getDb } from '../index';
 import { runMigrations } from '../migrate';
-import { getJevSettings, updateJevSettings } from './jev-settings';
+import { getJevSettings, sortingEnabled, updateJevSettings } from './jev-settings';
 
 function linkAccount(id: string) {
 	getDb()
@@ -26,20 +26,44 @@ beforeAll(() => {
 		.run();
 	linkAccount('acct-1');
 	linkAccount('acct-2');
+	linkAccount('acct-3');
 });
 
 describe('jev settings', () => {
-	it('defaults to tabs off for an account with no row', () => {
-		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false });
+	it('defaults to everything off for an account with no row', () => {
+		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false, autoSort: false, sortCursor: null });
 	});
 
 	it('keeps each account separate', () => {
 		updateJevSettings('acct-1', { inboxTabs: true });
-		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: true });
-		expect(getJevSettings('acct-2')).toEqual({ inboxTabs: false });
+		expect(getJevSettings('acct-1').inboxTabs).toBe(true);
+		expect(getJevSettings('acct-2').inboxTabs).toBe(false);
 
 		updateJevSettings('acct-1', { inboxTabs: false });
-		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false });
+		expect(getJevSettings('acct-1').inboxTabs).toBe(false);
+	});
+
+	it('starts sorting from the moment it is switched on, and forgets the cursor when off', () => {
+		const on = new Date('2026-10-18T09:00:00Z');
+		updateJevSettings('acct-3', { inboxTabs: true, autoSort: true }, on);
+		expect(getJevSettings('acct-3')).toEqual({
+			inboxTabs: true,
+			autoSort: true,
+			sortCursor: on.toISOString()
+		});
+		expect(sortingEnabled(getJevSettings('acct-3'))).toBe(true);
+
+		// Saving it on again doesn't rewind the cursor.
+		updateJevSettings('acct-3', { autoSort: true }, new Date('2026-10-18T10:00:00Z'));
+		expect(getJevSettings('acct-3').sortCursor).toBe(on.toISOString());
+
+		updateJevSettings('acct-3', { autoSort: false });
+		expect(getJevSettings('acct-3')).toMatchObject({ autoSort: false, sortCursor: null });
+	});
+
+	it('only sorts while the tabs are on too', () => {
+		expect(sortingEnabled({ inboxTabs: false, autoSort: true, sortCursor: null })).toBe(false);
+		expect(sortingEnabled({ inboxTabs: true, autoSort: false, sortCursor: null })).toBe(false);
 	});
 
 	it('drops the row when the account is unlinked', () => {

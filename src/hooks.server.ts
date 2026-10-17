@@ -6,6 +6,7 @@ import {
 } from '$lib/server/reminder-scheduler';
 import { startRulesScheduler, applyRulesForUserSafe } from '$lib/server/rules-scheduler';
 import { startTrashRetentionScheduler } from '$lib/server/trash-retention';
+import { startJevScheduler, sortNewMailSafe } from '$lib/server/jev/worker';
 import { getAppSession } from '$lib/server/auth/app-session';
 import { getUserById, hasAppUser } from '$lib/server/auth/user';
 import { authStateForAccount, listAccounts, toPublic } from '$lib/server/auth/accounts';
@@ -32,6 +33,10 @@ const DUE_CHECK_INTERVAL_MS = 30 * 1000;
 const lastRulesRun = new Map<string, number>();
 const RULES_RUN_INTERVAL_MS = 20 * 1000;
 
+// And for Jev sorting new mail into Inbox tabs. Keyed by the account row.
+const lastJevRun = new Map<string, number>();
+const JEV_RUN_INTERVAL_MS = 20 * 1000;
+
 export const handle: Handle = async ({ event, resolve }) => {
 	// Fail fast on a missing/short WEBMAIL_SECRET: without it linked-account
 	// passwords can't be encrypted or decrypted, and the breakage would
@@ -55,6 +60,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		startReminderScheduler();
 		startRulesScheduler();
 		startTrashRetentionScheduler();
+		startJevScheduler();
 		migrated = true;
 	}
 
@@ -116,6 +122,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 				if (Date.now() - lastRules > RULES_RUN_INTERVAL_MS) {
 					lastRulesRun.set(userEmail, Date.now());
 					void applyRulesForUserSafe(auth, userEmail);
+				}
+
+				const lastJev = lastJevRun.get(active.id) ?? 0;
+				if (Date.now() - lastJev > JEV_RUN_INTERVAL_MS) {
+					lastJevRun.set(active.id, Date.now());
+					void sortNewMailSafe(active.id, active.email, auth);
 				}
 			}
 		} else {

@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
 	listAccounts: vi.fn(),
-	updateJevSettings: vi.fn()
+	updateJevSettings: vi.fn(),
+	jevMode: vi.fn()
 }));
 
 vi.mock('$lib/server/auth/accounts', () => ({ listAccounts: mocks.listAccounts }));
 vi.mock('$lib/server/db/queries/jev-settings', () => ({
 	updateJevSettings: mocks.updateJevSettings
 }));
+vi.mock('$lib/server/jev/client', () => ({ jevMode: mocks.jevMode }));
 
 import { POST } from './+server';
 
@@ -26,7 +28,13 @@ function call(body: unknown, user: { id: string } | null = { id: 'user-1' }) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mocks.listAccounts.mockReturnValue([{ id: 'acct-1' }]);
-	mocks.updateJevSettings.mockImplementation((_id: string, patch: object) => patch);
+	mocks.jevMode.mockReturnValue('live');
+	mocks.updateJevSettings.mockImplementation((_id: string, patch: object) => ({
+		inboxTabs: false,
+		autoSort: false,
+		sortCursor: null,
+		...patch
+	}));
 });
 
 describe('POST /api/jev/settings', () => {
@@ -37,16 +45,33 @@ describe('POST /api/jev/settings', () => {
 		expect(mocks.updateJevSettings).toHaveBeenCalledWith('acct-1', { inboxTabs: true });
 	});
 
+	it('saves both switches in one go', async () => {
+		const res = await call({ accountId: 'acct-1', inboxTabs: false, autoSort: false });
+		expect(res.status).toBe(200);
+		expect(mocks.updateJevSettings).toHaveBeenCalledWith('acct-1', { inboxTabs: false, autoSort: false });
+	});
+
 	it('refuses an account that belongs to someone else', async () => {
 		const res = await call({ accountId: 'acct-9', inboxTabs: true });
 		expect(res.status).toBe(404);
 		expect(mocks.updateJevSettings).not.toHaveBeenCalled();
 	});
 
-	it('requires a boolean', async () => {
-		const res = await call({ accountId: 'acct-1', inboxTabs: 'yes' });
-		expect(res.status).toBe(400);
+	it('requires booleans, and something to change', async () => {
+		expect((await call({ accountId: 'acct-1', inboxTabs: 'yes' })).status).toBe(400);
+		expect((await call({ accountId: 'acct-1', autoSort: 1 })).status).toBe(400);
+		expect((await call({ accountId: 'acct-1' })).status).toBe(400);
 		expect(mocks.updateJevSettings).not.toHaveBeenCalled();
+	});
+
+	it('won’t switch sorting on while Jev isn’t configured', async () => {
+		mocks.jevMode.mockReturnValue('off');
+		const res = await call({ accountId: 'acct-1', autoSort: true });
+		expect(res.status).toBe(409);
+		expect(mocks.updateJevSettings).not.toHaveBeenCalled();
+
+		// Switching it off still works.
+		expect((await call({ accountId: 'acct-1', autoSort: false })).status).toBe(200);
 	});
 
 	it('requires a signed-in user', async () => {

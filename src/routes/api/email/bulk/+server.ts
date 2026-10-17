@@ -13,6 +13,7 @@ import {
 } from '$lib/jmap/email';
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
 import { isInboxCategory } from '$lib/types/categories';
+import { recordCorrections } from '$lib/server/db/queries/jev-decisions';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
@@ -42,6 +43,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				return json({ error: 'invalid category' }, { status: 400 });
 			}
 			await setEmailCategory(client, accountId, ids, body.category);
+			// Where Jev had sorted any of these, note that you moved them —
+			// it's how Settings shows how often Jev's picks get corrected.
+			if (locals.activeAccountId) recordCorrections(locals.activeAccountId, ids, body.category);
 			return json({ success: true });
 		}
 

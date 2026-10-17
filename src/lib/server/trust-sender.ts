@@ -40,7 +40,7 @@ export function normalizeAddress(raw: string): string {
 }
 
 /** Does this card already carry the address? */
-function cardHasAddress(emails: unknown, email: string): boolean {
+export function cardHasAddress(emails: unknown, email: string): boolean {
 	if (!emails || typeof emails !== 'object') return false;
 	return Object.values(emails as Record<string, { address?: string }>).some(
 		(entry) => normalizeAddress(entry?.address ?? '') === email
