@@ -26,4 +26,5 @@
 	pageSize={data.pageSize}
 	totalPages={data.totalPages}
 	showFilters
+	inboxTabs={data.inboxTabs}
 />

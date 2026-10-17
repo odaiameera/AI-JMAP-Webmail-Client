@@ -8,9 +8,11 @@ import {
 	moveEmails,
 	markManyAsSpam,
 	markManyAsNotSpam,
-	destroyEmail
+	destroyEmail,
+	setEmailCategory
 } from '$lib/jmap/email';
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
+import { isInboxCategory } from '$lib/types/categories';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
@@ -31,6 +33,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const target = body.targetMailboxId as string | undefined;
 			if (!target) return json({ error: 'targetMailboxId required' }, { status: 400 });
 			await moveEmails(client, accountId, ids, target, sourceMailboxId);
+			return json({ success: true });
+		}
+
+		// Inbox tab: keywords only, so the messages stay where they are.
+		if (action === 'setCategory') {
+			if (!isInboxCategory(body.category)) {
+				return json({ error: 'invalid category' }, { status: 400 });
+			}
+			await setEmailCategory(client, accountId, ids, body.category);
 			return json({ success: true });
 		}
 

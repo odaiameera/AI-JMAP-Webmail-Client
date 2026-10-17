@@ -27,7 +27,7 @@ Three principles shape the design:
 
 ## What's here today
 
-**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before. Remote images in a message load through a server-side proxy, and inline `cid:` images render. Sign-in codes are detected and get a Copy button that can send the email to Trash, and Trash can empty itself after 7 or 30 days.
+**Mail** — Multiple JMAP accounts behind one app login. Inbox, folders, search, labels, rules, reminders, drafts, attachments, and signatures. Optional Inbox tabs (Important, Updates, Newsletters, Promotions), sorted by hand for now; [JEV_PLAN.md](JEV_PLAN.md) describes automatic sorting. Sender trust through the address book, with visible reasons when a message is flagged. Composer autocomplete over the people you've emailed before. Remote images in a message load through a server-side proxy, and inline `cid:` images render. Sign-in codes are detected and get a Copy button that can send the email to Trash, and Trash can empty itself after 7 or 30 days.
 
 **Sender avatars** — Resolves sender images from BIMI, site favicons, and Gravatar, cached server-side on the persistent volume so every device shares one lookup and a fresh browser loads instantly. Lookups that find nothing are negative-cached rather than retried on every render.
 

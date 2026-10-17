@@ -27,6 +27,20 @@ export function parseListFilter(raw: string | null | undefined): ListFilterKey {
 	return raw && VALID.has(raw as ListFilterKey) ? (raw as ListFilterKey) : 'all';
 }
 
+/**
+ * AND together the conditions that are present. Returns null when none are,
+ * a lone condition as itself, so a list with no extra constraints sends the
+ * same plain `inMailbox` query it always has.
+ */
+export function allOf(
+	...conditions: (Record<string, unknown> | null)[]
+): Record<string, unknown> | null {
+	const present = conditions.filter((c): c is Record<string, unknown> => c !== null);
+	if (present.length === 0) return null;
+	if (present.length === 1) return present[0];
+	return { operator: 'AND', conditions: present };
+}
+
 /** JMAP condition for a filter key, or null for `all` (no extra constraint). */
 export function listFilterCondition(key: ListFilterKey): Record<string, unknown> | null {
 	switch (key) {
