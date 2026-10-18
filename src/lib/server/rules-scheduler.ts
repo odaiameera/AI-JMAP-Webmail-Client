@@ -5,6 +5,7 @@ import { createClient } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { AuthState, Email } from '$lib/jmap/types';
 import { getRules, getRulesCursor, setRulesCursor } from './db/queries/rules';
+import { jevHandlesRules } from './jev/rules';
 import {
 	evaluateRulesForEmail,
 	extractBodyText,
@@ -37,7 +38,7 @@ export function startRulesScheduler(): void {
 	cron.schedule('* * * * *', async () => {
 		for (const { account, auth, email } of listSchedulableAuths()) {
 			try {
-				await applyRulesForUser(auth, email);
+				await applyRulesForUser(auth, email, account.id);
 			} catch (err) {
 				if (err instanceof JMAPAuthError) {
 					markNeedsReauth(account.id);
@@ -54,23 +55,30 @@ export function startRulesScheduler(): void {
  * run we just seed the cursor to "now" so we never retro-apply the entire
  * backlog (that's what the manual "apply to existing" action is for).
  */
-export async function applyRulesForUser(auth: AuthState, userEmail: string): Promise<void> {
+export async function applyRulesForUser(
+	auth: AuthState,
+	userEmail: string,
+	accountRowId: string
+): Promise<void> {
 	if (inFlight.has(userEmail)) return;
 	inFlight.add(userEmail);
 	try {
-		await runApply(auth, userEmail);
+		await runApply(auth, userEmail, accountRowId);
 	} finally {
 		inFlight.delete(userEmail);
 	}
 }
 
-async function runApply(auth: AuthState, userEmail: string): Promise<void> {
+async function runApply(auth: AuthState, userEmail: string, accountRowId: string): Promise<void> {
 	const enabled = getRules(userEmail).filter((r) => r.enabled);
 	const nowIso = new Date().toISOString();
 
 	const cursor = getRulesCursor(userEmail);
-	if (cursor === null || enabled.length === 0) {
-		// First sight of this user, or nothing to do — advance and bail.
+	if (cursor === null || enabled.length === 0 || jevHandlesRules(accountRowId, enabled)) {
+		// First sight of this user, nothing to do, or the Jev worker runs
+		// this account's rules (one Jev call per email, rules in order) —
+		// advance and bail, so nothing is applied twice or retro-applied
+		// should that change.
 		setRulesCursor(userEmail, nowIso);
 		return;
 	}
@@ -164,9 +172,13 @@ async function runApply(auth: AuthState, userEmail: string): Promise<void> {
  * a couple seconds while the user is using the app rather than waiting on the
  * next cron tick. Fire-and-forget; errors are swallowed.
  */
-export async function applyRulesForUserSafe(auth: AuthState, userEmail: string): Promise<void> {
+export async function applyRulesForUserSafe(
+	auth: AuthState,
+	userEmail: string,
+	accountRowId: string
+): Promise<void> {
 	try {
-		await applyRulesForUser(auth, userEmail);
+		await applyRulesForUser(auth, userEmail, accountRowId);
 	} catch (err) {
 		console.error('[rules] on-demand apply failed', userEmail, err);
 	}

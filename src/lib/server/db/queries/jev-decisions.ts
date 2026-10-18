@@ -22,8 +22,23 @@ export interface JevDecisionRow {
 	model: string | null;
 	inputTokens: number | null;
 	correctedTo: InboxCategory | null;
+	/** What Jev said about each rule condition it was asked about. */
+	rules: JevRuleCheck[] | null;
 	createdAt: number;
 	decidedAt: number | null;
+}
+
+/** One rule condition Jev was asked about for an email. */
+export interface JevRuleCheck {
+	ruleId: string;
+	ruleName: string;
+	statement: string;
+	probability: number;
+	/** The probability the condition needed, from its strictness. */
+	threshold: number;
+	negate: boolean;
+	/** Whether the rule as a whole fired. */
+	fired: boolean;
 }
 
 interface RawRow {
@@ -39,6 +54,7 @@ interface RawRow {
 	model: string | null;
 	input_tokens: number | null;
 	corrected_to: string | null;
+	rules_json: string | null;
 	created_at: number;
 	decided_at: number | null;
 }
@@ -47,6 +63,15 @@ function parseJson(raw: string | null): Record<string, unknown> | null {
 	if (!raw) return null;
 	try {
 		return JSON.parse(raw) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
+function parseJsonArray(raw: string): unknown[] | null {
+	try {
+		const value = JSON.parse(raw);
+		return Array.isArray(value) ? value : null;
 	} catch {
 		return null;
 	}
@@ -66,6 +91,7 @@ function toRow(r: RawRow): JevDecisionRow {
 		model: r.model,
 		inputTokens: r.input_tokens,
 		correctedTo: r.corrected_to as InboxCategory | null,
+		rules: r.rules_json ? (parseJsonArray(r.rules_json) as JevRuleCheck[] | null) : null,
 		createdAt: r.created_at,
 		decidedAt: r.decided_at
 	};
@@ -91,7 +117,7 @@ function prepareStmts() {
 			`UPDATE jev_decisions SET
 			   status = 'done', last_error = NULL, attempts = attempts + 1,
 			   category = @category, confidence = @confidence, applied = @applied,
-			   answers_json = @answers, facts_json = @facts, model = @model,
+			   answers_json = @answers, facts_json = @facts, rules_json = @rules, model = @model,
 			   input_tokens = @inputTokens, decided_at = @now
 			 WHERE account_id = @accountId AND email_id = @emailId`
 		),
@@ -116,7 +142,7 @@ function prepareStmts() {
 			        SUM(CASE WHEN corrected_to IS NOT NULL
 			                  AND corrected_to IS NOT COALESCE(applied, 'important') THEN 1 ELSE 0 END) AS corrected
 			 FROM jev_decisions
-			 WHERE account_id = ? AND status = 'done' AND decided_at >= ?`
+			 WHERE account_id = ? AND status = 'done' AND category IS NOT NULL AND decided_at >= ?`
 		),
 		addUsage: db.prepare(
 			`INSERT INTO jev_usage (account_id, month, requests, input_tokens)
@@ -156,7 +182,9 @@ export function recordDecision(
 		applied: InboxCategory | null;
 		answers: unknown;
 		facts: unknown;
-		model: string;
+		rules?: JevRuleCheck[];
+		/** Null when there was nothing to ask, so Jev wasn't called. */
+		model: string | null;
 		inputTokens: number;
 	},
 	now = Date.now()
@@ -169,6 +197,7 @@ export function recordDecision(
 		applied: d.applied,
 		answers: JSON.stringify(d.answers),
 		facts: JSON.stringify(d.facts),
+		rules: d.rules?.length ? JSON.stringify(d.rules) : null,
 		model: d.model,
 		inputTokens: d.inputTokens,
 		now
@@ -198,7 +227,7 @@ export function recordCorrections(accountId: string, emailIds: string[], to: Inb
 	})();
 }
 
-/** Emails Jev answered since `sinceMs`, and how many of those you moved elsewhere. */
+/** Emails Jev picked a tab for since `sinceMs`, and how many of those you moved elsewhere. */
 export function decisionStats(accountId: string, sinceMs: number): { sorted: number; corrected: number } {
 	const row = stmts().stats.get(accountId, sinceMs) as { sorted: number; corrected: number | null };
 	return { sorted: row.sorted, corrected: row.corrected ?? 0 };

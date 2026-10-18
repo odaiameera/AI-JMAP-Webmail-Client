@@ -1,5 +1,19 @@
 import type { Email } from '$lib/jmap/types';
-import type { Rule, RuleCondition } from '$lib/types/rules';
+import {
+	effectiveActions,
+	isUsableCondition,
+	ruleHolds,
+	type Rule,
+	type RuleCondition
+} from '$lib/types/rules';
+import { categoryKeywordPatch, isInboxCategory, type InboxCategory } from '$lib/types/categories';
+
+/**
+ * Jev's answers for one email, by condition id: the probability it gave the
+ * condition's statement. A `jev` condition with no entry is unknown and
+ * doesn't hold — the rule can't fire on an answer Jev never gave.
+ */
+export type JevConditionAnswers = Map<string, number>;
 
 export interface RuleActionCtx {
 	inboxId?: string;
@@ -14,27 +28,6 @@ export interface RuleActionCtx {
 
 function targetExists(ctx: RuleActionCtx, id: string): boolean {
 	return !ctx.validMailboxIds || ctx.validMailboxIds.has(id);
-}
-
-/**
- * A condition is usable only if it would actually constrain matching. An
- * empty text value is dropped (same guard the Sieve compiler uses) so a
- * half-finished rule never becomes match-everything.
- */
-function isUsableCondition(c: RuleCondition): boolean {
-	switch (c.field) {
-		case 'from':
-		case 'to':
-		case 'subject':
-		case 'body':
-			return c.value.trim().length > 0;
-		case 'size':
-			return Number.isFinite(parseInt(c.value, 10));
-		case 'hasAttachment':
-			return true;
-		default:
-			return false;
-	}
 }
 
 /** True if any enabled rule needs the message body to evaluate. */
@@ -62,7 +55,8 @@ export function extractBodyText(email: Email): string {
 	return email.preview ?? '';
 }
 
-function matchesCondition(email: Email, c: RuleCondition, bodyText: string): boolean {
+/** An exact condition's result before NOT is applied. */
+function exactValue(email: Email, c: RuleCondition, bodyText: string): boolean {
 	let res: boolean;
 
 	if (c.field === 'hasAttachment') {
@@ -94,14 +88,46 @@ function matchesCondition(email: Email, c: RuleCondition, bodyText: string): boo
 		}
 	}
 
-	return c.negate ? !res : res;
+	return res;
 }
 
-function matchesRule(email: Email, rule: Rule, bodyText: string): boolean {
-	const conds = rule.conditions.filter(isUsableCondition);
-	if (conds.length === 0) return false; // never match-everything
-	const results = conds.map((c) => matchesCondition(email, c, bodyText));
-	return rule.logic === 'anyof' ? results.some(Boolean) : results.every(Boolean);
+/**
+ * A condition's raw value for one email: a boolean for an exact condition,
+ * Jev's probability for a `jev` one (undefined when it wasn't asked).
+ */
+export function conditionValue(
+	email: Email,
+	c: RuleCondition,
+	bodyText: string,
+	jev?: JevConditionAnswers
+): boolean | number | undefined {
+	return c.field === 'jev' ? jev?.get(c.id) : exactValue(email, c, bodyText);
+}
+
+function matchesRule(email: Email, rule: Rule, bodyText: string, jev?: JevConditionAnswers): boolean {
+	return ruleHolds(rule, (c) => conditionValue(email, c, bodyText, jev));
+}
+
+/**
+ * The `jev` conditions worth asking about for one email: those of rules
+ * whose exact conditions leave the outcome open. An all-of rule with a
+ * failing exact condition can't match whatever Jev says; an any-of rule
+ * with a holding one matches already.
+ */
+export function jevConditionsToAsk(email: Email, rules: Rule[], bodyText: string): RuleCondition[] {
+	const out: RuleCondition[] = [];
+	for (const rule of rules) {
+		const conds = rule.conditions.filter(isUsableCondition);
+		const jevConds = conds.filter((c) => c.field === 'jev');
+		if (jevConds.length === 0) continue;
+		const exact = conds
+			.filter((c) => c.field !== 'jev')
+			.map((c) => (c.negate ? !exactValue(email, c, bodyText) : exactValue(email, c, bodyText)));
+		if (rule.logic === 'allof' && exact.some((r) => !r)) continue;
+		if (rule.logic === 'anyof' && exact.some((r) => r)) continue;
+		out.push(...jevConds);
+	}
+	return out;
 }
 
 /**
@@ -114,10 +140,14 @@ export interface RuleOutcome {
 	addMailboxIds: Set<string>;
 	removeMailboxIds: Set<string>;
 	keywords: Record<string, boolean>;
+	/** The Inbox tab a rule chose — it overrides Jev's own pick. */
+	category?: InboxCategory;
+	/** Ids of the rules that matched, in order. */
+	firedRuleIds: string[];
 }
 
 export function emptyOutcome(): RuleOutcome {
-	return { addMailboxIds: new Set(), removeMailboxIds: new Set(), keywords: {} };
+	return { addMailboxIds: new Set(), removeMailboxIds: new Set(), keywords: {}, firedRuleIds: [] };
 }
 
 /**
@@ -144,6 +174,12 @@ export function applyActionsToOutcome(
 				break;
 			case 'markImportant':
 				outcome.keywords['$flagged'] = true;
+				break;
+			case 'setCategory':
+				if (isInboxCategory(action.value)) {
+					Object.assign(outcome.keywords, categoryKeywordPatch(action.value));
+					outcome.category = action.value;
+				}
 				break;
 			case 'moveToFolder':
 				if (action.value && targetExists(ctx, action.value)) {
@@ -176,12 +212,14 @@ export function evaluateRulesForEmail(
 	email: Email,
 	enabledRules: Rule[],
 	ctx: RuleActionCtx,
-	bodyText: string
+	bodyText: string,
+	jev?: JevConditionAnswers
 ): RuleOutcome {
 	const outcome = emptyOutcome();
 	for (const rule of enabledRules) {
-		if (!matchesRule(email, rule, bodyText)) continue;
-		if (applyActionsToOutcome(email, rule.actions, ctx, outcome).stop) break;
+		if (!matchesRule(email, rule, bodyText, jev)) continue;
+		outcome.firedRuleIds.push(rule.id);
+		if (applyActionsToOutcome(email, effectiveActions(rule), ctx, outcome).stop) break;
 	}
 	return outcome;
 }

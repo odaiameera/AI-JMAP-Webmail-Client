@@ -229,23 +229,36 @@ Cost doesn't limit anything here. Accuracy and privacy are the real constraints.
 
 **Done when:** after a week of real mail, you move messages between tabs rarely enough to keep it on. The Jev settings page shows that correction rate.
 
-### Phase 2: Jev conditions in rules
+### Phase 2: Jev conditions in rules — built
 
-- **Rule types.** `RuleConditionField` gains `'jev'`. Its `value` is the statement, plus a `strictness` level.
+- **Rule types** in [rules.ts](src/lib/types/rules.ts):
+  - `RuleConditionField` gains `'jev'`: `value` is the statement, `strictness` is Loose (0.6), Normal (0.8) or Strict (0.95)
+  - shared helpers `conditionHolds`, `ruleHolds` and `effectiveActions`, used by both the engine and the editor
+  - an unknown answer never holds, not even under NOT
 - **Rules editor:**
-  - a "Jev judges…" condition
-  - a quick "When … then …" entry that creates a rule with a single Jev condition
+  - a "Jev judges" condition with a strictness select
+  - "+ New Jev rule", which creates a rule with a single Jev condition
 - **Actions:**
-  - new: **Set category**
-  - Delete is unavailable on rules with a Jev condition
-- **Engine.** Jev questions are collected before matching. A condition reads its answer, and a missing answer delays the message (see "When Jev fails").
-- **Guards** in `sieve.ts` and `rules.ts`, as described above.
-- **Preview and apply-to-existing** for rules with Jev conditions:
-  1. search on the exact conditions
-  2. ask Jev about up to N of the results
-  3. list them with their probabilities
-
-  A strictness slider re-filters the stored probabilities without new calls.
+  - new: **Move to Inbox tab** (`setCategory`), which also compiles to Sieve flags
+  - Delete is hidden on, and skipped by, rules with a Jev condition
+- **One call per email.** When an account lets Jev read its mail and has a rule with a Jev condition:
+  - the Jev worker evaluates all of that account's rules, exact ones included
+  - the tab question and the rule conditions that could still decide a rule go in the same call (`jevConditionsToAsk`)
+  - the rules scheduler steps aside for that account (`jevHandlesRules`)
+  - anywhere else, Jev conditions are unknown and their rules don't fire
+- **Failures.** A failed call delays the email. After the last attempt, the rules run with no Jev answers.
+- **Guards:**
+  - `compileRulesToSieve` skips a rule with a Jev condition entirely
+  - `buildJmapFilter` returns null for such a rule
+  - `exactPartFilter` narrows the candidates for a test
+- **"Test on recent mail"** ([api/rules/jev-test](src/routes/api/rules/jev-test/+server.ts)):
+  - covers the newest 100 Inbox emails that pass the rule's exact conditions
+  - returns every condition's raw value
+  - changing strictness in the editor re-sorts the list without new calls
+  - "Save & apply to N matches" applies the rule to exactly those emails
+- **The "Why is this here?" chip** lists each rule condition Jev judged: the probability, the strictness needed, and whether the rule fired.
+- **Consent covers more.** "Let Jev read new mail" (the `auto_sort` column renamed to `jev_enabled` in migration 013) no longer needs tabs: it covers sorting and rules alike.
+- **Mock answers** for rule conditions use a labelled rule of thumb: the statement's key words in the subject or body give 0.9, otherwise 0.1.
 
 **Done when:** a rule like "When it's an invoice or a payment request → label Finance" previews correctly on your own mail.
 

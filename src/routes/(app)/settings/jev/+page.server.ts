@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 				displayName: a.displayName,
 				isActive: a.id === activeAccountId,
 				inboxTabs: settings.inboxTabs,
-				autoSort: settings.autoSort,
+				jevEnabled: settings.jevEnabled,
 				month: {
 					...decisionStats(a.id, monthStart),
 					inputTokens: usage.inputTokens,

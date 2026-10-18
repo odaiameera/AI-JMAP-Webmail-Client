@@ -4,11 +4,11 @@ import { listAccounts } from '$lib/server/auth/accounts';
 import { updateJevSettings, type JevSettings } from '$lib/server/db/queries/jev-settings';
 import { jevMode } from '$lib/server/jev/client';
 
-/** Change one linked account's Jev settings: `inboxTabs` and/or `autoSort`. */
+/** Change one linked account's Jev settings: `inboxTabs` and/or `jevEnabled`. */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Not signed in');
 
-	let body: { accountId?: unknown; inboxTabs?: unknown; autoSort?: unknown };
+	let body: { accountId?: unknown; inboxTabs?: unknown; jevEnabled?: unknown };
 	try {
 		body = await request.json();
 	} catch {
@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const patch: Partial<JevSettings> = {};
-	for (const key of ['inboxTabs', 'autoSort'] as const) {
+	for (const key of ['inboxTabs', 'jevEnabled'] as const) {
 		if (body[key] === undefined) continue;
 		if (typeof body[key] !== 'boolean') {
 			return json({ error: `${key} must be true or false` }, { status: 400 });
@@ -32,12 +32,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (Object.keys(patch).length === 0) {
 		return json({ error: 'Nothing to change' }, { status: 400 });
 	}
-	// Turning sorting on is consent to send this account's new mail to
+	// Switching Jev on is consent to send this account's new mail to
 	// TypeSafe, which only means something once a key is configured.
-	if (patch.autoSort === true && jevMode() === 'off') {
+	if (patch.jevEnabled === true && jevMode() === 'off') {
 		return json({ error: 'Jev isn’t configured on this server' }, { status: 409 });
 	}
 
 	const settings = updateJevSettings(accountId, patch);
-	return json({ success: true, settings: { inboxTabs: settings.inboxTabs, autoSort: settings.autoSort } });
+	return json({ success: true, settings: { inboxTabs: settings.inboxTabs, jevEnabled: settings.jevEnabled } });
 };

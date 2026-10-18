@@ -9,7 +9,7 @@
 
 	let { data }: { data: PageData } = $props();
 
-	type Key = 'inboxTabs' | 'autoSort';
+	type Key = 'inboxTabs' | 'jevEnabled';
 
 	// Switch positions not yet confirmed by a reload, keyed by account id —
 	// so a toggle moves at once, and falls back to the loaded value on error.
@@ -45,11 +45,6 @@
 		delete pending[accountId];
 	}
 
-	function setInboxTabs(accountId: string, on: boolean, autoSortOn: boolean) {
-		// Without tabs there is nothing to sort into, so sorting goes off too —
-		// and has to be switched on again, deliberately, with the tabs.
-		save(accountId, on || !autoSortOn ? { inboxTabs: on } : { inboxTabs: false, autoSort: false }, `${accountId}:tabs`);
-	}
 
 	const configured = $derived(data.jev.mode !== 'off');
 
@@ -160,7 +155,7 @@
 			{#snippet control()}
 				<Toggle
 					checked={current(account, 'inboxTabs')}
-					onChange={(v) => setInboxTabs(account.id, v, current(account, 'autoSort'))}
+					onChange={(v) => save(account.id, { inboxTabs: v }, `${account.id}:tabs`)}
 				/>
 			{/snippet}
 		</SettingRow>
@@ -168,7 +163,7 @@
 </section>
 
 <section>
-	<h2 class="text-sm font-semibold text-text mb-1">Sorting by Jev</h2>
+	<h2 class="text-sm font-semibold text-text mb-1">Letting Jev read new mail</h2>
 	{#if data.jev.mode === 'live'}
 		<p class="text-xs text-text-tertiary mb-3">
 			Connected to TypeSafe with model <span class="font-mono text-text-secondary">{data.jev.model}</span>,
@@ -192,7 +187,7 @@
 			For each new email in an account you switch on: the sender, recipients and subject, the first
 			{data.jev.excerptChars.toLocaleString()} characters of the body with quoted replies removed, and facts
 			this app works out — whether the sender is in your contacts, whether you’ve written to them or in
-			the conversation, its mailing-list headers, and whether it carries a sign-in code. Jev returns
+			the conversation, its mailing-list headers, and whether it carries a sign-in code — along with the statements in rules you wrote for Jev. Jev returns
 			only probabilities; the app keeps those and the facts, never the email text. TypeSafe says it
 			doesn’t train on customer data; its documentation doesn’t say how long requests are kept.
 		</p>
@@ -201,18 +196,16 @@
 	{#each data.jevAccounts as account (account.id)}
 		{@const tabsOn = current(account, 'inboxTabs')}
 		<SettingRow
-			title={`Let Jev sort new mail · ${account.email}`}
-			description={!tabsOn
-				? 'Turn on Inbox tabs for this account first.'
-				: `Sorts mail that arrives from now on; mail already in the Inbox stays where it is. Jev never moves mail you’ve put in a tab. ${monthLine(account.month)}`}
+			title={`Let Jev read new mail · ${account.email}`}
+			description={`${tabsOn ? 'Sorts it into tabs' : 'Would sort it into tabs (they’re off)'}, and checks rules with a Jev condition. Starts with mail that arrives from now on; Jev never moves mail you’ve put in a tab. ${monthLine(account.month)}`}
 			state={states[`${account.id}:sort`] ?? 'idle'}
 			errorMessage={errors[`${account.id}:sort`]}
 		>
 			{#snippet control()}
 				<Toggle
-					checked={current(account, 'autoSort')}
-					disabled={!configured || !tabsOn}
-					onChange={(v) => save(account.id, { autoSort: v }, `${account.id}:sort`)}
+					checked={current(account, 'jevEnabled')}
+					disabled={!configured}
+					onChange={(v) => save(account.id, { jevEnabled: v }, `${account.id}:sort`)}
 				/>
 			{/snippet}
 		</SettingRow>
@@ -283,7 +276,12 @@
 								>
 									{#if row.tab}{@html categoryIcon(row.tab, 12)}{/if}
 									{labelOf(row.tab)}
-									<span class="text-text-tertiary tabular-nums">{Math.round((row.confidence ?? 0) * 100)}%</span>
+									{#if row.pick && row.pick !== row.tab}
+										<!-- Not sure enough to move it: say where Jev leaned. -->
+										<span class="text-text-tertiary">· leaned {labelOf(row.pick)}, confidence {Math.round((row.confidence ?? 0) * 100)}%</span>
+									{:else}
+										<span class="text-text-tertiary tabular-nums">{Math.round((row.confidence ?? 0) * 100)}%</span>
+									{/if}
 								</span>
 							{/if}
 						</li>

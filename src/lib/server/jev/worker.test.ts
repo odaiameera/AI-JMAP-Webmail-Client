@@ -19,8 +19,11 @@ import { getDb } from '$lib/server/db/index';
 import { runMigrations } from '$lib/server/db/migrate';
 import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
 import { getDecision, getUsage } from '$lib/server/db/queries/jev-decisions';
+import { setRules } from '$lib/server/db/queries/rules';
 import type { AuthState, MethodCall } from '$lib/jmap/types';
+import type { Rule } from '$lib/types/rules';
 import { sortNewMail } from './worker';
+import { jevHandlesRules } from './rules';
 
 const ACCT = 'acct-1';
 const ME = 'me@example.test';
@@ -109,9 +112,13 @@ class FakeJmap {
 					result = { list: (args.ids as string[]).map((id) => ({ id, emailIds: [] })) };
 					break;
 				case 'Email/set': {
-					for (const [id, patch] of Object.entries(args.update as Record<string, Record<string, boolean>>)) {
+					for (const [id, patch] of Object.entries(args.update as Record<string, Record<string, unknown>>)) {
 						const e = this.emails.get(id)!;
 						for (const [key, on] of Object.entries(patch)) {
+							if (key === 'mailboxIds') {
+								e.mailboxIds = { ...(on as Record<string, boolean>) };
+								continue;
+							}
 							const keyword = key.replace('keywords/', '');
 							if (on) e.keywords[keyword] = true;
 							else delete e.keywords[keyword];
@@ -151,9 +158,10 @@ beforeEach(() => {
 	jmap.client = fake;
 	getDb().prepare('DELETE FROM jev_decisions').run();
 	getDb().prepare('DELETE FROM jev_usage').run();
+	setRules(ME, []);
 	// Off and on again, so every test's cursor starts at T0.
-	updateJevSettings(ACCT, { autoSort: false });
-	updateJevSettings(ACCT, { inboxTabs: true, autoSort: true }, T0);
+	updateJevSettings(ACCT, { jevEnabled: false });
+	updateJevSettings(ACCT, { inboxTabs: true, jevEnabled: true }, T0);
 });
 
 afterEach(() => {
@@ -163,8 +171,8 @@ afterEach(() => {
 
 describe('sortNewMail', () => {
 	it('starts the clock on its first run instead of sorting the backlog', async () => {
-		updateJevSettings(ACCT, { autoSort: false });
-		updateJevSettings(ACCT, { autoSort: true }, T0);
+		updateJevSettings(ACCT, { jevEnabled: false });
+		updateJevSettings(ACCT, { jevEnabled: true }, T0);
 		getDb().prepare('UPDATE jev_settings SET sort_cursor = NULL').run();
 		fake.add('old', -60, { 'header:list-unsubscribe:asText': '<x>' });
 
@@ -255,5 +263,72 @@ describe('sortNewMail', () => {
 		};
 		await sortNewMail(ACCT, ME, auth, at(10));
 		expect(getDecision(ACCT, 'gone')?.status).toBe('skipped');
+	});
+
+	it('runs rules with Jev conditions, and the exact rules beside them, in the same pass', async () => {
+		const invoices: Rule = {
+			id: 'invoices',
+			name: 'Invoices',
+			enabled: true,
+			logic: 'allof',
+			conditions: [{ id: 'j1', field: 'jev', op: 'contains', value: 'an invoice or a payment request', negate: false }],
+			actions: [{ type: 'moveToFolder', value: 'archive' }, { type: 'delete' }],
+			createdAt: 0
+		};
+		const sam: Rule = {
+			id: 'sam',
+			name: 'Sam',
+			enabled: true,
+			logic: 'allof',
+			conditions: [{ id: 'f1', field: 'from', op: 'contains', value: 'sam@example.com', negate: false }],
+			actions: [{ type: 'markRead' }],
+			createdAt: 0
+		};
+		setRules(ME, [invoices, sam]);
+		// Tabs off: only the rules need Jev.
+		updateJevSettings(ACCT, { inboxTabs: false });
+		expect(jevHandlesRules(ACCT, [invoices, sam])).toBe(true);
+
+		fake.add('bill', 1, { subject: 'Your October invoice' });
+		fake.add('lunch', 2, { subject: 'Lunch?' });
+		fake.add('fromSam', 3, { from: [{ name: 'Sam', email: 'sam@example.com' }] });
+
+		await sortNewMail(ACCT, ME, auth, at(10));
+
+		// Mock Jev: "invoice" is in the subject, so the statement holds (0.9).
+		// The rule moves it — and its Delete is skipped, as for any Jev rule.
+		expect(fake.emails.get('bill')!.mailboxIds).toEqual({ archive: true });
+		expect(fake.emails.get('lunch')!.mailboxIds).toEqual({ inbox: true });
+		expect(fake.emails.get('fromSam')!.keywords).toEqual({ $seen: true });
+
+		expect(getDecision(ACCT, 'bill')?.rules).toEqual([
+			{
+				ruleId: 'invoices',
+				ruleName: 'Invoices',
+				statement: 'an invoice or a payment request',
+				probability: 0.9,
+				threshold: 0.8,
+				negate: false,
+				fired: true
+			}
+		]);
+		expect(getDecision(ACCT, 'bill')?.category).toBeNull();
+	});
+
+	it('leaves rules to the rules scheduler while Jev may not read the account', () => {
+		const jevRule: Rule = {
+			id: 'r',
+			name: 'r',
+			enabled: true,
+			logic: 'allof',
+			conditions: [{ id: 'j', field: 'jev', op: 'contains', value: 'anything', negate: false }],
+			actions: [],
+			createdAt: 0
+		};
+		updateJevSettings(ACCT, { jevEnabled: false });
+		expect(jevHandlesRules(ACCT, [jevRule])).toBe(false);
+		updateJevSettings(ACCT, { jevEnabled: true });
+		expect(jevHandlesRules(ACCT, [jevRule])).toBe(true);
+		expect(jevHandlesRules(ACCT, [{ ...jevRule, conditions: [] }])).toBe(false);
 	});
 });

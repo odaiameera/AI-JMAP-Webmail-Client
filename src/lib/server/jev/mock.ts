@@ -23,6 +23,23 @@ export function mockCategory(state: JevEmailState): InboxCategory {
 	return 'important';
 }
 
+const STOP_WORDS = new Set([
+	'this', 'that', 'email', 'message', 'mail', 'about', 'from', 'with', 'they', 'them', 'their',
+	'there', 'have', 'been', 'which', 'what', 'when', 'would', 'could', 'should', 'some', 'into',
+	'asks', 'asking', 'sent', 'someone', 'something', 'like', 'just', 'your', 'mine'
+]);
+
+/**
+ * The rule of thumb behind mock `noul` answers: likely (0.9) when one of the
+ * statement's content words appears in the subject or body, unlikely (0.1)
+ * otherwise — enough to exercise rules end to end without Jev.
+ */
+export function mockStatementProbability(statement: string, state: JevEmailState): number {
+	const text = `${state.email.subject} ${state.email.body_excerpt}`.toLowerCase();
+	const words = (statement.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !STOP_WORDS.has(w));
+	return words.some((w) => text.includes(w.replace(/(?:es|s)$/, ''))) ? 0.9 : 0.1;
+}
+
 /** TypeSafe's planning estimate: ~300 overhead + chars/4 + ~50 per question. */
 export function estimateInputTokens(state: unknown, questionCount: number): number {
 	return Math.round(300 + JSON.stringify(state).length / 4 + 50 * questionCount);
@@ -55,7 +72,10 @@ export function mockJev(state: unknown, questions: Record<string, JevQuestion>):
 			const pick = isCategory && isEmailState(state) ? mockCategory(state) : options[0];
 			answers[id] = choiceAnswer(options, pick);
 		} else if (question.type === 'noul') {
-			answers[id] = { type: 'noul', noul: 0.5 };
+			answers[id] = {
+				type: 'noul',
+				noul: isEmailState(state) ? mockStatementProbability(question.instructions, state) : 0.5
+			};
 		} else {
 			const levels = question.criteria.map((_, i) => String(i));
 			const middle = Math.floor(levels.length / 2);

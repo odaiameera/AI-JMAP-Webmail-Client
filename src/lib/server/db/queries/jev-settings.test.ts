@@ -31,7 +31,7 @@ beforeAll(() => {
 
 describe('jev settings', () => {
 	it('defaults to everything off for an account with no row', () => {
-		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false, autoSort: false, sortCursor: null });
+		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false, jevEnabled: false, sortCursor: null });
 	});
 
 	it('keeps each account separate', () => {
@@ -45,25 +45,25 @@ describe('jev settings', () => {
 
 	it('starts sorting from the moment it is switched on, and forgets the cursor when off', () => {
 		const on = new Date('2026-10-18T09:00:00Z');
-		updateJevSettings('acct-3', { inboxTabs: true, autoSort: true }, on);
+		updateJevSettings('acct-3', { inboxTabs: true, jevEnabled: true }, on);
 		expect(getJevSettings('acct-3')).toEqual({
 			inboxTabs: true,
-			autoSort: true,
+			jevEnabled: true,
 			sortCursor: on.toISOString()
 		});
 		expect(sortingEnabled(getJevSettings('acct-3'))).toBe(true);
 
 		// Saving it on again doesn't rewind the cursor.
-		updateJevSettings('acct-3', { autoSort: true }, new Date('2026-10-18T10:00:00Z'));
+		updateJevSettings('acct-3', { jevEnabled: true }, new Date('2026-10-18T10:00:00Z'));
 		expect(getJevSettings('acct-3').sortCursor).toBe(on.toISOString());
 
-		updateJevSettings('acct-3', { autoSort: false });
-		expect(getJevSettings('acct-3')).toMatchObject({ autoSort: false, sortCursor: null });
+		updateJevSettings('acct-3', { jevEnabled: false });
+		expect(getJevSettings('acct-3')).toMatchObject({ jevEnabled: false, sortCursor: null });
 	});
 
 	it('only sorts while the tabs are on too', () => {
-		expect(sortingEnabled({ inboxTabs: false, autoSort: true, sortCursor: null })).toBe(false);
-		expect(sortingEnabled({ inboxTabs: true, autoSort: false, sortCursor: null })).toBe(false);
+		expect(sortingEnabled({ inboxTabs: false, jevEnabled: true, sortCursor: null })).toBe(false);
+		expect(sortingEnabled({ inboxTabs: true, jevEnabled: false, sortCursor: null })).toBe(false);
 	});
 
 	it('drops the row when the account is unlinked', () => {

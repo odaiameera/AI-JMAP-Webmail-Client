@@ -8,7 +8,7 @@ import {
 	outcomeToUpdate,
 	type RuleActionCtx
 } from '$lib/server/rules-engine';
-import type { Rule } from '$lib/types/rules';
+import { effectiveActions, hasJevCondition, type Rule } from '$lib/types/rules';
 import type { Email } from '$lib/jmap/types';
 
 const PAGE = 200;
@@ -23,7 +23,7 @@ const BATCH = 50;
  */
 function buildUpdates(email: Email, rule: Rule, ctx: RuleActionCtx): Record<string, unknown> {
 	const outcome = emptyOutcome();
-	applyActionsToOutcome(email, rule.actions, ctx, outcome);
+	applyActionsToOutcome(email, effectiveActions(rule), ctx, outcome);
 	return outcomeToUpdate(email, outcome);
 }
 
@@ -32,8 +32,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return new Response('Not authenticated', { status: 401 });
 	}
 
-	const { rules } = (await request.json()) as { rules: Rule[] };
+	const { rules, ids } = (await request.json()) as { rules: Rule[]; ids?: unknown };
 	const activeRules = (rules ?? []).filter((r) => r.enabled);
+	// For a rule with a Jev condition no query finds the matches; the
+	// editor's test on recent mail does, and sends the ones you accepted.
+	const chosenIds = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : null;
 	const client = createClient(locals.auth);
 	const { accountId } = locals.auth;
 
@@ -96,6 +99,52 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						});
 						return;
 					}
+				}
+
+				if (chosenIds) {
+					if (activeRules.length !== 1) {
+						send({ type: 'error', message: 'Chosen emails can only be applied with one rule.' });
+						return;
+					}
+					const rule = activeRules[0];
+					send({ type: 'start', total: chosenIds.length });
+					const response = await client.request([
+						['Email/get', { accountId, ids: chosenIds, properties: ['id', 'keywords', 'mailboxIds'] }, 'g']
+					]);
+					const emails = (response.methodResponses[0][1] as { list?: Email[] }).list ?? [];
+					const patches = Object.fromEntries(
+						emails
+							.map((email) => [email.id, buildUpdates(email, rule, ctx)] as const)
+							.filter(([, p]) => Object.keys(p).length > 0)
+					);
+					scanned = matched = emails.length;
+					const entries = Object.entries(patches);
+					for (let i = 0; i < entries.length; i += BATCH) {
+						const setRes = await client.request([
+							['Email/set', { accountId, update: Object.fromEntries(entries.slice(i, i + BATCH)) }, '0']
+						]);
+						const result = setRes.methodResponses[0][1] as {
+							updated?: Record<string, unknown> | null;
+							notUpdated?: Record<string, { type?: string; description?: string }> | null;
+						};
+						applied += Object.keys(result.updated ?? {}).length;
+						const rejected = Object.values(result.notUpdated ?? {});
+						failed += rejected.length;
+						if (rejected.length > 0 && !failedReason) {
+							failedReason = rejected[0].description ?? rejected[0].type ?? 'rejected by server';
+						}
+					}
+					send({ type: 'done', scanned, matched, applied, failed, failedReason });
+					return;
+				}
+
+				const jevRule = activeRules.find(hasJevCondition);
+				if (jevRule) {
+					send({
+						type: 'error',
+						message: `Rule "${jevRule.name}" has a Jev condition, so no search can find its matches. Test it on recent mail, then apply it to the emails that match.`
+					});
+					return;
 				}
 
 				// Estimate total up-front so the UI can render a progress bar.

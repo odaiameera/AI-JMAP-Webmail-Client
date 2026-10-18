@@ -756,7 +756,7 @@
 			</div>
 			<div class="flex flex-col items-end gap-1 shrink-0">
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
-				{#if page.data.jevSorting}
+				{#if page.data.jevReads}
 					<JevWhy emailId={email.id} />
 				{/if}
 				{#if spamScore !== null}

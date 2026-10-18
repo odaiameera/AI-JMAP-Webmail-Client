@@ -2,19 +2,32 @@
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
 
 	/**
-	 * "Why is this here?" — Jev's decision for one email: its pick, how sure
-	 * it was, where the probability went, and the facts that were sent with
-	 * the email. Renders nothing for mail Jev never answered for.
+	 * "Why is this here?" — Jev's decision for one email: its tab pick, how
+	 * sure it was, where the probability went, what it said about your rules'
+	 * Jev conditions, and the facts that were sent with the email. Renders
+	 * nothing for mail Jev never answered for.
 	 */
 	let { emailId }: { emailId: string } = $props();
 
+	interface RuleCheck {
+		ruleId: string;
+		ruleName: string;
+		statement: string;
+		probability: number;
+		threshold: number;
+		negate: boolean;
+		fired: boolean;
+	}
+
 	interface Decision {
-		category: InboxCategory;
+		/** Null when only rules were asked about (tabs off). */
+		category: InboxCategory | null;
 		confidence: number | null;
 		applied: InboxCategory | null;
 		correctedTo: InboxCategory | null;
 		probabilities: Record<string, number>;
 		facts: Record<string, boolean | string | null>;
+		rules: RuleCheck[];
 		model: string | null;
 		mock: boolean;
 	}
@@ -69,8 +82,18 @@
 			: []
 	);
 
-	const summary = $derived.by(() => {
+	const firedRules = $derived(
+		decision ? [...new Map(decision.rules.filter((r) => r.fired).map((r) => [r.ruleId, r.ruleName])).values()] : []
+	);
+
+	const chipLabel = $derived.by(() => {
 		if (!decision) return '';
+		if (decision.category) return labelOf(decision.applied ?? decision.category);
+		return firedRules.length === 1 ? `rule “${firedRules[0]}”` : firedRules.length > 1 ? `${firedRules.length} rules` : 'rules checked';
+	});
+
+	const summary = $derived.by(() => {
+		if (!decision?.category) return '';
 		const sure = percent(decision.confidence);
 		if (decision.correctedTo && decision.correctedTo !== (decision.applied ?? 'important')) {
 			return `Jev picked ${labelOf(decision.category)}; you moved it to ${labelOf(decision.correctedTo)}.`;
@@ -89,19 +112,39 @@
 			title="Why is this here?"
 			class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full cursor-pointer bg-accent/10 text-accent-fg hover:bg-accent/15"
 		>
-			Jev · {labelOf(decision.applied ?? decision.category)}{decision.mock ? ' (mock)' : ''}
+			Jev · {chipLabel}{decision.mock ? ' (mock)' : ''}
 			<span aria-hidden="true">{open ? '▴' : '▾'}</span>
 		</button>
 
 		{#if open}
 			<div class="mt-1 w-72 rounded-lg border border-border bg-surface p-3 text-xs text-left shadow-xl">
-				<p class="text-text">{summary}</p>
+				{#if summary}
+					<p class="text-text">{summary}</p>
+				{/if}
 				{#if decision.mock}
 					<p class="mt-1 text-warning">
 						Mock answer: worked out locally from the facts below. Jev wasn’t asked.
 					</p>
 				{/if}
 
+				{#if decision.rules.length > 0}
+					<p class="mt-2.5 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">Your rules</p>
+					<ul class="space-y-1.5">
+						{#each decision.rules as check, i (i)}
+							<li>
+								<p class="text-text">
+									<span class={check.fired ? 'text-success' : 'text-text-tertiary'} aria-hidden="true">{check.fired ? '✓' : '–'}</span>
+									{check.ruleName}{check.fired ? ' fired' : ' didn’t fire'}
+								</p>
+								<p class="text-text-tertiary">
+									{check.negate ? 'Not: ' : ''}“{check.statement}” — {percent(check.probability)}, needs {percent(check.threshold)}
+								</p>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+
+				{#if decision.category}
 				<ul class="mt-2.5 space-y-1">
 					{#each INBOX_CATEGORIES as c (c.key)}
 						{@const p = decision.probabilities[c.key] ?? 0}
@@ -114,6 +157,7 @@
 						</li>
 					{/each}
 				</ul>
+				{/if}
 
 				<p class="mt-3 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">
 					Sent with the email

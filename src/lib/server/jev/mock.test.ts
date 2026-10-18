@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mockCategory, mockJev } from './mock';
+import { mockCategory, mockJev, mockStatementProbability } from './mock';
 import { CATEGORY_QUESTION } from './categorize';
 import { decideCategory } from './categorize';
 import type { JevEmailState, JevFacts } from './email-state';
@@ -44,5 +44,13 @@ describe('mockJev', () => {
 		expect(res.mock).toBe(true);
 		expect(res.usage.inputTokens).toBeGreaterThan(300);
 		expect(decideCategory(res.answers.category)).toMatchObject({ category: 'newsletters', apply: 'newsletters' });
+	});
+});
+
+describe('mockStatementProbability', () => {
+	it('calls a statement likely when its words appear in the email', () => {
+		const s = { ...state('Your October invoice'), email: { ...state('Your October invoice').email, body_excerpt: 'Amount due: £40' } };
+		expect(mockStatementProbability('it is an invoice or a payment request', s)).toBe(0.9);
+		expect(mockStatementProbability('someone wants to meet next week', s)).toBe(0.1);
 	});
 });

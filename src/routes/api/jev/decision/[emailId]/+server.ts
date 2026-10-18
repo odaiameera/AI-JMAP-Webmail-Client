@@ -5,9 +5,9 @@ import { CATEGORY_QUESTION_ID } from '$lib/server/jev/categorize';
 
 /**
  * What Jev decided about one email of the active account, for the "Why is
- * this here?" chip: its pick, how sure it was, the probabilities, and the
- * facts that were sent with the email. `decision: null` when Jev never
- * answered for it.
+ * this here?" chip: its tab pick, how sure it was, the probabilities, what
+ * it said about your rules' Jev conditions, and the facts that were sent
+ * with the email. `decision: null` when Jev never answered for it.
  */
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.auth || !locals.activeAccountId) {
@@ -15,7 +15,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	const row = getDecision(locals.activeAccountId, params.emailId);
-	if (!row || row.status !== 'done' || !row.category) return json({ decision: null });
+	const rules = row?.rules ?? [];
+	if (!row || row.status !== 'done' || (!row.category && rules.length === 0)) {
+		return json({ decision: null });
+	}
 
 	const answer = row.answers?.[CATEGORY_QUESTION_ID] as
 		| { probabilities?: Record<string, number> }
@@ -28,6 +31,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			correctedTo: row.correctedTo,
 			probabilities: answer?.probabilities ?? {},
 			facts: row.facts ?? {},
+			rules,
 			model: row.model,
 			mock: row.model === 'mock',
 			decidedAt: row.decidedAt

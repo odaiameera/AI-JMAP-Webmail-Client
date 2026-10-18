@@ -121,7 +121,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				const lastRules = lastRulesRun.get(userEmail) ?? 0;
 				if (Date.now() - lastRules > RULES_RUN_INTERVAL_MS) {
 					lastRulesRun.set(userEmail, Date.now());
-					void applyRulesForUserSafe(auth, userEmail);
+					void applyRulesForUserSafe(auth, userEmail, active.id);
 				}
 
 				const lastJev = lastJevRun.get(active.id) ?? 0;

@@ -2,23 +2,31 @@ import cron from 'node-cron';
 import { listSchedulableAuths, markNeedsReauth } from '$lib/server/auth/accounts';
 import { JMAPAuthError, type JMAPClient } from '$lib/jmap/client';
 import { createClient, fetchSession } from '$lib/jmap/auth';
-import { EmailUpdateError, setEmailCategory } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
 import type { AuthState, Email, JMAPSession } from '$lib/jmap/types';
-import { categoryOf, type InboxCategory } from '$lib/types/categories';
-import {
-	getJevSettings,
-	sortingEnabled,
-	updateJevSettings
-} from '$lib/server/db/queries/jev-settings';
+import { categoryKeywordPatch, categoryOf, type InboxCategory } from '$lib/types/categories';
+import { hasJevCondition, type Rule } from '$lib/types/rules';
+import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
+import { getRules } from '$lib/server/db/queries/rules';
 import {
 	addUsage,
 	enqueueEmails,
+	getDecision,
 	listPendingEmailIds,
 	markSkipped,
 	recordDecision,
-	recordFailure
+	recordFailure,
+	type JevRuleCheck
 } from '$lib/server/db/queries/jev-decisions';
+import {
+	emptyOutcome,
+	evaluateRulesForEmail,
+	extractBodyText,
+	jevConditionsToAsk,
+	outcomeToUpdate,
+	type RuleActionCtx,
+	type RuleOutcome
+} from '$lib/server/rules-engine';
 import { askJev, jevMode } from './client';
 import {
 	CATEGORY_QUESTION,
@@ -28,17 +36,26 @@ import {
 } from './categorize';
 import { buildEmailState, type JevFacts } from './email-state';
 import { gatherFacts } from './facts';
-import type { JevResponse } from './types';
+import { conditionAnswers, ruleChecks, ruleQuestions } from './rules';
+import type { JevQuestion, JevResponse } from './types';
 
 /**
- * Jev sorting new Inbox mail into tabs, a beat after it lands — the same
- * shape as the rules scheduler: every minute, plus a catch-up for whoever
- * is using the app. Only accounts with both Inbox tabs and Jev sorting on
- * are touched, and only mail that arrived after sorting was switched on.
+ * Jev triaging new Inbox mail a beat after it lands — the same shape as the
+ * rules scheduler: every minute, plus a catch-up for whoever is using the
+ * app. Only accounts that let Jev read their mail are touched, and only mail
+ * that arrived after that was switched on.
  *
- * Arrivals are queued in jev_decisions first and judged from the queue, so
- * an email whose call fails is retried on the next run (up to
- * MAX_JEV_ATTEMPTS) while the cursor keeps moving for everything else.
+ * Each email gets one Jev call holding everything there is to ask: the
+ * Inbox tab (when tabs are on) and every rule condition written for Jev
+ * that could still decide a rule. When the account has such rules, this
+ * worker evaluates all of its rules — exact ones included — and the rules
+ * scheduler steps aside (see `jevHandlesRules`), so rules keep their order
+ * and Stop processing keeps working.
+ *
+ * Arrivals are queued in jev_decisions and judged from the queue: an email
+ * whose call fails is retried on the next run, and after MAX_JEV_ATTEMPTS
+ * its rules run with every Jev condition counted as not holding. The
+ * cursor keeps moving for everything else.
  */
 
 /** New arrivals queued per run. */
@@ -47,6 +64,8 @@ const QUEUE_PAGE = 100;
 const JUDGE_BATCH = 25;
 /** Parallel calls to TypeSafe per account. */
 const CONCURRENCY = 4;
+/** Updates per Email/set. */
+const WRITE_BATCH = 50;
 /** How many of the newest Inbox emails "Try Jev" judges. */
 export const PREVIEW_LIMIT = 200;
 /** Body bytes fetched per email — comfortably more than the excerpt needs. */
@@ -55,6 +74,7 @@ const MAX_BODY_BYTES = 16_000;
 const JEV_EMAIL_PROPERTIES = [
 	'id', 'threadId', 'mailboxIds', 'keywords',
 	'from', 'to', 'cc', 'subject', 'receivedAt', 'preview',
+	'size', 'hasAttachment',
 	'textBody', 'htmlBody', 'bodyValues',
 	'header:list-unsubscribe:asText',
 	'header:list-id:asText',
@@ -62,7 +82,7 @@ const JEV_EMAIL_PROPERTIES = [
 	'header:auto-submitted:asText'
 ];
 
-/** Fetch emails with everything the state and facts are built from. */
+/** Fetch emails with everything the state, facts and rules are built from. */
 export async function fetchEmailsForJev(
 	client: JMAPClient,
 	accountId: string,
@@ -102,8 +122,10 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
 
 export interface JudgedEmail {
 	email: Email;
-	facts: JevFacts;
+	/** Null when there was nothing to ask, so Jev wasn't called. */
+	facts: JevFacts | null;
 	response: JevResponse | null;
+	/** The tab decision, when the tab was asked about. */
 	decision: CategoryDecision | null;
 	error: string | null;
 }
@@ -116,29 +138,37 @@ export interface JudgeContext {
 	session: JMAPSession | null;
 }
 
+const tabQuestion = (): Record<string, JevQuestion> => ({ [CATEGORY_QUESTION_ID]: CATEGORY_QUESTION });
+
 /**
- * Ask Jev which tab each email belongs in. Shared by the worker and the
- * preview; a failed call becomes `error` on that email, never a throw.
+ * Ask Jev each email's questions — by default just the Inbox tab. Emails
+ * with nothing to ask aren't sent. Shared by the worker and the previews;
+ * a failed call becomes `error` on that email, never a throw.
  */
 export async function judgeEmails(
 	client: JMAPClient,
 	accountId: string,
 	emails: Email[],
-	ctx: JudgeContext
+	ctx: JudgeContext,
+	questionsFor: (email: Email) => Record<string, JevQuestion> = tabQuestion
 ): Promise<JudgedEmail[]> {
-	const facts = await gatherFacts(client, accountId, emails, ctx);
+	const questions = new Map(emails.map((e) => [e.id, questionsFor(e)]));
+	const asking = emails.filter((e) => Object.keys(questions.get(e.id)!).length > 0);
+	const facts = await gatherFacts(client, accountId, asking, ctx);
 	return mapPool(emails, CONCURRENCY, async (email): Promise<JudgedEmail> => {
-		const emailFacts = facts.get(email.id)!;
+		const emailQuestions = questions.get(email.id)!;
+		const emailFacts = facts.get(email.id) ?? null;
+		if (!emailFacts) return { email, facts: null, response: null, decision: null, error: null };
 		try {
-			const response = await askJev(buildEmailState(email, emailFacts), {
-				[CATEGORY_QUESTION_ID]: CATEGORY_QUESTION
-			});
+			const response = await askJev(buildEmailState(email, emailFacts), emailQuestions);
 			if (!response.mock) addUsage(ctx.accountRowId, response.usage.inputTokens);
 			return {
 				email,
 				facts: emailFacts,
 				response,
-				decision: decideCategory(response.answers[CATEGORY_QUESTION_ID]),
+				decision: emailQuestions[CATEGORY_QUESTION_ID]
+					? decideCategory(response.answers[CATEGORY_QUESTION_ID])
+					: null,
 				error: null
 			};
 		} catch (err) {
@@ -154,9 +184,9 @@ export async function judgeEmails(
 }
 
 /**
- * The tab to put a judged email in, or null to leave it. Jev never
- * overrules a tab the message already has — you, or a rule, moved it there
- * first — and only a confident pick is used.
+ * The tab Jev's own pick puts a judged email in, or null to leave it. Jev
+ * never overrules a tab the message already has — you, or a rule, moved it
+ * there first — and only a confident pick is used.
  */
 export function tabToApply(judged: JudgedEmail): InboxCategory | null {
 	if (!judged.decision?.apply) return null;
@@ -164,7 +194,62 @@ export function tabToApply(judged: JudgedEmail): InboxCategory | null {
 	return judged.decision.apply;
 }
 
-/** One sorting pass for one account. */
+interface Plan {
+	update: Record<string, unknown>;
+	/** The tab Jev's pick put it in (not a rule's), for the record. */
+	jevTab: InboxCategory | null;
+	checks: JevRuleCheck[];
+}
+
+/**
+ * What to do with one email: the rules' outcome — with Jev's answers for
+ * their conditions — plus Jev's own tab when no rule chose one.
+ */
+function planFor(
+	judged: JudgedEmail,
+	rules: Rule[],
+	ruleCtx: RuleActionCtx,
+	wantsTabs: boolean
+): Plan {
+	const email = judged.email;
+	const answers = conditionAnswers(judged.response);
+	const outcome: RuleOutcome =
+		rules.length > 0
+			? evaluateRulesForEmail(email, rules, ruleCtx, extractBodyText(email), answers)
+			: emptyOutcome();
+	const jevTab = wantsTabs && !outcome.category ? tabToApply(judged) : null;
+	if (jevTab && jevTab !== 'important') Object.assign(outcome.keywords, categoryKeywordPatch(jevTab));
+	return {
+		update: outcomeToUpdate(email, outcome),
+		jevTab,
+		checks: ruleChecks(rules, answers, outcome.firedRuleIds)
+	};
+}
+
+/** Write updates in batches; returns the ids the server refused. */
+async function writeUpdates(
+	client: JMAPClient,
+	accountId: string,
+	updates: [string, Record<string, unknown>][]
+): Promise<Set<string>> {
+	const refused = new Set<string>();
+	for (let i = 0; i < updates.length; i += WRITE_BATCH) {
+		const chunk = updates.slice(i, i + WRITE_BATCH);
+		try {
+			const res = await client.request([
+				['Email/set', { accountId, update: Object.fromEntries(chunk) }, '0']
+			]);
+			const result = res.methodResponses[0][1] as { notUpdated?: Record<string, unknown> | null };
+			for (const id of Object.keys(result.notUpdated ?? {})) refused.add(id);
+		} catch (err) {
+			if (err instanceof JMAPAuthError) throw err;
+			for (const [id] of chunk) refused.add(id);
+		}
+	}
+	return refused;
+}
+
+/** One triage pass for one account: queue arrivals, judge, apply, record. */
 export async function sortNewMail(
 	accountRowId: string,
 	accountEmail: string,
@@ -172,8 +257,19 @@ export async function sortNewMail(
 	now = new Date()
 ): Promise<void> {
 	const settings = getJevSettings(accountRowId);
-	if (!sortingEnabled(settings) || jevMode() === 'off') return;
+	if (!settings.jevEnabled || jevMode() === 'off') return;
 	if (!settings.sortCursor) {
+		updateJevSettings(accountRowId, { sortCursor: now.toISOString() }, now);
+		return;
+	}
+
+	const enabledRules = getRules(accountEmail).filter((r) => r.enabled);
+	const wantsTabs = settings.inboxTabs;
+	// Only when a rule needs Jev does this worker take over the rules.
+	const rules = enabledRules.some(hasJevCondition) ? enabledRules : [];
+	if (!wantsTabs && rules.length === 0) {
+		// Nothing to ask: keep the cursor current, so switching tabs or a Jev
+		// rule on later doesn't reach back into mail from before.
 		updateJevSettings(accountRowId, { sortCursor: now.toISOString() }, now);
 		return;
 	}
@@ -183,7 +279,11 @@ export async function sortNewMail(
 	const mailboxes = await getMailboxes(client, accountId);
 	const inbox = mailboxes.find((m) => m.role === 'inbox');
 	if (!inbox) return;
-	const sentId = mailboxes.find((m) => m.role === 'sent')?.id ?? null;
+	const ruleCtx: RuleActionCtx = {
+		inboxId: inbox.id,
+		trashId: mailboxes.find((m) => m.role === 'trash')?.id,
+		validMailboxIds: new Set(mailboxes.map((m) => m.id))
+	};
 
 	// 1. Queue what arrived since the cursor.
 	const arrivals = await client.request([
@@ -226,53 +326,57 @@ export async function sortNewMail(
 	if (inInbox.length === 0) return;
 
 	const session = await fetchSession(auth).catch(() => null);
-	const judged = await judgeEmails(client, accountId, inInbox, {
-		accountRowId,
-		accountEmail,
-		sentId,
-		session
-	});
+	const judged = await judgeEmails(
+		client,
+		accountId,
+		inInbox,
+		{ accountRowId, accountEmail, sentId: mailboxes.find((m) => m.role === 'sent')?.id ?? null, session },
+		(email) => ({
+			...(wantsTabs ? tabQuestion() : {}),
+			...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
+		})
+	);
 
-	// 3. Apply, one write per tab. Important needs no write: new mail is
-	// already there. Each tab is worked out once, before anything changes.
-	const tabs = new Map(judged.map((j) => [j.email.id, j.response ? tabToApply(j) : null]));
-	const byTab = new Map<InboxCategory, string[]>();
-	for (const [id, tab] of tabs) {
-		if (tab && tab !== 'important') byTab.set(tab, [...(byTab.get(tab) ?? []), id]);
-	}
-	const writeFailed = new Set<string>();
-	for (const [tab, tabIds] of byTab) {
-		try {
-			await setEmailCategory(client, accountId, tabIds, tab);
-		} catch (err) {
-			if (err instanceof JMAPAuthError) throw err;
-			const failed = err instanceof EmailUpdateError ? err.failures.map((f) => f.id) : tabIds;
-			for (const id of failed) writeFailed.add(id);
-		}
-	}
-
-	// 4. Record. A failed call or write is retried next run.
+	// 3. Plan each email. A failed call is retried next run; once it has
+	// failed for good, the rules still run, with no Jev answers.
+	const plans = new Map<string, Plan>();
 	for (const j of judged) {
-		if (!j.response) {
-			recordFailure(accountRowId, j.email.id, j.error ?? 'No answer', now.getTime());
-		} else if (writeFailed.has(j.email.id)) {
-			recordFailure(accountRowId, j.email.id, 'The mail server refused the tab change', now.getTime());
-		} else {
-			recordDecision(
-				accountRowId,
-				j.email.id,
-				{
-					category: j.decision?.category ?? null,
-					confidence: j.decision?.confidence ?? null,
-					applied: tabs.get(j.email.id) ?? null,
-					answers: j.response.answers,
-					facts: j.facts,
-					model: j.response.model,
-					inputTokens: j.response.usage.inputTokens
-				},
-				now.getTime()
-			);
+		if (j.error) {
+			recordFailure(accountRowId, j.email.id, j.error, now.getTime());
+			if (getDecision(accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
+			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, ruleCtx, false));
+			continue;
 		}
+		plans.set(j.email.id, planFor(j, rules, ruleCtx, wantsTabs));
+	}
+
+	// 4. Apply, worked out before anything changes.
+	const updates = [...plans].filter(([, p]) => Object.keys(p.update).length > 0).map(([id, p]) => [id, p.update] as [string, Record<string, unknown>]);
+	const refused = await writeUpdates(client, accountId, updates);
+
+	// 5. Record.
+	for (const j of judged) {
+		const plan = plans.get(j.email.id);
+		if (!plan || j.error) continue; // failures were recorded above
+		if (refused.has(j.email.id)) {
+			recordFailure(accountRowId, j.email.id, 'The mail server refused the change', now.getTime());
+			continue;
+		}
+		recordDecision(
+			accountRowId,
+			j.email.id,
+			{
+				category: j.decision?.category ?? null,
+				confidence: j.decision?.confidence ?? null,
+				applied: plan.jevTab,
+				answers: j.response?.answers ?? {},
+				facts: j.facts ?? {},
+				rules: plan.checks,
+				model: j.response?.model ?? null,
+				inputTokens: j.response?.usage.inputTokens ?? 0
+			},
+			now.getTime()
+		);
 	}
 }
 
