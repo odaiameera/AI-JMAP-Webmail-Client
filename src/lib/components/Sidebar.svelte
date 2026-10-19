@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import MailboxIcon from '$lib/components/MailboxIcon.svelte';
+	import CollapseBar from '$lib/components/CollapseBar.svelte';
 	import { mailboxIconName } from '$lib/icons';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
@@ -395,21 +396,7 @@
 		</nav>
 	{/if}
 
-	<!-- Collapse toggle -->
-	<div class="py-2 {collapsed ? 'px-1.5' : 'px-2'} border-t border-border">
-		<button
-			onclick={() => onToggleCollapse?.()}
-			class="w-full flex items-center {collapsed ? 'justify-center' : 'gap-2.5 px-3'} py-2 rounded-lg text-sm text-text-tertiary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer"
-			title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-		>
-			{#if collapsed}
-				<Icon name="expand-sidebar" size={16} />
-			{:else}
-				<Icon name="collapse-sidebar" size={16} />
-				<span>Collapse</span>
-			{/if}
-		</button>
-	</div>
+	<CollapseBar {collapsed} onToggle={() => onToggleCollapse?.()} />
 </aside>
 
 <!--

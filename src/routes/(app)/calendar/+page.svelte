@@ -82,6 +82,15 @@
 	});
 
 	function navigate(view: string, date: Date) {
+		// A different view (from the menu or a shortcut) is remembered, so
+		// Calendar opens on it next time.
+		if (view !== data.view) {
+			void fetch('/api/preferences/calendar', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ view })
+			}).catch(() => {});
+		}
 		goto(`/calendar?view=${view}&date=${dayKey(date)}`, { noScroll: true, keepFocus: true });
 	}
 

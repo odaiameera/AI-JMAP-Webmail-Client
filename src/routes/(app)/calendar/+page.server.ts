@@ -2,19 +2,25 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { getEventsInRange } from '$lib/server/calendar/service';
 import { userEmailFromAuth } from '$lib/server/user';
-import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
+import { isCalendarView, type CalendarInfo, type CalendarView, type EventInstance } from '$lib/calendar/types';
 import { readPreferences } from '$lib/server/preferences';
 
-export type CalendarView = 'month' | 'week' | 'workweek' | '3day' | 'day';
+export type { CalendarView };
 
 const DAY_MS = 86400000;
-const VIEWS: CalendarView[] = ['month', 'week', 'workweek', '3day', 'day'];
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	if (!locals.auth) redirect(303, '/login');
 
-	const viewParam = url.searchParams.get('view') as CalendarView | null;
-	const view: CalendarView = viewParam && VIEWS.includes(viewParam) ? viewParam : 'month';
+	const prefs = locals.user ? readPreferences(locals.user.id, cookies) : {};
+	// The URL's view, or else the one last chosen (so the rail's plain
+	// /calendar link opens it), or else Month.
+	const viewParam = url.searchParams.get('view');
+	const view: CalendarView = isCalendarView(viewParam)
+		? viewParam
+		: isCalendarView(prefs.calendar_view)
+			? prefs.calendar_view
+			: 'month';
 
 	const dateParam = url.searchParams.get('date');
 	let date: string;
@@ -50,9 +56,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		rangeEnd = anchor + 2 * DAY_MS;
 	}
 
-	const weekStartCookie = locals.user
-		? readPreferences(locals.user.id, cookies).calendar_week_start
-		: undefined;
+	const weekStartCookie = prefs.calendar_week_start;
 	const weekStart = weekStartCookie === '0' ? 0 : weekStartCookie === '6' ? 6 : 1;
 
 	const userEmail = userEmailFromAuth(locals.auth);
