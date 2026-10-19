@@ -1,25 +1,11 @@
-import { env } from '$env/dynamic/private';
 import sanitizeHtml from 'sanitize-html';
-import {
-	aiEndpoint,
-	aiModel,
-	logUpstreamFailure,
-	mailAssistantConfigured,
-	upstreamErrorMessage
-} from './mail-assistant';
+import { MailAssistantError, mailAssistantConfigured, runAIChat } from './mail-assistant';
 
 /**
- * LLM-backed event extraction from unstructured email text, via the Ollama
- * API (cloud or self-hosted — both speak the same `/api/chat` protocol).
- *
- * Configuration (env):
- *  - OLLAMA_URL      base URL, default https://ollama.com (Ollama Cloud)
- *  - OLLAMA_API_KEY  bearer token (required for Ollama Cloud)
- *  - OLLAMA_MODEL    anything that follows JSON-schema output. Must name a
- *                    tag the endpoint serves; Ollama Cloud uses `-cloud` tags.
- *
- * Endpoint, model, and upstream error mapping are shared with the mail
- * assistant so both AI paths stay configured by the same three variables.
+ * LLM-backed event extraction from unstructured email text, through the
+ * mail assistant's chat transport: OpenAI when OPENAI_API_KEY is set,
+ * otherwise the Ollama endpoint (OLLAMA_URL / OLLAMA_API_KEY / OLLAMA_MODEL).
+ * The model must follow JSON-schema output.
  *
  * Structured invitations (text/calendar parts) never go through here —
  * they're parsed deterministically by the iMIP module. This path only
@@ -56,8 +42,8 @@ export function htmlToPromptText(html: string, maxChars = 6000): string {
 	return text.length > maxChars ? `${text.slice(0, maxChars)}…` : text;
 }
 
-// JSON schema passed as Ollama's `format` — constrains decoding so even
-// smaller models return parseable output.
+// JSON schema the model's answer is held to (Ollama's `format`, OpenAI's
+// `text.format`), so even smaller models return parseable output.
 const RESPONSE_SCHEMA = {
 	type: 'object',
 	properties: {
@@ -128,40 +114,18 @@ export async function extractEventFromEmail(input: {
 		input.bodyText || '(empty)'
 	].join('\n');
 
-	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-	if (env.OLLAMA_API_KEY) headers.Authorization = `Bearer ${env.OLLAMA_API_KEY}`;
-
-	let res: Response;
+	let content: string;
 	try {
-		res = await fetch(`${aiEndpoint()}/api/chat`, {
-			method: 'POST',
-			headers,
-			body: JSON.stringify({
-				model: aiModel(),
-				stream: false,
-				format: RESPONSE_SCHEMA,
-				options: { temperature: 0 },
-				messages: [
-					{ role: 'system', content: SYSTEM_PROMPT },
-					{ role: 'user', content: userPrompt }
-				]
-			}),
-			signal: AbortSignal.timeout(60_000)
+		content = await runAIChat({
+			system: SYSTEM_PROMPT,
+			messages: [{ role: 'user', content: userPrompt }],
+			temperature: 0,
+			format: RESPONSE_SCHEMA
 		});
 	} catch (err) {
-		const timeout = err instanceof Error && err.name === 'TimeoutError';
-		throw new AIExtractionError(timeout ? 'The model took too long to respond' : 'Could not reach the AI service', 502);
+		if (err instanceof MailAssistantError) throw new AIExtractionError(err.message, err.status);
+		throw err;
 	}
-
-	if (!res.ok) {
-		await logUpstreamFailure(res.status, await res.text().catch(() => ''));
-		throw new AIExtractionError(upstreamErrorMessage(res.status), 502);
-	}
-
-	const data = (await res.json().catch(() => null)) as {
-		message?: { content?: string };
-	} | null;
-	const content = data?.message?.content ?? '';
 	const parsed = parseModelJson(content);
 	if (!parsed) {
 		throw new AIExtractionError('The model returned an unreadable answer — try again', 502);

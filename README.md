@@ -7,7 +7,7 @@
 
 A single SvelteKit application that speaks JMAP for mail and contacts and CalDAV for calendars. It is designed to sit in front of your own [Stalwart](https://stalw.art) server, and it keeps every part of the stack — including the AI — under your control.
 
-The assistant reads your mailbox and calendar to answer questions, draft replies, and propose events and tasks. It runs against an Ollama-compatible endpoint you configure, which can be a model on your own machine. Nothing is sent to a third-party AI provider unless you point it at one.
+The assistant reads your mailbox and calendar to answer questions, draft replies, and propose events and tasks. It runs on OpenAI (GPT-5.6) when `OPENAI_API_KEY` is set, otherwise against an Ollama-compatible endpoint you configure, which can be a model on your own machine. Nothing is sent to a third-party AI provider unless you point it at one.
 
 ---
 
@@ -112,6 +112,8 @@ The example binds to `127.0.0.1:3001`. Put it behind a TLS reverse proxy for rem
 | `JMAP_BASE_URL` | Recommended | Default mail-server URL offered when linking an account. |
 | `ORIGIN` | Production | Public URL used by SvelteKit's request-origin checks. |
 | `DATABASE_PATH` | No | SQLite path. Defaults to a local development database or `/data/ameera.db` in production. |
+| `OPENAI_API_KEY` | AI only | Runs the AI on OpenAI instead of Ollama. |
+| `OPENAI_MODEL` | AI only | OpenAI model. Defaults to `gpt-5.6-terra`; `gpt-5.6-luna` is faster and cheaper. |
 | `OLLAMA_URL` | AI only | Ollama-compatible endpoint. |
 | `OLLAMA_API_KEY` | AI only | Bearer token when required by the endpoint. |
 | `OLLAMA_MODEL` | AI only | Model tag the endpoint serves. Verify with `npm run ai:models`. |
@@ -148,7 +150,7 @@ If the agent panel reports that the AI service does not serve the configured mod
 
 ### Where your data goes
 
-AI and task-app credentials stay on the server. Email content is sent to the Ollama endpoint you configure and, for accounts where you switch Jev sorting on, to TypeSafe. Remote images in the mail you read are fetched by the server, so the sender's image host sees the server's address rather than yours (it can still tell the message was opened). Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
+AI and task-app credentials stay on the server. Email content is sent to the AI service you configure (OpenAI, with `store: false`, or your Ollama endpoint) and, for accounts where you switch Jev sorting on, to TypeSafe. Remote images in the mail you read are fetched by the server, so the sender's image host sees the server's address rather than yours (it can still tell the message was opened). Task title, description, and due date are sent to the chosen task app **only after confirmation**. Calendar changes go to your own CalDAV server and, like tasks, only after confirmation.
 
 For Jev, each new email in an account you switch on is sent once: sender, recipients, subject, the first 2,000 characters of the body with quoted replies removed, and facts the app works out about it. Jev returns probabilities, which the app keeps alongside those facts; it never stores the email text. "Try Jev" sends your newest 200 Inbox emails the same way, once, when you press it. TypeSafe states it does not train on customer data; its documentation does not state a retention period, and zero data retention is an enterprise option.
 

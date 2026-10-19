@@ -29,18 +29,51 @@ const DEFAULT_AI_URL = 'https://ollama.com';
  */
 const DEFAULT_AI_MODEL = 'deepseek-v4-flash:cloud';
 
+const OPENAI_URL = 'https://api.openai.com/v1';
+
+/**
+ * OpenAI's model when OPENAI_MODEL is unset: GPT-5.6's balanced tier.
+ * `gpt-5.6-luna` is the faster, cheaper one.
+ */
+const DEFAULT_OPENAI_MODEL = 'gpt-5.6-terra';
+
+export type AIProvider = 'openai' | 'ollama';
+
+/** OpenAI when its key is set, otherwise the Ollama endpoint, if any. */
+export function aiProvider(): AIProvider | null {
+	if (env.OPENAI_API_KEY) return 'openai';
+	if (env.OLLAMA_API_KEY || env.OLLAMA_URL) return 'ollama';
+	return null;
+}
+
 export function mailAssistantConfigured(): boolean {
-	return !!(env.OLLAMA_API_KEY || env.OLLAMA_URL);
+	return aiProvider() !== null;
 }
 
 /** Endpoint base URL, trailing slashes trimmed. */
 export function aiEndpoint(): string {
+	if (aiProvider() === 'openai') return OPENAI_URL;
 	return (env.OLLAMA_URL || DEFAULT_AI_URL).replace(/\/+$/, '');
 }
 
-/** Model tag sent with every chat and extraction request. */
+/** Model sent with every chat and extraction request. */
 export function aiModel(): string {
+	if (aiProvider() === 'openai') return env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
 	return env.OLLAMA_MODEL || DEFAULT_AI_MODEL;
+}
+
+/** The variable that picks the model, for messages telling the operator to change it. */
+function modelVariable(): string {
+	return aiProvider() === 'openai' ? 'OPENAI_MODEL' : 'OLLAMA_MODEL';
+}
+
+function chatPath(): string {
+	return aiProvider() === 'openai' ? '/responses' : '/api/chat';
+}
+
+function authHeader(): Record<string, string> {
+	const key = aiProvider() === 'openai' ? env.OPENAI_API_KEY : env.OLLAMA_API_KEY;
+	return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
 /**
@@ -51,7 +84,7 @@ export function aiModel(): string {
 export function upstreamErrorMessage(status: number): string {
 	if (status === 401 || status === 403) return 'The AI service rejected its API key';
 	if (status === 404 || status === 410) {
-		return `The AI service does not serve the model "${aiModel()}" (${status}) — set OLLAMA_MODEL to a model your endpoint currently provides`;
+		return `The AI service does not serve the model "${aiModel()}" (${status}) — set ${modelVariable()} to a model your endpoint currently provides`;
 	}
 	if (status === 429) {
 		return 'The AI service is rate limiting this account — wait a moment and try again';
@@ -68,7 +101,7 @@ export function upstreamErrorMessage(status: number): string {
 export async function listAvailableModels(): Promise<string[]> {
 	try {
 		const response = await fetch(`${aiEndpoint()}/api/tags`, {
-			headers: env.OLLAMA_API_KEY ? { Authorization: `Bearer ${env.OLLAMA_API_KEY}` } : {},
+			headers: authHeader(),
 			signal: AbortSignal.timeout(10_000)
 		});
 		if (!response.ok) return [];
@@ -92,9 +125,10 @@ export async function listAvailableModels(): Promise<string[]> {
  */
 export async function logUpstreamFailure(status: number, detail: string): Promise<void> {
 	console.warn(
-		`[ai] ${aiEndpoint()}/api/chat ${status} for model ${aiModel()}: ${detail.slice(0, 300)}`
+		`[ai] ${aiEndpoint()}${chatPath()} ${status} for model ${aiModel()}: ${detail.slice(0, 300)}`
 	);
-	if (status !== 404 && status !== 410) return;
+	// Listing tags is Ollama's; OpenAI's own error names the missing model.
+	if ((status !== 404 && status !== 410) || aiProvider() === 'openai') return;
 
 	const available = await listAvailableModels();
 	console.warn(
@@ -109,37 +143,70 @@ export type AIChatMessage = {
 	content: string;
 };
 
-/** Shared Ollama-compatible chat transport for the focused and full-mail agents. */
-export async function runAIChat(input: {
+type AIChatInput = {
 	system: string;
 	messages: AIChatMessage[];
 	temperature?: number;
 	format?: Record<string, unknown>;
-}): Promise<string> {
+};
+
+function chatBody(input: AIChatInput): Record<string, unknown> {
+	if (aiProvider() === 'openai') {
+		// The Responses API. GPT-5.6 reasons before answering and takes no
+		// temperature; low effort keeps each of Raven's tool rounds quick.
+		// store: false so OpenAI keeps no copy of the mail it was shown.
+		return {
+			model: aiModel(),
+			instructions: input.system,
+			input: input.messages,
+			reasoning: { effort: 'low' },
+			store: false,
+			...(input.format
+				? { text: { format: { type: 'json_schema', name: 'answer', schema: input.format, strict: false } } }
+				: {})
+		};
+	}
+	return {
+		model: aiModel(),
+		stream: false,
+		...(input.format ? { format: input.format } : {}),
+		options: { temperature: input.temperature ?? 0.2 },
+		messages: [{ role: 'system', content: input.system }, ...input.messages]
+	};
+}
+
+function chatText(data: unknown): string {
+	if (aiProvider() === 'openai') {
+		const response = data as {
+			output_text?: string;
+			output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+		} | null;
+		if (typeof response?.output_text === 'string') return response.output_text;
+		return (response?.output ?? [])
+			.filter((item) => item.type === 'message')
+			.flatMap((item) => item.content ?? [])
+			.filter((part) => part.type === 'output_text')
+			.map((part) => part.text ?? '')
+			.join('');
+	}
+	return (data as { message?: { content?: string } } | null)?.message?.content ?? '';
+}
+
+/**
+ * Shared chat transport for the focused and full-mail agents and event
+ * extraction: OpenAI's Responses API, or an Ollama-compatible `/api/chat`.
+ */
+export async function runAIChat(input: AIChatInput): Promise<string> {
 	if (!mailAssistantConfigured()) {
 		throw new MailAssistantError('The mail assistant is not configured', 501);
 	}
 
 	let response: Response;
 	try {
-		response = await fetch(`${aiEndpoint()}/api/chat`, {
+		response = await fetch(`${aiEndpoint()}${chatPath()}`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				...(env.OLLAMA_API_KEY
-					? { Authorization: `Bearer ${env.OLLAMA_API_KEY}` }
-					: {})
-			},
-			body: JSON.stringify({
-				model: aiModel(),
-				stream: false,
-				...(input.format ? { format: input.format } : {}),
-				options: { temperature: input.temperature ?? 0.2 },
-				messages: [
-					{ role: 'system', content: input.system },
-					...input.messages
-				]
-			}),
+			headers: { 'Content-Type': 'application/json', ...authHeader() },
+			body: JSON.stringify(chatBody(input)),
 			signal: AbortSignal.timeout(60_000)
 		});
 	} catch (err) {
@@ -157,10 +224,7 @@ export async function runAIChat(input: {
 		throw new MailAssistantError(upstreamErrorMessage(response.status), 502);
 	}
 
-	const data = (await response.json().catch(() => null)) as {
-		message?: { content?: string };
-	} | null;
-	const result = data?.message?.content?.trim();
+	const result = chatText(await response.json().catch(() => null)).trim();
 	if (!result) throw new MailAssistantError('The assistant returned an empty answer', 502);
 	return result.slice(0, 12_000);
 }
