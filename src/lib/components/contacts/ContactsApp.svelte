@@ -1,6 +1,15 @@
+<script lang="ts" module>
+	import type { ContactsLoadResponse as LoadResponse } from '$lib/contacts/api';
+
+	// The last full list, per account, so coming back to Contacts shows it at
+	// once while the fresh one loads.
+	const lastLists = new Map<string, LoadResponse>();
+</script>
+
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { get } from 'svelte/store';
 	import { isPhone } from '$lib/stores/viewport';
 	import { pageTitle } from '$lib/utils/title';
@@ -32,9 +41,21 @@
 	import ImportContactsModal from './ImportContactsModal.svelte';
 	import { appDrawerCloser, hostAppPanel } from '$lib/app-panel';
 
-	let loading = $state(true);
+	let {
+		initial = undefined
+	}: {
+		/** From the page's load: the list itself, or (moving here from another
+		 *  page) a promise of it; null when that failed. Absent outside the page. */
+		initial?: ContactsLoadResponse | null | Promise<ContactsLoadResponse | null>;
+	} = $props();
+
+	const accountKey = page.data.activeAccountId ?? '';
+	// Start with what the page brought, or else the list from last time.
+	const startWith = untrack(() => (initial && !(initial instanceof Promise) ? initial : (lastLists.get(accountKey) ?? null)));
+
+	let loading = $state(startWith === null);
 	let error = $state('');
-	let data = $state<ContactsLoadResponse | null>(null);
+	let data = $state<ContactsLoadResponse | null>(startWith);
 	let selectedId = $state<string | null>(null);
 	let query = $state('');
 	let requestController: AbortController | null = null;
@@ -101,6 +122,21 @@
 		return selectedBookIds.length > 0 && selectedBookIds.every((id) => writableBookIds.has(id));
 	});
 
+	function applyResult(result: ContactsLoadResponse, search: string, phone = get(isPhone)) {
+		data = result;
+		error = '';
+		if (!search.trim()) {
+			everyoneCount = result.contacts.length;
+			lastLists.set(accountKey, result);
+		}
+		if (selectedId && !result.contacts.some((contact) => contact.id === selectedId)) {
+			selectedId = null;
+		}
+		// Open the first contact so the detail pane isn't empty — except on a
+		// phone, where the detail replaces the list and would hide it on load.
+		if (!selectedId && result.contacts.length > 0 && !phone) selectedId = result.contacts[0].id;
+	}
+
 	async function loadContacts(search = query) {
 		requestController?.abort();
 		requestController = new AbortController();
@@ -108,14 +144,7 @@
 		error = '';
 		try {
 			const result = await apiLoadContacts(search, { signal: requestController.signal });
-			data = result;
-			if (!search.trim()) everyoneCount = result.contacts.length;
-			if (selectedId && !result.contacts.some((contact) => contact.id === selectedId)) {
-				selectedId = null;
-			}
-			// Open the first contact so the detail pane isn't empty — except on a
-			// phone, where the detail replaces the list and would hide it on load.
-			if (!selectedId && result.contacts.length > 0 && !get(isPhone)) selectedId = result.contacts[0].id;
+			applyResult(result, search);
 		} catch (caught) {
 			if ((caught as Error).name !== 'AbortError') {
 				error = (caught as Error).message || 'Unable to load contacts';
@@ -322,9 +351,21 @@
 		if (email) openCompose({ to: email });
 	}
 
+	// What the page started with is shown in the first paint (server and
+	// browser alike, so they agree); the phone check waits for onMount.
+	if (startWith) untrack(() => applyResult(startWith, '', false));
+
 	onMount(() => {
+		// On a phone the detail would cover the list; start on the list.
+		if (get(isPhone) && selectedId === startWith?.contacts[0]?.id) selectedId = null;
 		void (async () => {
-			await loadContacts('');
+			const fresh = initial instanceof Promise ? await initial : initial;
+			if (fresh) {
+				if (fresh !== startWith) applyResult(fresh, '');
+				loading = false;
+			} else {
+				await loadContacts('');
+			}
 			const pending = takePendingContact();
 			const email = pending?.email.trim().slice(0, 320) ?? '';
 			const name = pending?.name.trim().slice(0, 255) ?? '';

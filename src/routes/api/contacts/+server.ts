@@ -11,13 +11,12 @@ import {
 	getContacts,
 	listMembers,
 	queryAllContacts,
-	queryContactLists,
-	queryContacts,
 	resolveContactsAccount,
 	toContactList,
 	updateContact
 } from '$lib/jmap/contacts';
 import { JMAPAuthError, JMAPError } from '$lib/jmap/client';
+import { loadContactsPage } from '$lib/server/contacts-load';
 import {
 	ContactValidationError,
 	addressBookForNewList,
@@ -63,41 +62,11 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
 
 	try {
-		const session = await fetchSession(locals.auth);
-		const { accountId, capabilities } = resolveContactsAccount(session);
-		const client = createClient(locals.auth);
 		const query = (url.searchParams.get('q') ?? '').trim().slice(0, 255);
 		const limit = integerParam(url.searchParams.get('limit'), 100, 1, 100);
 		const position = integerParam(url.searchParams.get('position'), 0, 0, 1_000_000);
-		const [addressBooks, result, lists] = await Promise.all([
-			getAddressBooks(client, accountId),
-			queryContacts(client, accountId, query, limit, position),
-			// Only the first page carries the lists; the client pages through
-			// contacts but needs the lists once.
-			position === 0 ? queryContactLists(client, accountId) : Promise.resolve(null)
-		]);
-
-		return json({
-			supported: true,
-			capabilities,
-			addressBooks,
-			...result,
-			listsSupported: true,
-			lists: lists ?? []
-		});
+		return json(await loadContactsPage(locals.auth, { query, limit, position }));
 	} catch (error) {
-		if (error instanceof ContactsUnsupportedError) {
-			return json({
-				supported: false,
-				capabilities: null,
-				addressBooks: [],
-				contacts: [],
-				queryState: '',
-				total: 0,
-				listsSupported: false,
-				lists: []
-			});
-		}
 		if (error instanceof JMAPAuthError) {
 			return json({ error: 'Mail account authentication failed' }, { status: 401 });
 		}

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ContactsApp from '$lib/components/contacts/ContactsApp.svelte';
+
+	let { data } = $props();
 </script>
 
-<ContactsApp />
+<ContactsApp initial={data.contacts} />
