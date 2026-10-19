@@ -4,6 +4,8 @@
 	import SearchQuickFilters from './SearchQuickFilters.svelte';
 	import { getRecentSearches, rememberSearch, clearRecentSearches } from '$lib/utils/recent-searches';
 	import type { Mailbox } from '$lib/jmap/types';
+	import { onMount } from 'svelte';
+	import { shortcutLabel } from '$lib/utils/platform';
 
 	let {
 		value = $bindable(''),
@@ -18,6 +20,10 @@
 	} = $props();
 
 	let panelOpen = $state(false);
+	// ⌘K on Apple devices, Ctrl+K elsewhere. Filled in after load: the server
+	// can't know the platform, and a guess would flash the wrong key.
+	let shortcutHint = $state('');
+	onMount(() => { shortcutHint = shortcutLabel('K'); });
 
 	let inputEl = $state<HTMLInputElement | undefined>(undefined);
 	let focused = $state(false);
@@ -279,9 +285,9 @@
 		/>
 
 		<!-- Keyboard hint, hidden once the field is engaged. -->
-		{#if !focused && value.length === 0}
+		{#if !focused && value.length === 0 && shortcutHint}
 			<kbd class="absolute right-9 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 h-5 rounded-md border border-border bg-surface text-3xs font-medium text-text-tertiary pointer-events-none select-none">
-				⌘K
+				{shortcutHint}
 			</kbd>
 		{/if}
 

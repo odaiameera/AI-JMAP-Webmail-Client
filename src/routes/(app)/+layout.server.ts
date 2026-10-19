@@ -138,6 +138,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			notifyCalendarEvents,
 			notifyEventReminders,
 			otpTrashAfterCopy,
+			// Composer defaults: the font new mail is written and sent in, and
+			// how often an open draft saves itself (seconds).
+			composerFont: prefs.composer_font ?? 'Calibri',
+			composerFontSize: prefs.composer_font_size ?? '12',
+			autoSaveInterval: Number(prefs.autosave_interval) || 10,
 			// Whether Jev reads this account's mail — the message view then
 			// offers its "Why is this here?" chip.
 			jevReads: activeAccount ? getJevSettings(activeAccount.id).jevEnabled : false,

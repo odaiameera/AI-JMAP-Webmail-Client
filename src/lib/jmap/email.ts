@@ -15,6 +15,7 @@ import {
 	isInboxCategory,
 	type InboxCategory
 } from '$lib/types/categories';
+import { htmlToText } from '$lib/utils/html-to-text';
 
 const LIST_PROPERTIES = [
 	'id', 'blobId', 'threadId', 'mailboxIds',
@@ -119,6 +120,12 @@ export async function getEmailDetail(
 				properties: [
 					...LIST_PROPERTIES,
 					'htmlBody', 'textBody', 'bodyValues', 'attachments',
+					// Threading and reply addressing: In-Reply-To / References on a
+					// reply have to carry these Message-IDs (not JMAP ids), and a
+					// reply goes to Reply-To when the sender set one.
+					'messageId', 'inReplyTo', 'references', 'replyTo',
+					// A draft's Bcc, so editing it keeps them.
+					'bcc',
 					'header:list-unsubscribe:asText',
 					'header:list-unsubscribe-post:asText',
 					'header:x-spam-status:asText',
@@ -145,15 +152,26 @@ export async function getEmailDetail(
 	return result.list[0];
 }
 
+const IMPORTANCE_HEADERS = {
+	high: { importance: 'high', priority: '1 (Highest)' },
+	low: { importance: 'low', priority: '5 (Lowest)' }
+} as const;
+
 function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 	const emailCreate: Record<string, unknown> = {
 		from: [compose.from],
 		to: compose.to,
 		subject: compose.subject,
+		// HTML plus a plain-text rendering of it, which the server turns into
+		// multipart/alternative. HTML-only mail scores worse with spam filters
+		// and shows as nothing in text-only clients and previews.
 		bodyValues: {
-			body: { value: compose.body, charset: 'utf-8' }
+			body: { value: compose.body, charset: 'utf-8' },
+			text: { value: htmlToText(compose.body), charset: 'utf-8' }
 		},
-		keywords: { $draft: true }
+		htmlBody: [{ partId: 'body', type: 'text/html' }],
+		textBody: [{ partId: 'text', type: 'text/plain' }],
+		keywords: { $draft: true, $seen: true }
 	};
 
 	if (compose.cc.length > 0) {
@@ -162,8 +180,6 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 	if (compose.bcc && compose.bcc.length > 0) {
 		emailCreate.bcc = compose.bcc;
 	}
-
-	emailCreate.htmlBody = [{ partId: 'body', type: 'text/html' }];
 
 	if (compose.attachments && compose.attachments.length > 0) {
 		emailCreate.attachments = compose.attachments.map((a: ComposeAttachment) => ({
@@ -182,93 +198,114 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 		emailCreate.references = compose.references.split(' ').filter(Boolean);
 	}
 
+	// Both headers: Importance is what Outlook and Apple Mail read, X-Priority
+	// what older clients do.
+	if (compose.importance === 'high' || compose.importance === 'low') {
+		const h = IMPORTANCE_HEADERS[compose.importance];
+		emailCreate['header:Importance:asText'] = h.importance;
+		emailCreate['header:X-Priority:asText'] = h.priority;
+	}
+
 	return emailCreate;
 }
 
+export interface SendResult {
+	success: boolean;
+	error?: string;
+	/** When the send failed: the draft that now holds the message, so nothing is lost. */
+	draftId?: string;
+}
+
+/**
+ * Send in one request, the way JMAP intends: create the message as a draft,
+ * submit it, and only on a successful submission move it to Sent and drop
+ * the draft flag (onSuccessUpdateEmail). It used to be created straight in
+ * Sent before submitting, so a rejected submission left a copy in Sent that
+ * never went anywhere. Now a failure leaves it in Drafts, and its id comes
+ * back so the composer keeps working on it. `replaceDraftId` (the draft
+ * being sent) is destroyed in the same Email/set.
+ */
 export async function sendEmail(
 	client: JMAPClient,
 	accountId: string,
 	compose: ComposeEmail,
-	sentMailboxId: string,
-	identity: { id: string; email: string }
-): Promise<{ success: boolean; error?: string }> {
-	// Step 1: Create the email in Sent. We no longer fetch Identity/get
-	// here — the API endpoint resolves the user's chosen identity from
-	// the SQLite cache and passes it in. That cache is refreshed by the
-	// (app) layout on every navigation.
+	mailboxes: { drafts: string; sent: string },
+	identity: { id: string; email: string },
+	options: { replaceDraftId?: string } = {}
+): Promise<SendResult> {
 	const emailCreate = buildEmailCreate(compose);
-	emailCreate.mailboxIds = { [sentMailboxId]: true };
-	emailCreate.keywords = { '$seen': true };
+	emailCreate.mailboxIds = { [mailboxes.drafts]: true };
 
-	const createResponse = await client.request([
+	// Bcc recipients are in the envelope so they receive the message; the
+	// stored copy's Bcc header is the server's to strip.
+	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc, ...(compose.bcc ?? [])];
+
+	const response = await client.request([
 		[
 			'Email/set',
 			{
 				accountId,
-				create: { draft1: emailCreate }
+				create: { draft1: emailCreate },
+				...(options.replaceDraftId && { destroy: [options.replaceDraftId] })
 			},
 			'0'
-		]
-	]);
-
-	const emailSetResult = createResponse.methodResponses[0][1] as {
-		created?: Record<string, { id: string }>;
-		notCreated?: Record<string, { type: string; description?: string }>;
-	};
-
-	if (emailSetResult.notCreated) {
-		const err = Object.values(emailSetResult.notCreated)[0];
-		return { success: false, error: err?.description ?? err?.type ?? 'Failed to create email' };
-	}
-
-	const emailId = emailSetResult.created?.draft1?.id;
-	if (!emailId) {
-		return { success: false, error: 'Email created but no ID returned' };
-	}
-
-	// Step 2: Submit the email — use identity email for mailFrom envelope.
-	// Bcc recipients are included in the envelope so they receive the message,
-	// but the `bcc` header was already stripped by the server on the stored copy.
-	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc, ...(compose.bcc ?? [])];
-
-	const submitResponse = await client.request([
+		],
 		[
 			'EmailSubmission/set',
 			{
 				accountId,
 				create: {
 					sub1: {
-						emailId,
+						emailId: '#draft1',
 						identityId: identity.id,
 						envelope: {
 							mailFrom: { email: identity.email },
 							rcptTo: allRecipients.map((a) => ({ email: a.email }))
 						}
 					}
+				},
+				// Whole values, not patch paths: Stalwart mishandles some
+				// digit-only pointer segments (see updateEmailMailboxes).
+				onSuccessUpdateEmail: {
+					'#sub1': { mailboxIds: { [mailboxes.sent]: true }, keywords: { $seen: true } }
 				}
 			},
-			'0'
+			'1'
 		]
 	]);
 
-	const submissionResult = submitResponse.methodResponses[0][1] as {
-		created?: Record<string, unknown>;
-		notCreated?: Record<string, { type: string; description?: string }>;
-	};
+	const emailResult = response.methodResponses.find(([name, , tag]) => name === 'Email/set' && tag === '0')?.[1] as
+		| { created?: Record<string, { id: string }>; notCreated?: Record<string, { type: string; description?: string }> }
+		| undefined;
+	const submission = response.methodResponses.find(([name]) => name === 'EmailSubmission/set')?.[1] as
+		| { created?: Record<string, unknown>; notCreated?: Record<string, { type: string; description?: string }> }
+		| undefined;
 
-	if (submissionResult.notCreated) {
-		const err = Object.values(submissionResult.notCreated)[0];
-		return { success: false, error: err?.description ?? err?.type ?? 'Failed to send email' };
+	if (emailResult?.notCreated?.draft1) {
+		const err = emailResult.notCreated.draft1;
+		return { success: false, error: err.description ?? err.type ?? 'Failed to create email' };
 	}
+	const draftId = emailResult?.created?.draft1?.id;
+	if (!draftId) return { success: false, error: 'Email created but no ID returned' };
 
+	if (!submission?.created?.sub1) {
+		const err = submission?.notCreated ? Object.values(submission.notCreated)[0] : undefined;
+		return { success: false, error: err?.description ?? err?.type ?? 'Failed to send email', draftId };
+	}
 	return { success: true };
 }
 
+/**
+ * Save a draft. JMAP messages are immutable, so updating a draft means
+ * creating its new version and destroying the old one, in one Email/set.
+ * Saving used to ignore the previous draft, leaving a duplicate every time.
+ */
 export async function saveDraft(
 	client: JMAPClient,
 	accountId: string,
 	draftsMailboxId: string,
-	compose: ComposeEmail
+	compose: ComposeEmail,
+	replaceDraftId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
 	const emailCreate = buildEmailCreate(compose);
 	emailCreate.mailboxIds = { [draftsMailboxId]: true };
@@ -278,7 +315,8 @@ export async function saveDraft(
 			'Email/set',
 			{
 				accountId,
-				create: { draft1: emailCreate }
+				create: { draft1: emailCreate },
+				...(replaceDraftId && { destroy: [replaceDraftId] })
 			},
 			'0'
 		]

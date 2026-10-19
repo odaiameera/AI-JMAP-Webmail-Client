@@ -71,7 +71,8 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 
 			const mailboxes = await getMailboxes(client, accountId);
 			const sent = mailboxes.find((m) => m.role === 'sent');
-			if (!sent) return json({ error: 'Sent folder missing' }, { status: 500 });
+			const drafts = mailboxes.find((m) => m.role === 'drafts');
+			if (!sent || !drafts) return json({ error: 'Sent or Drafts folder missing' }, { status: 500 });
 
 			const userEmail = userEmailFromAuth(locals.auth);
 			// Unsubscribe always sends from the primary identity. Picking
@@ -93,7 +94,7 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 					subject: parsed.subject ?? 'unsubscribe',
 					body: parsed.body ?? ''
 				},
-				sent.id,
+				{ drafts: drafts.id, sent: sent.id },
 				{ id: identity.id, email: identity.email }
 			);
 

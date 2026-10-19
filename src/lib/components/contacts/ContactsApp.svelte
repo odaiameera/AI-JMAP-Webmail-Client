@@ -465,14 +465,6 @@
 						class="w-full h-8 px-2.5 rounded-lg bg-bg border border-accent text-sm text-text placeholder-text-tertiary outline-none"
 					/>
 				</form>
-			{:else if lists.length === 0 && canMutate}
-				<button
-					type="button"
-					class="w-full text-left px-3 py-1.5 text-xs text-text-tertiary hover:text-text cursor-pointer"
-					onclick={() => { creatingList = true; newListName = ''; }}
-				>
-					Group people into a list to email them together.
-				</button>
 			{/if}
 		{/if}
 	</nav>
@@ -560,10 +552,8 @@
 						<div>
 							{#if activeList && !query}
 								<h2 class="text-sm font-medium text-text">No one in {activeList.name} yet</h2>
-								<p class="text-xs text-text-tertiary mt-1">Open a contact and choose Add to list.</p>
 							{:else}
 								<h2 class="text-sm font-medium text-text">{query ? 'No matching contacts' : 'No contacts yet'}</h2>
-								<p class="text-xs text-text-tertiary mt-1">{query ? 'Try a different search.' : 'Create one or import an Apple or Google export.'}</p>
 							{/if}
 						</div>
 					</div>
@@ -714,8 +704,7 @@
 							<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
 								<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
 							</div>
-							<h2 class="text-sm font-medium text-text">Select a contact</h2>
-							<p class="text-xs text-text-tertiary mt-1">Their details will appear here.</p>
+							<h2 class="text-sm font-medium text-text">No contact selected</h2>
 						</div>
 					</div>
 				{/if}
