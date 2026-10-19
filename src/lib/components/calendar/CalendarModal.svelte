@@ -136,7 +136,7 @@
 			<div class="flex justify-end gap-2 mt-6 pt-4 border-t border-border">
 				<button
 					type="button"
-					class="px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+					class="btn btn-ghost btn-lg"
 					onclick={() => onClose()}
 					disabled={saving}
 				>
@@ -144,7 +144,7 @@
 				</button>
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer"
+					class="btn btn-primary btn-lg"
 					onclick={handleSave}
 					disabled={saving || !name.trim()}
 				>

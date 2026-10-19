@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	getContacts: vi.fn(),
 	queryAllContacts: vi.fn(),
 	queryContacts: vi.fn(),
+	queryContactLists: vi.fn(),
 	createContact: vi.fn(),
 	createContacts: vi.fn(),
 	updateContact: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('$lib/jmap/contacts', async (importOriginal) => ({
 	getContacts: mocks.getContacts,
 	queryAllContacts: mocks.queryAllContacts,
 	queryContacts: mocks.queryContacts,
+	queryContactLists: mocks.queryContactLists,
 	createContact: mocks.createContact,
 	createContacts: mocks.createContacts,
 	updateContact: mocks.updateContact,
@@ -71,6 +73,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mocks.createClient.mockReturnValue({ client: true });
 	mocks.queryAllContacts.mockResolvedValue([]);
+	mocks.queryContactLists.mockResolvedValue([]);
 	mocks.getAddressBooks.mockResolvedValue([{
 		id: 'book-1',
 		name: 'Personal',
@@ -115,7 +118,9 @@ describe('GET /api/contacts', () => {
 			addressBooks: [{ id: 'book-1', name: 'Contacts' }],
 			contacts: [{ id: 'contact-1', name: { full: 'Ada Lovelace' } }],
 			queryState: 'query-1',
-			total: 1
+			total: 1,
+			listsSupported: true,
+			lists: []
 		});
 		expect(mocks.queryContacts).toHaveBeenCalledWith(
 			{ client: true },
@@ -143,7 +148,9 @@ describe('GET /api/contacts', () => {
 			addressBooks: [],
 			contacts: [],
 			queryState: '',
-			total: 0
+			total: 0,
+			listsSupported: false,
+			lists: []
 		});
 	});
 
@@ -598,5 +605,101 @@ describe('POST /api/contacts', () => {
 
 		expect(response.status).toBe(502);
 		await expect(response.json()).resolves.toEqual({ error: 'Unable to update contacts' });
+	});
+});
+
+describe('POST /api/contacts — lists', () => {
+	function post(body: Record<string, unknown>) {
+		const request = new Request('https://webmail.example.test/api/contacts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		return POST({ locals: { auth }, request } as never);
+	}
+
+	beforeEach(() => {
+		mocks.fetchSession.mockResolvedValue(contactsSession());
+	});
+
+	it('creates a list as a group card in the default writable address book', async () => {
+		mocks.createContact.mockImplementation(async (_client, _account, card) => ({ ...card, id: 'list-1' }));
+		const response = await post({ action: 'createList', name: '  Family  ' });
+
+		expect(response.status).toBe(201);
+		const created = mocks.createContact.mock.calls[0][2];
+		expect(created).toMatchObject({
+			'@type': 'Card',
+			kind: 'group',
+			name: { full: 'Family' },
+			addressBookIds: { 'book-1': true }
+		});
+		expect(created.uid).toMatch(/^urn:uuid:/);
+		await expect(response.json()).resolves.toMatchObject({
+			success: true,
+			list: { id: 'list-1', name: 'Family', memberUids: [], addressBookIds: { 'book-1': true } }
+		});
+	});
+
+	it('rejects a list with no name before any JMAP call', async () => {
+		const response = await post({ action: 'createList', name: '   ' });
+		expect(response.status).toBe(400);
+		expect(mocks.createContact).not.toHaveBeenCalled();
+	});
+
+	it('refuses to treat a person as a list, so list actions cannot rename or delete them', async () => {
+		mocks.getContacts.mockResolvedValue([{ id: 'contact-1', uid: 'urn:uuid:c1', kind: 'individual' }]);
+		for (const action of ['renameList', 'deleteList', 'setListMembers']) {
+			const response = await post({ action, id: 'contact-1', name: 'x', add: ['urn:uuid:z'] });
+			expect(response.status).toBe(404);
+		}
+		expect(mocks.updateContact).not.toHaveBeenCalled();
+		expect(mocks.deleteContact).not.toHaveBeenCalled();
+	});
+
+	it('sets the whole members map, so it works on a new list that has none yet', async () => {
+		// A fresh list has no `members` property; a `members/<uid>` patch into
+		// it is what Stalwart rejected.
+		mocks.getContacts.mockResolvedValue([{ id: 'list-1', uid: 'urn:uuid:l1', kind: 'group' }]);
+		mocks.updateContact.mockResolvedValue(undefined);
+		const response = await post({ action: 'setListMembers', id: 'list-1', add: ['urn:uuid:a', 'urn:uuid:a'] });
+
+		expect(response.status).toBe(200);
+		expect(mocks.updateContact).toHaveBeenCalledWith({ client: true }, 'contacts-account', 'list-1', {
+			members: { 'urn:uuid:a': true }
+		});
+	});
+
+	it('keeps existing members when adding, and clears the map when the last one leaves', async () => {
+		mocks.updateContact.mockResolvedValue(undefined);
+		mocks.getContacts.mockResolvedValue([{
+			id: 'list-1', uid: 'urn:uuid:l1', kind: 'group', members: { 'urn:uuid:a': true, 'urn:uuid:b': true }
+		}]);
+		await post({ action: 'setListMembers', id: 'list-1', add: ['urn:uuid:c'], remove: ['urn:uuid:b'] });
+		expect(mocks.updateContact).toHaveBeenLastCalledWith({ client: true }, 'contacts-account', 'list-1', {
+			members: { 'urn:uuid:a': true, 'urn:uuid:c': true }
+		});
+
+		mocks.getContacts.mockResolvedValue([{
+			id: 'list-1', uid: 'urn:uuid:l1', kind: 'group', members: { 'urn:uuid:a': true }
+		}]);
+		await post({ action: 'setListMembers', id: 'list-1', remove: ['urn:uuid:a'] });
+		expect(mocks.updateContact).toHaveBeenLastCalledWith({ client: true }, 'contacts-account', 'list-1', {
+			members: null
+		});
+	});
+
+	it('renames a list by replacing its name, and deletes only the list card', async () => {
+		mocks.getContacts.mockResolvedValue([{ id: 'list-1', uid: 'urn:uuid:l1', kind: 'group' }]);
+		mocks.updateContact.mockResolvedValue(undefined);
+		mocks.deleteContact.mockResolvedValue(undefined);
+
+		expect((await post({ action: 'renameList', id: 'list-1', name: 'Close family' })).status).toBe(200);
+		expect(mocks.updateContact).toHaveBeenCalledWith({ client: true }, 'contacts-account', 'list-1', {
+			name: { full: 'Close family' }
+		});
+
+		expect((await post({ action: 'deleteList', id: 'list-1' })).status).toBe(200);
+		expect(mocks.deleteContact).toHaveBeenCalledWith({ client: true }, 'contacts-account', 'list-1');
 	});
 });

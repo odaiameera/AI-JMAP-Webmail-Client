@@ -117,7 +117,7 @@
 		</div>
 		<button
 			onclick={exportPrefs}
-			class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer shrink-0"
+			class="btn btn-primary shrink-0"
 		>
 			Export
 		</button>
@@ -144,7 +144,7 @@
 		<button
 			onclick={() => fileInput?.click()}
 			disabled={importing}
-			class="text-sm border border-border hover:border-text-tertiary text-text-secondary hover:text-text px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+			class="btn btn-secondary shrink-0"
 		>
 			{importing ? 'Importing…' : 'Choose file…'}
 		</button>

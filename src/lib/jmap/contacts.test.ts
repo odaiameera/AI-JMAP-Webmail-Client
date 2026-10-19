@@ -9,6 +9,7 @@ import {
 	getAddressBooks,
 	getContacts,
 	queryAllContacts,
+	queryContactLists,
 	queryContacts,
 	resolveContactsAccount,
 	updateContact
@@ -132,7 +133,8 @@ describe('queryContacts', () => {
 		await expect(queryContacts(client, 'contacts-account', '  ada  ', 8, 2)).resolves.toEqual({
 			contacts: [contact],
 			queryState: 'query-1',
-			total: 1
+			total: 1,
+			fetched: 1
 		});
 		expect(request).toHaveBeenCalledWith(
 			[
@@ -158,6 +160,22 @@ describe('queryContacts', () => {
 			],
 			['urn:ietf:params:jmap:core', CONTACTS_CAPABILITY]
 		);
+	});
+
+	it('drops list cards from the page by their kind but pages by every card fetched', async () => {
+		const person = { id: 'p1', uid: 'urn:uuid:p1', kind: 'individual' };
+		const list = { id: 'l1', uid: 'urn:uuid:l1', kind: 'group' };
+		const request = vi.fn().mockResolvedValue({
+			methodResponses: [
+				['ContactCard/query', { queryState: 'q', total: 2, ids: ['p1', 'l1'] }, 'q'],
+				['ContactCard/get', { list: [person, list] }, 'g']
+			],
+			sessionState: 's'
+		});
+		const page = await queryContacts({ request } as unknown as JMAPClient, 'contacts-account');
+		expect(page).toMatchObject({ contacts: [person], total: 2, fetched: 2 });
+		// No `kind` filter: Stalwart accepts one but matches nothing with it.
+		expect(request.mock.calls[0][0][0][1].filter).toBeUndefined();
 	});
 
 	it('loads every query page for complete-inventory consumers', async () => {
@@ -462,5 +480,33 @@ describe('createContacts', () => {
 		};
 		await expect(createContacts(client, 'contacts-account', Array(51).fill(create))).rejects.toThrow(/50/);
 		expect(request).not.toHaveBeenCalled();
+	});
+});
+
+describe('queryContactLists', () => {
+	it('scans every card and returns the group cards as lists, by name', async () => {
+		const request = vi.fn().mockResolvedValue({
+			methodResponses: [
+				['ContactCard/query', { total: 3, ids: ['l2', 'l1', 'p1'] }, 'q'],
+				[
+					'ContactCard/get',
+					{
+						list: [
+							{ id: 'l2', uid: 'urn:uuid:l2', kind: 'group', name: { full: 'Work' }, members: { 'urn:uuid:a': true, 'urn:uuid:b': false }, addressBookIds: { b1: true } },
+							{ id: 'l1', uid: 'urn:uuid:l1', kind: 'group', name: { full: 'Family' }, addressBookIds: { b1: true } },
+							{ id: 'p1', uid: 'urn:uuid:p1', kind: 'individual', addressBookIds: { b1: true } }
+						]
+					},
+					'g'
+				]
+			],
+			sessionState: 's'
+		});
+		const lists = await queryContactLists({ request } as unknown as JMAPClient, 'contacts-account');
+		expect(lists).toEqual([
+			{ id: 'l1', uid: 'urn:uuid:l1', name: 'Family', memberUids: [], addressBookIds: { b1: true } },
+			{ id: 'l2', uid: 'urn:uuid:l2', name: 'Work', memberUids: ['urn:uuid:a'], addressBookIds: { b1: true } }
+		]);
+		expect(request.mock.calls[0][0][0][1].filter).toBeUndefined();
 	});
 });

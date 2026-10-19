@@ -457,24 +457,24 @@
 <svelte:head><title>{pageTitle({ page: 'Filters & Rules', subtitle: 'Settings' })}</title></svelte:head>
 
 <div class="h-full flex flex-col overflow-hidden">
-	<header class="px-6 py-4 border-b border-border flex items-center gap-3 shrink-0">
-		<a href="/inbox" class="text-sm text-text-tertiary hover:text-text transition-colors">&larr; Inbox</a>
-		<div class="w-px h-5 bg-border"></div>
-		<h1 class="text-lg font-semibold text-text">Rules</h1>
+	<!-- Title flush with the content edge and sized like every other settings
+	     page; the way back to mail is in the settings menu. -->
+	<header class="pb-4 border-b border-border flex items-center gap-3 shrink-0">
+		<h1 class="text-xl font-semibold text-text">Rules</h1>
 		<p class="text-xs text-text-tertiary">{localRules.length} {localRules.length === 1 ? 'rule' : 'rules'}</p>
 		<div class="flex-1"></div>
 		{#if data.jev.mode !== 'off'}
 			<button
 				onclick={createJevRule}
 				title="A rule with a condition Jev judges, written in plain English"
-				class="text-sm text-accent-fg border border-accent/40 hover:bg-accent/10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+				class="btn btn-secondary"
 			>
 				+ New Jev rule
 			</button>
 		{/if}
 		<button
 			onclick={createRule}
-			class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer"
+			class="btn btn-primary"
 		>
 			+ New rule
 		</button>
@@ -744,7 +744,7 @@
 								<button
 									onclick={runJevTest}
 									disabled={jevTesting || data.jev.mode === 'off'}
-									class="shrink-0 text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+									class="btn btn-secondary shrink-0"
 								>
 									{jevTesting ? 'Asking Jev…' : currentJevTest ? 'Test again' : 'Test on recent mail'}
 								</button>
@@ -788,7 +788,7 @@
 								<button
 									onclick={saveOnly}
 									disabled={saving}
-									class="text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+									class="btn btn-secondary"
 								>
 									{saving ? 'Saving…' : 'Save'}
 								</button>
@@ -796,7 +796,7 @@
 									onclick={saveAndApply}
 									disabled={saving || !currentJevTest || jevMatches.length === 0}
 									title={currentJevTest ? 'Apply this rule’s actions to the matching emails above' : 'Test the rule first'}
-									class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+									class="btn btn-primary"
 								>
 									Save &amp; apply to {jevMatches.length} {jevMatches.length === 1 ? 'match' : 'matches'}
 								</button>
@@ -824,14 +824,14 @@
 						<button
 							onclick={saveOnly}
 							disabled={saving}
-							class="text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+							class="btn btn-secondary"
 						>
 							{saving ? 'Saving…' : 'Save'}
 						</button>
 						<button
 							onclick={saveAndApply}
 							disabled={saving}
-							class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+							class="btn btn-primary"
 						>
 							Save &amp; apply now
 						</button>
@@ -908,7 +908,7 @@
 					</button>
 					<button
 						onclick={closeOrCancel}
-						class="text-xs text-danger hover:text-danger border border-danger/30 hover:border-danger/60 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+						class="btn btn-danger btn-sm"
 					>
 						Cancel
 					</button>
@@ -921,14 +921,14 @@
 					</button>
 					<button
 						onclick={saveAndApply}
-						class="text-xs bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer"
+						class="btn btn-primary btn-sm"
 					>
 						Retry
 					</button>
 				{:else}
 					<button
 						onclick={closeOrCancel}
-						class="text-xs bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer"
+						class="btn btn-primary btn-sm"
 					>
 						Done
 					</button>

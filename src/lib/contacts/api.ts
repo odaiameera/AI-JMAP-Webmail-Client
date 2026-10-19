@@ -1,5 +1,5 @@
 import type { AddressBook, ContactCard } from '$lib/jmap/types';
-import type { ContactsAccountCapabilities } from '$lib/jmap/contacts';
+import type { ContactList, ContactsAccountCapabilities } from '$lib/jmap/contacts';
 import type { ContactFormValue } from './model';
 
 export interface ContactsLoadResponse {
@@ -8,7 +8,12 @@ export interface ContactsLoadResponse {
 	addressBooks: AddressBook[];
 	contacts: ContactCard[];
 	queryState: string;
+	/** Every card the query matched, lists included; paging only, not a headcount. */
 	total: number;
+	/** Cards this page consumed, lists included. */
+	fetched?: number;
+	listsSupported: boolean;
+	lists: ContactList[];
 }
 
 interface MutationResponse {
@@ -64,23 +69,26 @@ export async function apiLoadContacts(
 ): Promise<ContactsLoadResponse> {
 	const pageSize = Math.min(100, Math.max(1, options.limit ?? 100));
 	const startPosition = Math.max(0, options.position ?? 0);
+	// Advance by cards consumed, not people returned: lists are on the same
+	// pages but filtered out of `contacts`.
+	const consumed = (page: ContactsLoadResponse) => page.fetched ?? page.contacts.length;
 	const first = await loadContactsPage(query, pageSize, startPosition, options.signal);
-	if (!first.supported || startPosition + first.contacts.length >= first.total) return first;
+	if (!first.supported || startPosition + consumed(first) >= first.total) return first;
 
 	const contacts = [...first.contacts];
 	const seenIds = new Set(contacts.map((contact) => contact.id));
-	let position = startPosition + first.contacts.length;
+	let position = startPosition + consumed(first);
 	let queryState = first.queryState;
 	while (position < first.total) {
 		const page = await loadContactsPage(query, pageSize, position, options.signal);
-		if (!page.supported || page.contacts.length === 0) break;
+		if (!page.supported || consumed(page) === 0) break;
 		for (const contact of page.contacts) {
 			if (!seenIds.has(contact.id)) {
 				seenIds.add(contact.id);
 				contacts.push(contact);
 			}
 		}
-		position += page.contacts.length;
+		position += consumed(page);
 		queryState = page.queryState;
 	}
 	return { ...first, contacts, queryState };
@@ -135,4 +143,35 @@ export async function apiDeleteContact(id: string): Promise<void> {
 		body: JSON.stringify({ action: 'delete', id })
 	});
 	await readJson<MutationResponse>(response, 'Unable to delete contact');
+}
+
+async function postList<T>(body: Record<string, unknown>, fallback: string): Promise<T> {
+	const response = await fetch('/api/contacts', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify(body)
+	});
+	return readJson<T>(response, fallback);
+}
+
+export async function apiCreateList(name: string): Promise<ContactList> {
+	const data = await postList<{ list?: ContactList }>({ action: 'createList', name }, 'Unable to create list');
+	if (!data.list) throw new ContactsApiError('The server did not return the created list', 502);
+	return data.list;
+}
+
+export async function apiRenameList(id: string, name: string): Promise<void> {
+	await postList({ action: 'renameList', id, name }, 'Unable to rename list');
+}
+
+export async function apiDeleteList(id: string): Promise<void> {
+	await postList({ action: 'deleteList', id }, 'Unable to delete list');
+}
+
+/** Add and/or remove contacts (by uid) in one change to the list. */
+export async function apiSetListMembers(
+	id: string,
+	changes: { add?: string[]; remove?: string[] }
+): Promise<void> {
+	await postList({ action: 'setListMembers', id, add: changes.add ?? [], remove: changes.remove ?? [] }, 'Unable to update list');
 }

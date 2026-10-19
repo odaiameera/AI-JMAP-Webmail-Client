@@ -262,3 +262,48 @@ export function contactCreateFromInput(
 		addressBookIds: parseAddressBookIds(input.addressBookIds)
 	};
 }
+
+// --- Contact lists -----------------------------------------------------------
+// A list is a group card (see ContactList in $lib/jmap/contacts). These helpers
+// validate what the client sends before any of it reaches the server.
+
+const MAX_LIST_NAME_LENGTH = 100;
+const MAX_LIST_CHANGES = 500;
+
+export function listNameFromInput(value: unknown): string {
+	const name = optionalText(value, 'List name', MAX_LIST_NAME_LENGTH);
+	if (!name) throw new ContactValidationError('Enter a name for the list');
+	return name;
+}
+
+/** A bounded, de-duplicated array of contact uids. */
+export function uidsFromInput(value: unknown, field: string): string[] {
+	if (value === undefined || value === null) return [];
+	if (!Array.isArray(value) || value.length > MAX_LIST_CHANGES) {
+		throw new ContactValidationError(`${field} is invalid`);
+	}
+	const uids = value.map((uid) => optionalText(uid, field, 255));
+	if (uids.some((uid) => !uid)) throw new ContactValidationError(`${field} is invalid`);
+	return [...new Set(uids)];
+}
+
+/** Where a new list goes: the default address book if writable, else the first writable one. */
+export function addressBookForNewList(addressBooks: AddressBook[]): AddressBook | null {
+	const writable = addressBooks.filter((book) => book.myRights.mayWrite);
+	return writable.find((book) => book.isDefault) ?? writable[0] ?? null;
+}
+
+export function contactListCreate(
+	name: string,
+	addressBookId: string,
+	uuid: () => string = randomUUID
+): ContactCardCreate {
+	return {
+		'@type': 'Card',
+		version: '1.0',
+		uid: `urn:uuid:${uuid()}`,
+		kind: 'group',
+		name: { full: name },
+		addressBookIds: { [addressBookId]: true }
+	};
+}

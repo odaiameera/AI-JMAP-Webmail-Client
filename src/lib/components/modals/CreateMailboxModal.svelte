@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { getContext } from 'svelte';
+	import type { Label } from '$lib/types/labels';
 	import type { Mailbox } from '$lib/jmap/types';
 	import {
 		DEFAULT_LABEL_COLOR,
+		autoLabelColor,
 		colorByHex,
 		type LabelColor
 	} from '$lib/constants/colors';
@@ -30,6 +33,8 @@
 		editing?: EditingMailbox | null;
 		onClose: () => void;
 	} = $props();
+
+	const existingLabels = getContext<Label[]>('labels') ?? [];
 
 	let name = $state('');
 	let color = $state<LabelColor>(DEFAULT_LABEL_COLOR);
@@ -67,7 +72,12 @@
 				parentId = editing.parentId ?? null;
 			} else {
 				name = '';
-				color = DEFAULT_LABEL_COLOR;
+				// A new label starts on a colour no other label has, so it stands
+				// apart even if nobody changes it.
+				color =
+					kind === 'label'
+						? autoLabelColor('', new Set(existingLabels.map((l) => l.color.toLowerCase())))
+						: DEFAULT_LABEL_COLOR;
 				parentId = null;
 			}
 			error = null;
@@ -289,7 +299,7 @@
 			<div class="flex justify-end gap-2 mt-6 pt-4 border-t border-border">
 				<button
 					type="button"
-					class="px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+					class="btn btn-ghost btn-lg"
 					onclick={handleCancel}
 					disabled={saving}
 				>
@@ -297,7 +307,7 @@
 				</button>
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer"
+					class="btn btn-primary btn-lg"
 					onclick={handleSave}
 					disabled={saving || !name.trim()}
 				>

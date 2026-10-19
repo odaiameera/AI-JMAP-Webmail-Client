@@ -40,7 +40,7 @@
 		<button
 			onclick={resetAll}
 			disabled={resetting}
-			class="text-sm bg-danger/10 border border-danger/40 text-danger hover:bg-danger/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+			class="btn btn-danger shrink-0"
 		>
 			{resetting ? 'Resetting…' : 'Reset'}
 		</button>

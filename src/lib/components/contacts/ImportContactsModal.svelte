@@ -244,13 +244,13 @@
 			</div>
 
 			<footer class="shrink-0 px-5 py-4 border-t border-border flex justify-end gap-2">
-				<button type="button" disabled={importing} class="px-4 py-2 rounded-lg text-sm text-text-secondary hover:bg-surface-hover cursor-pointer" onclick={cancel}>{result ? 'Done' : 'Cancel'}</button>
+				<button type="button" disabled={importing} class="btn btn-ghost btn-lg" onclick={cancel}>{result ? 'Done' : 'Cancel'}</button>
 				{#if !result}
 					<button
 						type="button"
 						disabled={importing || readyRows.length === 0}
 						aria-label={`Import ${readyRows.length} ${readyRows.length === 1 ? 'contact' : 'contacts'}`}
-						class="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-40 cursor-pointer"
+						class="btn btn-primary btn-lg"
 						onclick={runImport}
 					>
 						{importing ? 'Importing…' : `Import ${readyRows.length}`}

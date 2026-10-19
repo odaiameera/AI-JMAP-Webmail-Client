@@ -67,8 +67,7 @@
 						required minlength="8" class={inputClass} />
 				</div>
 				<button type="submit" disabled={loading}
-					class="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-lg
-						px-4 py-2.5 transition-colors cursor-pointer disabled:cursor-not-allowed">
+					class="btn btn-primary btn-lg w-full">
 					{loading ? 'Creating…' : 'Continue'}
 				</button>
 			</form>
@@ -128,8 +127,7 @@
 				</div>
 
 				<button type="submit" disabled={loading}
-					class="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-lg
-						px-4 py-2.5 transition-colors cursor-pointer disabled:cursor-not-allowed">
+					class="btn btn-primary btn-lg w-full">
 					{loading ? 'Verifying…' : 'Link account'}
 				</button>
 			</form>

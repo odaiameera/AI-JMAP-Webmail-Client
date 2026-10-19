@@ -386,11 +386,11 @@
 	aria-label="AI mail agent"
 	aria-hidden={!open}
 	inert={!open}
-	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
+	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] max-md:min-w-0 max-md:w-screen overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
 		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
-		<header class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+		<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
 				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
 				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -523,7 +523,7 @@
 									type="button"
 									disabled={message.calendarStatus === 'applying' || message.calendarStatus === 'applied'}
 									onclick={() => confirmCalendar(message.id, message.calendarProposal!)}
-									class="mt-3 w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-default disabled:opacity-60 {message.calendarProposal.action === 'delete' ? 'bg-danger hover:bg-danger/90' : 'bg-accent hover:bg-accent-hover'}"
+									class="btn btn-sm mt-3 w-full {message.calendarProposal.action === 'delete' ? 'btn-danger-solid' : 'btn-primary'}"
 								>
 									{message.calendarStatus === 'applying'
 										? 'Working…'
@@ -567,7 +567,7 @@
 									type="button"
 									disabled={!message.selectedProvider || message.taskStatus === 'creating' || message.taskStatus === 'created'}
 									onclick={() => createTask(message.id, message.proposal!, message.selectedProvider!)}
-									class="mt-3 w-full cursor-pointer rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-default disabled:opacity-60"
+									class="btn btn-primary btn-sm mt-3 w-full"
 								>
 									{!message.selectedProvider
 										? 'No task app connected'

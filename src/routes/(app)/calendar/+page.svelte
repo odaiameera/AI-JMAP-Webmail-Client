@@ -18,6 +18,7 @@
 	import { apiCreateEvent, apiDeleteEvent, apiUpdateEvent } from '$lib/calendar/api';
 	import { showToast } from '$lib/stores/toast';
 	import CalendarPanel from '$lib/components/calendar/CalendarPanel.svelte';
+	import { hostAppPanel } from '$lib/app-panel';
 	import MonthView from '$lib/components/calendar/MonthView.svelte';
 	import TimeGrid from '$lib/components/calendar/TimeGrid.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
@@ -61,17 +62,14 @@
 	);
 	let viewMenuOpen = $state(false);
 
+	// formatRange collapses the shared parts per locale ("Oct 19 – 25, 2026",
+	// "19–25 Oct 2026"). Formatting the right side by hand without its month
+	// asked Intl for a bare {day, year}, which Chrome renders as
+	// "2026 (day: 25)".
+	const rangeFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
 	function rangeLabel(days: Date[]): string {
-		const first = days[0];
-		const last = days[days.length - 1];
-		const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
-		const left = first.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-		const right = last.toLocaleDateString(undefined, {
-			month: sameMonth ? undefined : 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-		return `${left} – ${right}`;
+		return rangeFormat.formatRange(days[0], days[days.length - 1]);
 	}
 
 	const headerLabel = $derived.by(() => {
@@ -251,7 +249,21 @@
 				break;
 		}
 	}
+
+	// New event, the mini-month and the calendar list live in the shell's
+	// left column (the drawer on phones), where Mail keeps its folders.
+	hostAppPanel(calendarPanel);
 </script>
+
+{#snippet calendarPanel()}
+	<CalendarPanel
+		calendars={data.calendars}
+		selected={selectedDate}
+		{weekStart}
+		onSelectDate={(date) => navigate(data.view, date)}
+		onCreateEvent={() => openCreate()}
+	/>
+{/snippet}
 
 <svelte:head>
 	<title>{pageTitle({ page: 'Calendar' })}</title>
@@ -260,20 +272,12 @@
 <svelte:window onkeydown={handleKeydown} onclick={() => (viewMenuOpen = false)} />
 
 <div class="h-full flex min-h-0">
-	<CalendarPanel
-		calendars={data.calendars}
-		selected={selectedDate}
-		{weekStart}
-		onSelectDate={(date) => navigate(data.view, date)}
-		onCreateEvent={() => openCreate()}
-	/>
-
 	<div class="flex-1 flex flex-col min-w-0 min-h-0">
 		<!-- Toolbar -->
-		<div class="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+		<div class="flex items-center gap-2 px-4 max-md:px-2 h-12 border-b border-border shrink-0">
 			<button
 				type="button"
-				class="px-3 h-7 rounded-lg border border-border text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer"
+				class="btn btn-secondary btn-sm"
 				onclick={() => navigate(data.view, new Date())}
 			>
 				Today
@@ -293,7 +297,7 @@
 			<div class="relative">
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg border border-border text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer"
+					class="btn btn-secondary btn-sm"
 					aria-haspopup="listbox"
 					aria-expanded={viewMenuOpen}
 					onclick={(e) => {
@@ -331,6 +335,14 @@
 					</div>
 				{/if}
 			</div>
+			<button
+				type="button"
+				class="md:hidden w-7 h-7 shrink-0 rounded-lg bg-accent hover:bg-accent-hover text-white flex items-center justify-center cursor-pointer transition-colors"
+				aria-label="New event"
+				onclick={() => openCreate()}
+			>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+			</button>
 		</div>
 
 		{#if data.calendarError}

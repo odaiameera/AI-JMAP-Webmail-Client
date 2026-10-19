@@ -111,6 +111,9 @@
 	}
 
 	function isMailboxActive(m: { id: string; role?: string | null }): boolean {
+		// A message open full-page keeps its folder highlighted, so you can
+		// still see where you are and where Back goes.
+		if (page.url.pathname.startsWith('/email/') && page.data.email?.mailboxIds?.[m.id]) return true;
 		if (m.role === 'inbox') return page.url.pathname.startsWith('/inbox');
 		return page.url.pathname === `/folder/${m.id}`;
 	}
@@ -233,8 +236,9 @@
 		</div>
 	{/if}
 
-	<!-- Compose -->
-	<div class="{collapsed ? 'px-1.5 pt-2' : 'px-3 pt-2'} pb-1 mb-1">
+	<!-- Compose. pt-1.5 centres the 36px button on the 48px top bars of the
+	     panes beside it (list header, reading-pane toolbar). -->
+	<div class="{collapsed ? 'px-1.5 pt-1.5' : 'px-3 pt-1.5'} pb-1 mb-1">
 		{#if collapsed}
 			<button
 				onclick={() => openCompose()}
@@ -248,7 +252,7 @@
 		{:else}
 			<button
 				onclick={() => openCompose()}
-				class="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors cursor-pointer"
+				class="btn btn-primary btn-lg w-full"
 			>
 				Compose
 			</button>

@@ -217,8 +217,8 @@
 			</div>
 
 			<footer class="shrink-0 px-5 py-4 border-t border-border flex justify-end gap-2">
-				<button type="button" disabled={saving} class="px-4 py-2 rounded-lg text-sm text-text-secondary hover:bg-surface-hover disabled:opacity-50 cursor-pointer" onclick={cancel}>Cancel</button>
-				<button type="submit" disabled={saving} aria-label="Save contact" class="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50 cursor-pointer">
+				<button type="button" disabled={saving} class="btn btn-ghost btn-lg" onclick={cancel}>Cancel</button>
+				<button type="submit" disabled={saving} aria-label="Save contact" class="btn btn-primary btn-lg">
 					{saving ? 'Saving…' : 'Save contact'}
 				</button>
 			</footer>

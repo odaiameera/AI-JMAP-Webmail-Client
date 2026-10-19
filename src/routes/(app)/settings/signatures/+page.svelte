@@ -171,7 +171,7 @@
 	<button
 		type="button"
 		onclick={startNew}
-		class="shrink-0 inline-flex items-center gap-1.5 text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+		class="btn btn-primary shrink-0"
 	>
 		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
 			<line x1="12" y1="5" x2="12" y2="19" />
@@ -247,7 +247,7 @@
 						type="button"
 						onclick={save}
 						disabled={!canSave}
-						class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="btn btn-primary"
 					>
 						{saving ? 'Saving…' : isNew ? 'Create' : 'Save'}
 					</button>
@@ -260,7 +260,7 @@
 							<button
 								type="button"
 								onclick={setDefault}
-								class="text-sm border border-border hover:border-text-tertiary text-text-secondary hover:text-text px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+								class="btn btn-secondary"
 							>
 								Set as default
 							</button>
@@ -280,7 +280,7 @@
 						<button
 							type="button"
 							onclick={remove}
-							class="text-sm bg-danger/10 border border-danger/40 text-danger hover:bg-danger/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+							class="btn btn-danger"
 						>
 							Delete
 						</button>
@@ -305,7 +305,7 @@
 				type="button"
 				onclick={refreshIdentitiesNow}
 				disabled={refreshing}
-				class="shrink-0 text-sm border border-border hover:border-text-tertiary text-text-secondary hover:text-text px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+				class="btn btn-secondary shrink-0"
 			>
 				{refreshing ? 'Refreshing…' : 'Refresh from server'}
 			</button>

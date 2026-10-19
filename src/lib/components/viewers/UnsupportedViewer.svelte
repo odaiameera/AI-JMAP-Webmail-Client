@@ -20,7 +20,7 @@
 		</p>
 		<button
 			onclick={onDownload}
-			class="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+			class="btn btn-primary btn-lg"
 		>
 			Download to open externally
 		</button>

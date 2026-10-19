@@ -196,7 +196,7 @@
 						{#if onCalendar}
 							<button
 								type="button"
-								class="px-3 h-7 rounded-lg text-xs font-medium text-danger border border-danger/40 hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-60"
+								class="btn btn-danger btn-sm"
 								disabled={busy !== null}
 								onclick={removeFromCalendar}
 							>
@@ -224,7 +224,7 @@
 					{:else if !onCalendar}
 						<button
 							type="button"
-							class="px-3 h-7 rounded-lg text-xs font-medium text-white bg-accent hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60"
+							class="btn btn-primary btn-sm"
 							disabled={busy !== null}
 							onclick={() => importWith(null, 'add')}
 						>

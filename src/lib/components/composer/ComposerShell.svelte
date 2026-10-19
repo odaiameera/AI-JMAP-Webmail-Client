@@ -472,7 +472,7 @@
 				/>
 				<div class="flex items-center justify-end gap-1.5 mt-2">
 					<button type="button" onclick={() => (showLinkPopover = false)} class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded-md cursor-pointer">Cancel</button>
-					<button type="button" onclick={applyLink} class="text-xs bg-accent hover:bg-accent-hover text-white px-2.5 py-1 rounded-md cursor-pointer">Apply</button>
+					<button type="button" onclick={applyLink} class="btn btn-primary btn-sm">Apply</button>
 				</div>
 			</div>
 		{/if}
@@ -791,14 +791,14 @@
 					onclick={handleSend}
 					disabled={sending || savingDraft}
 					title="Send (⌘↵)"
-					class="bg-accent hover:bg-accent-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+					class="btn btn-primary"
 				>
 					{sending ? 'Sending...' : 'Send'}
 				</button>
 				<button
 					onclick={handleSaveDraft}
 					disabled={sending || savingDraft}
-					class="text-text-secondary hover:text-text text-sm px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
+					class="btn btn-ghost"
 				>
 					{savingDraft ? 'Saving...' : 'Save Draft'}
 				</button>
@@ -806,7 +806,7 @@
 			<button
 				onclick={handleDiscard}
 				disabled={sending || savingDraft || discarding}
-				class="text-text-tertiary hover:text-danger text-sm px-3 py-1.5 rounded-lg hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
+				class="btn btn-ghost text-text-tertiary hover:text-danger"
 			>
 				{discarding ? 'Discarding...' : 'Discard'}
 			</button>
@@ -843,6 +843,25 @@
 		width: 320px;
 		height: 40px;
 		border-radius: 10px 10px 0 0;
+	}
+	/* Phones: a 540px floating window doesn't fit, so both the popup and the
+	   expanded composer take the whole screen. Same breakpoint as Tailwind's
+	   `md`, which the rest of the phone layout keys off. */
+	@media (max-width: 767.98px) {
+		.composer--popup,
+		.composer--fullscreen {
+			inset: 0;
+			width: 100%;
+			height: 100dvh;
+			max-width: none;
+			max-height: none;
+			transform: none;
+			border-radius: 0;
+		}
+		.composer--minimized {
+			right: 8px;
+			width: calc(100vw - 16px);
+		}
 	}
 
 	.header-btn {

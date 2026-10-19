@@ -371,7 +371,7 @@
 				</select>
 				<button
 					type="submit"
-					class="px-3 py-1.5 rounded-lg text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary transition-colors cursor-pointer"
+					class="btn btn-secondary"
 				>
 					Pin
 				</button>
@@ -401,7 +401,7 @@
 					type="button"
 					onclick={runPreview}
 					disabled={previewing}
-					class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+					class="btn btn-primary shrink-0"
 				>
 					{previewing ? 'Asking Jev…' : preview ? 'Run again' : 'Try it'}
 				</button>

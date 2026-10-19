@@ -208,7 +208,7 @@
 			type="button"
 			onclick={changePassword}
 			disabled={pwBusy || !currentPassword || !newPassword || !confirmPassword}
-			class="px-3.5 py-2 text-sm text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer"
+			class="btn btn-primary"
 		>
 			{pwBusy ? 'Changing…' : 'Change password'}
 		</button>
@@ -227,7 +227,7 @@
 				type="button"
 				onclick={registerPasskey}
 				disabled={pkBusy}
-				class="shrink-0 px-3.5 py-2 text-sm text-white bg-accent hover:bg-accent-hover disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+				class="btn btn-primary shrink-0"
 			>
 				{pkBusy ? 'Waiting…' : 'Add passkey'}
 			</button>
@@ -263,12 +263,12 @@
 				</div>
 				{#if renameId === pk.id}
 					<button type="button" onclick={() => renamePasskey(pk.id)}
-						class="px-2.5 py-1.5 text-xs text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors cursor-pointer">Save</button>
+						class="btn btn-primary btn-sm">Save</button>
 					<button type="button" onclick={() => (renameId = null)}
-						class="px-2.5 py-1.5 text-xs text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer">Cancel</button>
+						class="btn btn-ghost btn-sm">Cancel</button>
 				{:else}
 					<button type="button" onclick={() => { renameId = pk.id; renameValue = pk.name; }}
-						class="px-2.5 py-1.5 text-xs text-text-secondary hover:text-text hover:bg-surface-hover rounded-lg transition-colors cursor-pointer">Rename</button>
+						class="btn btn-ghost btn-sm">Rename</button>
 					<button type="button" onclick={() => deletePasskey(pk.id)}
 						class="px-2.5 py-1.5 text-xs text-text-tertiary hover:text-danger transition-colors cursor-pointer">Remove</button>
 				{/if}

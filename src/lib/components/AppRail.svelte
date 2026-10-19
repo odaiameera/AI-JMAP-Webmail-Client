@@ -27,7 +27,9 @@
 	// All icons share the same visual language: 20×20, stroke-width 1.75,
 	// no fill, round linecaps/joins, currentColor stroke.
 	// Order is deliberate: AI first (it acts across everything below it), then
-	// the three built surfaces in the order they get used, then what isn't built.
+	// the three built surfaces in the order they get used. Unbuilt apps (Tasks)
+	// stay off the rail until they exist — a dimmed icon that leads to a
+	// "coming soon" page promises a screen and then doesn't deliver it.
 	const items: RailItem[] = [
 		{
 			id: 'ai',
@@ -53,13 +55,6 @@
 			label: 'Contacts',
 			href: '/contacts',
 			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`
-		},
-		{
-			id: 'tasks',
-			label: 'Tasks',
-			href: '/apps/tasks',
-			comingSoon: true,
-			icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`
 		}
 	];
 
@@ -71,7 +66,8 @@
 				path.startsWith('/inbox') ||
 				path.startsWith('/folder') ||
 				path.startsWith('/email') ||
-				path.startsWith('/search')
+				path.startsWith('/search') ||
+				path.startsWith('/flagged')
 			);
 		}
 		return path.startsWith(href);
@@ -80,7 +76,11 @@
 	const settingsActive = $derived(page.url.pathname.startsWith('/settings'));
 </script>
 
-<div class="w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden">
+<!-- A vertical rail from `md` up; on phones the same items lay out as a
+     bottom tab bar (the layout puts it in the grid's last row), minus what
+     isn't built yet. -->
+<div class="md:col-start-4 md:row-start-2 max-md:row-start-3 w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden
+	max-md:w-full max-md:h-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:flex-row max-md:justify-around max-md:py-0 max-md:pb-[env(safe-area-inset-bottom)] max-md:border-t max-md:border-border">
 	{#each items as item (item.id)}
 		{#if item.id === 'ai'}
 			<button
@@ -89,7 +89,7 @@
 				aria-label={aiOpen ? 'Close AI mail agent' : 'Open AI mail agent'}
 				aria-pressed={aiOpen}
 				onclick={onToggleAI}
-				class="w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer
+				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-all cursor-pointer
 					{aiOpen
 						? 'text-accent-fg bg-accent/10 shadow-sm'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
@@ -102,11 +102,11 @@
 				title={item.comingSoon ? `${item.label} (coming soon)` : item.label}
 				aria-label={item.comingSoon ? `${item.label} (coming soon)` : item.label}
 				aria-current={isActive(item.href) ? 'page' : undefined}
-				class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 					{isActive(item.href)
 						? 'text-accent-fg bg-accent/10'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}
-					{item.comingSoon && !isActive(item.href) ? 'opacity-50' : ''}"
+					{item.comingSoon && !isActive(item.href) ? 'opacity-50 max-md:hidden' : ''}"
 			>
 				{@html item.icon}
 			</a>
@@ -114,10 +114,10 @@
 	{/each}
 
 	<!-- Spacer pushes Settings to the bottom of the rail -->
-	<div class="flex-1"></div>
+	<div class="flex-1 max-md:hidden"></div>
 
 	<!-- Separator -->
-	<div class="h-px w-6 bg-border/30 my-1"></div>
+	<div class="h-px w-6 bg-border/30 my-1 max-md:hidden"></div>
 
 	<!-- Settings -->
 	<a
@@ -126,7 +126,7 @@
 		title="Settings"
 		aria-label="Settings"
 		aria-current={settingsActive ? 'page' : undefined}
-		class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+		class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 			{settingsActive
 				? 'text-accent-fg bg-accent/10'
 				: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"

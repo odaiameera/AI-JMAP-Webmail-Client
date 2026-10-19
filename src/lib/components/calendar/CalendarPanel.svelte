@@ -55,11 +55,13 @@
 
 <svelte:window onclick={closeMenus} />
 
-<div class="w-[232px] shrink-0 border-r border-border flex flex-col overflow-y-auto">
-	<div class="p-3 pb-1">
+<!-- Rendered in the shell's left column, so it sits on the chrome like the
+     mail sidebar and its New event button lines up with Compose. -->
+<div class="h-full w-full flex flex-col overflow-y-auto">
+	<div class="px-3 pt-1.5 pb-1">
 		<button
 			type="button"
-			class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
+			class="btn btn-primary btn-lg w-full"
 			onclick={onCreateEvent}
 		>
 			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>

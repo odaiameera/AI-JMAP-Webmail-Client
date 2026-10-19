@@ -6,9 +6,12 @@
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount, setContext } from 'svelte';
+	import { isPhone } from '$lib/stores/viewport';
+	import { openCompose } from '$lib/stores/compose';
+	import { onMount, setContext, type Snippet } from 'svelte';
+	import { APP_PANEL, type AppPanelContext } from '$lib/app-panel';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import { realtime } from '$lib/stores/realtime';
@@ -52,7 +55,50 @@
 	});
 
 	const avatarLetter = $derived((data.displayName ?? 'O')[0].toUpperCase());
-	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
+	// An account's colour (the stripe along the top, the avatar and its ring)
+	// is there to tell linked accounts apart. With only one it is just a
+	// second accent competing with the real one, so it waits for a second.
+	const accountColor = $derived(
+		(data.accounts?.length ?? 0) > 1 ? (data.activeAccountColor ?? null) : null
+	);
+
+	// The left column is the open app's own navigation (see $lib/app-panel):
+	// folders anywhere in Mail, otherwise whatever panel the page hosts, and
+	// nothing but a gutter for a page that hosts none.
+	let appPanel = $state.raw<Snippet | null>(null);
+	// Ownership is checked against a plain variable, not the state. Going
+	// from one panel-hosting page to another (Calendar → Contacts), the new
+	// page registers before the old one's onDestroy runs, and inside that
+	// navigation's update the state can still read as the old panel — so a
+	// check against it cleared the panel that had just been set.
+	let ownPanel: Snippet | null = null;
+	setContext<AppPanelContext>(APP_PANEL, {
+		set: (panel) => { ownPanel = panel; appPanel = panel; },
+		clear: (panel) => {
+			if (ownPanel !== panel) return;
+			ownPanel = null;
+			appPanel = null;
+		},
+		closeDrawer: () => { drawerOpen = false; }
+	});
+	const inMail = $derived(/^\/(inbox|folder|email|search|flagged)(\/|$)/.test(page.url.pathname));
+	const panelKind = $derived<'mail' | 'app' | 'none'>(inMail ? 'mail' : appPanel ? 'app' : 'none');
+	const railCollapsed = $derived(panelKind === 'mail' && sidebarCollapsed);
+	// Only the mail sidebar collapses to an icon strip; app panels are
+	// always full width.
+	const sidebarWidth = $derived(
+		panelKind === 'mail' ? (sidebarCollapsed ? '48px' : '224px') : panelKind === 'app' ? '224px' : '8px'
+	);
+
+	// Phone layout: the left column becomes a drawer opened from the header,
+	// and it closes itself once you pick somewhere to go.
+	let drawerOpen = $state(false);
+	afterNavigate(() => { drawerOpen = false; });
+	// Mail lists, where the phone layout floats a Compose button. Not an open
+	// message: there the button would sit on top of the text being read.
+	const onMailRoute = $derived(
+		/^\/(inbox|folder|search|flagged)(\/|$)/.test(page.url.pathname)
+	);
 
 	onMount(() => {
 		// Phase 13: avatar / labels / signatures live server-side now.
@@ -184,26 +230,45 @@
 
 <svelte:window onclick={handleClickOutside} />
 
+<!--
+	Two layouts from one grid. From `md` up: header across the top, then
+	sidebar | content | agent anchor | app rail. Below `md` (phones): a single
+	column of header, content, and the app rail turned into a bottom tab bar;
+	the sidebar leaves the grid as a slide-in drawer and the agent drawer goes
+	full-width. The desktop columns ride in a custom property so the same
+	element can drop them below `md` — an inline grid-template-columns would
+	win over any class.
+-->
 <div
-	class="h-screen overflow-hidden bg-surface grid grid-rows-[auto_1fr]"
+	class="h-dvh overflow-hidden bg-surface grid grid-cols-1 grid-rows-[auto_1fr_auto] md:grid-rows-[auto_1fr] md:[grid-template-columns:var(--shell-cols)]"
 	class:density-compact={data.density === 'compact'}
-	style="grid-template-columns: {sidebarWidth} minmax(0, 1fr) 0px 52px; transition: grid-template-columns 0.3s ease;
-		{data.activeAccountColor ? `border-top: 2px solid ${data.activeAccountColor};` : ''}"
+	style="--shell-cols: {sidebarWidth} minmax(0, 1fr) 0px 52px; transition: grid-template-columns 0.3s ease;
+		{accountColor ? `border-top: 2px solid ${accountColor};` : ''}"
 >
 	<!-- Row 1: Full-width header -->
-	<div class="col-span-4 flex items-center h-14 pl-4 pr-0 gap-4">
-		<h1 class="text-lg font-bold text-text tracking-tight leading-none shrink-0 {sidebarCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
-			{sidebarCollapsed ? '' : 'ameera.'}
+	<div class="col-span-full flex items-center h-14 pl-2 md:pl-4 pr-0 gap-2 md:gap-4">
+		<button
+			type="button"
+			onclick={() => { drawerOpen = true; }}
+			class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer {panelKind === 'none' ? 'invisible' : ''}"
+			aria-label="Open menu"
+			aria-expanded={drawerOpen}
+		>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+		</button>
+		<h1 class="max-md:hidden text-lg font-bold text-text tracking-tight leading-none shrink-0 {railCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
+			{railCollapsed ? '' : 'ameera.'}
 		</h1>
 		<SearchInput bind:value={searchQuery} onSubmit={submitSearch} mailboxes={data.mailboxes} />
-		<div class="flex-1"></div>
+		<!-- On phones the search box takes this space instead. -->
+		<div class="flex-1 max-md:hidden"></div>
 		<!-- 52px wrapper aligns avatar center with the AppRail column below -->
 		<div class="w-[52px] shrink-0 flex items-center justify-center">
 			<button
 				onclick={(e) => { e.stopPropagation(); profileOpen = !profileOpen; }}
 				class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-semibold select-none shrink-0 cursor-pointer transition-shadow overflow-hidden"
-				style={data.activeAccountColor
-					? `background-color: ${data.activeAccountColor}; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px ${data.activeAccountColor};`
+				style={accountColor
+					? `background-color: ${accountColor}; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px ${accountColor};`
 					: ''}
 				title="Accounts — {data.userEmail}"
 			>
@@ -221,16 +286,6 @@
 			</button>
 		</div>
 	</div>
-
-	<!-- Row 2, Col 1: Sidebar -->
-	<Sidebar
-		mailboxes={data.mailboxes}
-		labels={data.labels ?? []}
-		folderExpanded={data.folderExpanded ?? {}}
-		hideHeader={true}
-		collapsed={sidebarCollapsed}
-		onToggleCollapse={() => { sidebarCollapsed = !sidebarCollapsed; }}
-	/>
 
 	<!--
 		Row 2, Col 2: Main content — the tray.
@@ -252,9 +307,53 @@
 		Only the bottom is inset: left and right already meet the chrome, so the
 		corners alone separate them.
 	-->
-	<main class="mb-2 overflow-hidden min-w-0 bg-bg rounded-xl">
+	<main class="row-start-2 md:col-start-2 md:mb-2 overflow-hidden min-w-0 min-h-0 bg-bg md:rounded-xl">
 		{@render children()}
 	</main>
+
+	<!-- Row 2, Col 1: the open app's navigation — after <main> in the DOM so
+	     the page has registered its panel (if any) before this renders; grid
+	     placement puts it back on the left. `md:contents` keeps the panel
+	     itself as the grid item on desktop; on phones this wrapper is the
+	     drawer. The mail sidebar's collapse button closes the drawer there,
+	     since a 48px icon strip makes no sense as an overlay. -->
+	{#if drawerOpen}
+		<button
+			type="button"
+			class="md:hidden fixed inset-0 z-40 bg-black/50 animate-compose-backdrop-in cursor-default"
+			aria-label="Close menu"
+			onclick={() => { drawerOpen = false; }}
+		></button>
+	{/if}
+	{#if panelKind !== 'none'}
+		<div
+			class="md:contents max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[280px] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-2xl max-md:transition-[transform,visibility] max-md:duration-200
+				{drawerOpen ? '' : 'max-md:-translate-x-full max-md:invisible'}"
+		>
+			<div class="md:col-start-1 md:row-start-2 h-full min-h-0 overflow-hidden">
+				{#if panelKind === 'mail'}
+					<Sidebar
+						mailboxes={data.mailboxes}
+						labels={data.labels ?? []}
+						folderExpanded={data.folderExpanded ?? {}}
+						hideHeader={!$isPhone}
+						collapsed={sidebarCollapsed && !$isPhone}
+						onToggleCollapse={() => {
+							if ($isPhone) drawerOpen = false;
+							else sidebarCollapsed = !sidebarCollapsed;
+						}}
+					/>
+				{:else if appPanel}
+					<div class="h-full flex flex-col bg-surface">
+						{#if $isPhone}
+							<div class="px-4 py-3"><span class="text-lg font-bold text-text tracking-tight leading-none">ameera.</span></div>
+						{/if}
+						{@render appPanel()}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 
 	<!--
 		Row 2, Col 3: AI agent drawer anchor.
@@ -266,7 +365,9 @@
 		the reading pane. Height comes from the row, so the drawer needs no
 		hard-coded header offset.
 	-->
-	<div class="relative mb-2">
+	<!-- On phones the anchor is pinned to the screen's right edge between
+	     the header and the tab bar, and the drawer goes full-width. -->
+	<div class="relative md:col-start-3 md:row-start-2 md:mb-2 max-md:fixed max-md:right-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))]">
 		<AIAssistantRail
 			open={assistantOpen}
 			aiEnabled={data.aiEnabled}
@@ -275,7 +376,7 @@
 		/>
 	</div>
 
-	<!-- Row 2, Col 4: App rail -->
+	<!-- Row 2, Col 4: App rail (row 3 — the bottom tab bar — on phones) -->
 	<AppRail
 		aiOpen={assistantOpen}
 		aiEnabled={data.aiEnabled}
@@ -283,10 +384,23 @@
 	/>
 </div>
 
+<!-- Phones have no sidebar on screen, so mail gets a floating Compose
+     button, lifted clear of the tab bar and the list's pager above it. -->
+{#if onMailRoute}
+	<button
+		type="button"
+		onclick={() => openCompose()}
+		class="md:hidden fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl bg-accent hover:bg-accent-hover text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
+		aria-label="Compose"
+	>
+		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+	</button>
+{/if}
+
 {#if profileOpen}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div bind:this={profileCardEl} class="fixed z-50" style="top: 56px; right: 64px;" onclick={(e) => e.stopPropagation()}>
+	<div bind:this={profileCardEl} class="fixed z-50 top-14 right-2 md:right-16" onclick={(e) => e.stopPropagation()}>
 		<ProfileCard
 			displayName={data.displayName}
 			email={data.userEmail}

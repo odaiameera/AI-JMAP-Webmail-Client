@@ -119,6 +119,13 @@
 	const sourceMailboxId = $derived(
 		Object.keys(email.mailboxIds).find((id) => !labelIdSet.has(id)) ?? ''
 	);
+	// The full-page view's way back: the folder the message lives in, not
+	// always the Inbox, so opening something from Sent returns you to Sent.
+	const sourceMailbox = $derived(mailboxes.find((m) => m.id === sourceMailboxId));
+	const backHref = $derived(
+		!sourceMailbox || sourceMailbox.role === 'inbox' ? '/inbox' : `/folder/${sourceMailbox.id}`
+	);
+	const backLabel = $derived(sourceMailbox?.name ?? 'Inbox');
 
 	// Jev's spam verdict for this email (from the "Why is this here?" chip).
 	let jevSpam = $state<JevSpamCheck | null>(null);
@@ -683,131 +690,20 @@
 </script>
 
 <div class="h-full flex flex-col relative">
-	<header class="{compact ? 'px-4 py-3' : 'px-6 py-4'} border-b border-border shrink-0">
-		{#if !compact}
-			<div class="flex items-center justify-between mb-3">
-				<a href="/inbox" class="text-text-tertiary hover:text-text transition-colors text-sm">&larr; Back</a>
-			</div>
-		{/if}
-
-		<h1 class="{compact ? 'text-base' : 'text-xl'} font-semibold text-text mb-1">
-			{email.subject || '(no subject)'}
-		</h1>
-
-		<!-- Labels -->
-		<div class="flex items-center gap-1.5 flex-wrap mb-2 relative">
-			{#each appliedLabels as label}
-				<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-					style="background-color: {label.color}25; color: {label.color};">
-					<span class="w-1.5 h-1.5 rounded-full" style="background-color: {label.color}"></span>
-					{label.name}
-					<button onclick={() => toggleLabel(label.id)} class="ml-0.5 opacity-60 hover:opacity-100 cursor-pointer">&times;</button>
-				</span>
-			{/each}
-			<button onclick={() => showLabelMenu = !showLabelMenu}
-				class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs text-text-tertiary border border-border hover:border-text-tertiary transition-colors cursor-pointer">
-				+ Label
-			</button>
-			{#if showLabelMenu}
-				<div class="absolute z-20 top-full left-0 mt-1 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
-					{#each allLabels as label}
-						<button onclick={() => toggleLabel(label.id)}
-							class="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors cursor-pointer">
-							<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {label.color}"></span>
-							<span class="flex-1 text-left text-text">{label.name}</span>
-							{#if appliedLabels.find(l => l.id === label.id)}
-								<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-							{/if}
-						</button>
-					{/each}
-					{#if allLabels.length === 0}
-						<p class="px-3 py-2 text-xs text-text-tertiary">No labels yet. Create one in Settings.</p>
-					{/if}
-				</div>
-			{/if}
-		</div>
-
-		<div class="flex items-start justify-between gap-4">
-			<div class="min-w-0">
-				<div class="flex items-baseline gap-2">
-					<span class="font-medium text-text text-sm">{from?.name || from?.email || 'Unknown'}</span>
-					{#if from?.name && from?.email}
-						<span class="text-xs text-text-tertiary">&lt;{from.email}&gt;</span>
-					{/if}
-					{#if from?.email}
-						<!-- self-center: in this baseline-aligned row, an icon-only
-						     button's baseline is the bottom of its SVG, which lifts
-						     the icon above the text. The negative margin keeps the
-						     padded hit area from making the row taller. -->
-						<button
-							type="button"
-							onclick={handleAddSenderToContacts}
-							aria-label="Add sender to contacts"
-							title="Add to Contacts"
-							class="self-center -my-1 p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
-						>
-							<svg class="block" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
-						</button>
-					{/if}
-				</div>
-				<div class="text-xs text-text-tertiary mt-1">
-					<span>To: {toList.map(a => a.name || a.email).join(', ')}</span>
-					{#if ccList.length > 0}
-						<span class="ml-3">Cc: {ccList.map(a => a.name || a.email).join(', ')}</span>
-					{/if}
-				</div>
-			</div>
-			<div class="flex flex-col items-end gap-1 shrink-0">
-				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
-				{#if page.data.jevReads}
-					<JevWhy emailId={email.id} onSpamCheck={(check) => (jevSpam = check)} />
-				{/if}
-				{#if spamScore !== null}
-					<!-- The score is a button when there is a breakdown to show: a
-					     number on its own cannot tell you whether to train the
-					     classifier or chase a DNS record. -->
-					<svelte:element
-						this={spamRules.length > 0 ? 'button' : 'span'}
-						role={spamRules.length > 0 ? 'button' : undefined}
-						tabindex={spamRules.length > 0 ? 0 : undefined}
-						onclick={spamRules.length > 0 ? () => (showSpamRules = !showSpamRules) : undefined}
-						class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full
-							{spamRules.length > 0 ? 'cursor-pointer' : ''}
-							{isFlaggedSpam
-								? 'bg-danger/10 text-danger'
-								: spamScore > 3
-									? 'bg-warning/10 text-warning'
-									: 'bg-text-tertiary/10 text-text-tertiary'}"
-						title={spamRules.length > 0
-							? 'Spam score — click to see which rules fired'
-							: isFlaggedSpam
-								? 'Flagged as spam by the classifier'
-								: 'Spam classifier score'}
-					>
-						Spam score: {spamScore.toFixed(1)}
-						{#if spamRules.length > 0}
-							<span aria-hidden="true">{showSpamRules ? '▴' : '▾'}</span>
-						{/if}
-					</svelte:element>
-					{#if showSpamRules && spamRules.length > 0}
-						<div class="mt-1 max-w-xs flex flex-wrap justify-end gap-1">
-							{#each spamRules as rule (rule)}
-								<span class="text-3xs font-mono px-1.5 py-0.5 rounded-md bg-surface-hover text-text-secondary">
-									{rule}
-								</span>
-							{/each}
-						</div>
-					{/if}
-				{/if}
-			</div>
-		</div>
-	</header>
-
-	<!-- Ribbon -->
-	<div class="ribbon flex items-center justify-between {compact ? 'px-4' : 'px-6'} py-2 border-b border-border shrink-0">
+	<!-- Ribbon. First, and 48px tall, so it lines up with the mail list's
+	     header across the divider (and with every other pane's top bar). On
+	     the full-page view it also carries the way back to the folder. -->
+	<div class="ribbon flex items-center justify-between h-12 shrink-0 border-b border-border {compact ? 'px-4' : 'px-6 max-md:px-2'}">
 		<div class="flex items-center gap-1">
+			{#if !compact}
+				<a href={backHref} class="btn btn-ghost btn-sm -ml-2 mr-1" title="Back to {backLabel}">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+					{backLabel}
+				</a>
+				<span class="w-px h-4 bg-border mr-1" aria-hidden="true"></span>
+			{/if}
 			{#if isDraft}
-				<button onclick={handleEditDraft} class="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-3 py-1 transition-colors cursor-pointer">
+				<button onclick={handleEditDraft} class="btn btn-primary">
 					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
 					Edit draft
 				</button>
@@ -982,6 +878,123 @@
 		</div>
 	</div>
 
+	<header class="{compact ? 'px-4 py-3' : 'px-6 py-4 max-md:px-4'} border-b border-border shrink-0">
+		<h1 class="{compact ? 'text-base' : 'text-xl'} font-semibold text-text mb-1">
+			{email.subject || '(no subject)'}
+		</h1>
+
+		<!-- Labels -->
+		<div class="flex items-center gap-1.5 flex-wrap mb-2 relative">
+			{#each appliedLabels as label}
+				<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+					style="background-color: {label.color}25; color: {label.color};">
+					<span class="w-1.5 h-1.5 rounded-full" style="background-color: {label.color}"></span>
+					{label.name}
+					<button onclick={() => toggleLabel(label.id)} class="ml-0.5 opacity-60 hover:opacity-100 cursor-pointer">&times;</button>
+				</span>
+			{/each}
+			<button onclick={() => showLabelMenu = !showLabelMenu}
+				class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs text-text-tertiary border border-border hover:border-text-tertiary transition-colors cursor-pointer">
+				+ Label
+			</button>
+			{#if showLabelMenu}
+				<div class="absolute z-20 top-full left-0 mt-1 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+					{#each allLabels as label}
+						<button onclick={() => toggleLabel(label.id)}
+							class="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-hover transition-colors cursor-pointer">
+							<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {label.color}"></span>
+							<span class="flex-1 text-left text-text">{label.name}</span>
+							{#if appliedLabels.find(l => l.id === label.id)}
+								<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+							{/if}
+						</button>
+					{/each}
+					{#if allLabels.length === 0}
+						<p class="px-3 py-2 text-xs text-text-tertiary">No labels yet. Create one in Settings.</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- On phones the date and Jev chips drop below the sender instead of
+		     competing with a long address for one line. -->
+		<div class="flex items-start justify-between gap-4 max-md:flex-col max-md:gap-2">
+			<div class="min-w-0">
+				<div class="flex items-baseline gap-x-2 flex-wrap">
+					<span class="font-medium text-text text-sm">{from?.name || from?.email || 'Unknown'}</span>
+					{#if from?.name && from?.email}
+						<span class="text-xs text-text-tertiary break-all">&lt;{from.email}&gt;</span>
+					{/if}
+					{#if from?.email}
+						<!-- self-center: in this baseline-aligned row, an icon-only
+						     button's baseline is the bottom of its SVG, which lifts
+						     the icon above the text. The negative margin keeps the
+						     padded hit area from making the row taller. -->
+						<button
+							type="button"
+							onclick={handleAddSenderToContacts}
+							aria-label="Add sender to contacts"
+							title="Add to Contacts"
+							class="self-center -my-1 p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
+						>
+							<svg class="block" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
+						</button>
+					{/if}
+				</div>
+				<div class="text-xs text-text-tertiary mt-1">
+					<span>To: {toList.map(a => a.name || a.email).join(', ')}</span>
+					{#if ccList.length > 0}
+						<span class="ml-3">Cc: {ccList.map(a => a.name || a.email).join(', ')}</span>
+					{/if}
+				</div>
+			</div>
+			<div class="flex flex-col items-end gap-1 shrink-0 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-2">
+				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
+				{#if page.data.jevReads}
+					<JevWhy emailId={email.id} onSpamCheck={(check) => (jevSpam = check)} />
+				{/if}
+				{#if spamScore !== null}
+					<!-- The score is a button when there is a breakdown to show: a
+					     number on its own cannot tell you whether to train the
+					     classifier or chase a DNS record. -->
+					<svelte:element
+						this={spamRules.length > 0 ? 'button' : 'span'}
+						role={spamRules.length > 0 ? 'button' : undefined}
+						tabindex={spamRules.length > 0 ? 0 : undefined}
+						onclick={spamRules.length > 0 ? () => (showSpamRules = !showSpamRules) : undefined}
+						class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full
+							{spamRules.length > 0 ? 'cursor-pointer' : ''}
+							{isFlaggedSpam
+								? 'bg-danger/10 text-danger'
+								: spamScore > 3
+									? 'bg-warning/10 text-warning'
+									: 'bg-text-tertiary/10 text-text-tertiary'}"
+						title={spamRules.length > 0
+							? 'Spam score — click to see which rules fired'
+							: isFlaggedSpam
+								? 'Flagged as spam by the classifier'
+								: 'Spam classifier score'}
+					>
+						Spam score: {spamScore.toFixed(1)}
+						{#if spamRules.length > 0}
+							<span aria-hidden="true">{showSpamRules ? '▴' : '▾'}</span>
+						{/if}
+					</svelte:element>
+					{#if showSpamRules && spamRules.length > 0}
+						<div class="mt-1 max-w-xs flex flex-wrap justify-end gap-1">
+							{#each spamRules as rule (rule)}
+								<span class="text-3xs font-mono px-1.5 py-0.5 rounded-md bg-surface-hover text-text-secondary">
+									{rule}
+								</span>
+							{/each}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	</header>
+
+
 	{#if jevSpam && (jevSpam.action === 'flagged' || jevSpam.action === 'junked' || jevSpam.action === 'rescued')}
 		<!-- Jev's spam verdict, when (in active mode) it acted on it. -->
 		<div class="{compact ? 'mx-4' : 'mx-6'} mt-3 shrink-0">
@@ -1026,7 +1039,7 @@
 						type="button"
 						onclick={copyVerificationCode}
 						disabled={otpBusy}
-						class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium bg-accent hover:bg-accent-hover text-white transition-colors cursor-pointer disabled:opacity-60"
+						class="btn btn-primary btn-sm"
 					>
 						{#if otpCopied}
 							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1067,7 +1080,7 @@
 				<button onclick={() => runAssistant('draft')} disabled={assistantBusy} class="px-3 py-1.5 rounded-lg text-xs border border-border text-text hover:border-accent disabled:opacity-50 cursor-pointer">Draft reply</button>
 				<form class="flex min-w-[240px] flex-1 gap-2" onsubmit={(event) => { event.preventDefault(); runAssistant('answer'); }}>
 					<input bind:value={assistantQuestion} maxlength="500" placeholder="Ask about this email…" class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text outline-none focus:border-accent" />
-					<button type="submit" disabled={assistantBusy || !assistantQuestion.trim()} class="px-3 py-1.5 rounded-lg bg-accent text-white text-xs disabled:opacity-50 cursor-pointer">Ask</button>
+					<button type="submit" disabled={assistantBusy || !assistantQuestion.trim()} class="btn btn-primary btn-sm">Ask</button>
 				</form>
 			</div>
 
@@ -1079,7 +1092,7 @@
 				<div class="mt-3 max-h-48 overflow-y-auto rounded-lg border border-border bg-surface p-3">
 					<p class="whitespace-pre-wrap text-sm leading-6 text-text">{assistantResult}</p>
 					{#if assistantResultKind === 'draft'}
-						<button onclick={useAssistantDraft} class="mt-3 px-3 py-1.5 rounded-lg bg-accent text-white text-xs cursor-pointer">Use as reply</button>
+						<button onclick={useAssistantDraft} class="btn btn-primary btn-sm mt-3">Use as reply</button>
 					{/if}
 				</div>
 			{/if}
@@ -1091,7 +1104,7 @@
 	     email's content height — short emails no longer collapse the
 	     pane, and long ones scroll inside the iframe instead of the
 	     wrapper. -->
-	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4'}">
+	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4 max-md:px-2 max-md:py-2'}">
 		<!-- bg-white matches the document's body background so swapping
 		     srcdoc (next/previous message) repaints white-on-white instead
 		     of flashing through the dark page background. -->

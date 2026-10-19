@@ -16,6 +16,8 @@
 	import { bucketFor, type DateBucket } from '$lib/utils/date-buckets';
 	import { now } from '$lib/stores/now';
 	import { browser } from '$app/environment';
+	import { isPhone } from '$lib/stores/viewport';
+	import { REMIND_ME_LATER_NAME } from '$lib/jmap/mailbox';
 
 	let {
 		emails,
@@ -59,6 +61,10 @@
 	setContext('listMailboxId', () => mailboxId);
 	// Rows offer "Move to tab" only while the list is a tabbed Inbox.
 	setContext('inboxTabs', () => inboxTabs);
+	// In Sent and Drafts every sender is you, so rows name the recipients
+	// instead — otherwise the whole list reads as your own name repeated.
+	const listRole = $derived(mailboxes.find((m) => m.id === mailboxId)?.role ?? null);
+	setContext('showRecipients', () => listRole === 'sent' || listRole === 'drafts');
 	// Getter so callers always see the current page's marker set even
 	// after invalidateAll() refreshes the load data without remounting.
 	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
@@ -79,15 +85,22 @@
 	// Read the store synchronously so the pane renders in its real state
 	// on first paint instead of flashing closed for ~200ms while waiting
 	// for the subscription effect to mount.
-	let paneOpen = $state(get(readingPane));
+	let panePreference = $state(get(readingPane));
 	$effect(() => {
-		const unsub = readingPane.subscribe((v: boolean) => { paneOpen = v; });
+		const unsub = readingPane.subscribe((v: boolean) => { panePreference = v; });
 		return unsub;
 	});
-
 	let selectedIds = $state(new Set<string>());
 	let bulkLoading = $state('');
 	let previewEmail = $state<Email | null>(null);
+	// When the reading pane actually shows. A phone has no room beside the
+	// list, so rows open the full message there whatever the saved
+	// preference says (the preference is left alone for wider screens; the
+	// markup also hides the pane below `md` in CSS, covering the first paint
+	// before this store has read the viewport). And an empty folder gets the
+	// whole width for its empty state instead of sharing it with an equally
+	// empty pane.
+	const paneOpen = $derived(panePreference && !$isPhone && (emails.length > 0 || previewEmail !== null));
 	let listWidth = $state(420);
 	let dragging = $state(false);
 	let loadingPreview = $state(false);
@@ -165,11 +178,29 @@
 
 	const allSelected = $derived(emails.length > 0 && selectedIds.size === emails.length);
 
-	const emptyText = $derived.by(() => {
-		if (!inboxTabs) return 'No messages';
-		const active = inboxTabs.active;
-		const label = INBOX_CATEGORIES.find((c) => c.key === active)?.label;
-		return `Nothing in ${label}`;
+	// What an empty list says, per place. A bare "No messages" told you
+	// nothing about whether that was good news or something to fix.
+	const emptyState = $derived.by<{ title: string; hint: string }>(() => {
+		if (inboxTabs) {
+			const label = INBOX_CATEGORIES.find((c) => c.key === inboxTabs.active)?.label;
+			return inboxTabs.active === 'important'
+				? { title: "You're all caught up", hint: 'New mail that needs you will show up here.' }
+				: { title: `Nothing in ${label}`, hint: 'Mail Jev sorts into this tab will show up here.' };
+		}
+		if (title === 'Starred') return { title: 'No starred messages', hint: 'Star a message to keep it here.' };
+		if (title === 'Search results') return { title: 'No matches', hint: 'Try fewer words or a different filter.' };
+		switch (listRole) {
+			case 'drafts': return { title: 'No drafts', hint: 'Messages you start and save will wait here.' };
+			case 'sent': return { title: 'Nothing sent yet', hint: 'Mail you send will show up here.' };
+			case 'junk': return { title: 'No junk mail', hint: 'Anything that looks like spam lands here.' };
+			case 'trash': return { title: 'Trash is empty', hint: 'Deleted messages stay here until the trash is emptied.' };
+			case 'archive': return { title: 'Nothing archived', hint: 'Archive a message to clear it from the Inbox without deleting it.' };
+		}
+		const listMailbox = mailboxes.find((m) => m.id === mailboxId);
+		if (listMailbox?.name === REMIND_ME_LATER_NAME && listMailbox.parentId === null) {
+			return { title: 'Nothing snoozed', hint: 'Remind me later brings a message back when you choose.' };
+		}
+		return { title: 'This folder is empty', hint: `Messages you move to ${title} will show up here.` };
 	});
 
 	function toggleSelect(id: string, checked: boolean) {
@@ -296,9 +327,11 @@
 
 <div class="h-full flex overflow-hidden">
 	<!-- Email list column -->
-	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
+	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden max-md:w-full! max-md:flex-1"
 		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
-		<header class="@container ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
+		<!-- 48px, the height of every pane's top bar, so this lines up with the
+		     reading pane's toolbar across the divider. -->
+		<header class="@container ribbon h-12 px-4 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="w-8 flex justify-center shrink-0">
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -386,7 +419,7 @@
 					</button>
 				</div>
 				<div class="flex-1"></div>
-				<button onclick={clearSelection} class="text-text-secondary hover:text-text text-sm px-3 py-1 rounded-md hover:bg-surface-hover transition-colors cursor-pointer">
+				<button onclick={clearSelection} class="btn btn-ghost btn-sm">
 					Cancel
 				</button>
 			{:else}
@@ -408,7 +441,7 @@
 					<ListFilterBar />
 				{/if}
 				<button onclick={() => readingPane.toggle()} title="Toggle reading pane"
-					class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer {paneOpen ? 'text-accent-fg' : 'text-text-secondary hover:text-text'}">
+					class="max-md:hidden p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer {paneOpen ? 'text-accent-fg' : 'text-text-secondary hover:text-text'}">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="10" y1="3" x2="10" y2="21"/></svg>
 				</button>
 				<button onclick={refresh} title="Refresh" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
@@ -423,7 +456,15 @@
 
 		<div class="flex-1 overflow-y-auto">
 			{#if emails.length === 0}
-				<div class="flex items-center justify-center h-full text-text-tertiary"><p>{emptyText}</p></div>
+				<div class="h-full grid place-items-center px-6 text-center">
+					<div class="max-w-xs">
+						<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
+							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+						</div>
+						<p class="text-sm font-medium text-text">{emptyState.title}</p>
+						<p class="text-xs text-text-tertiary mt-1">{emptyState.hint}</p>
+					</div>
+				</div>
 			{:else}
 				<!--
 					Date headers use surface-HOVER, not surface. When surface meant
@@ -474,45 +515,29 @@
 		</div>
 
 		{#if total > 0}
-			<footer class="flex items-center justify-between px-4 py-2 border-t border-border text-xs text-text-tertiary shrink-0">
+			<footer class="flex items-center justify-between h-10 px-4 border-t border-border text-xs text-text-tertiary shrink-0">
 				<span class="tabular-nums">{rangeStart}–{rangeEnd} of {total.toLocaleString()}</span>
-				<div class="flex items-center gap-1">
-					<button
-						onclick={() => goToPage(1)}
-						disabled={currentPage === 1}
-						class="p-1.5 rounded-md hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-						title="First page"
-						aria-label="First page"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-					</button>
+				<!-- Just previous / next beside the range: the range already says
+				     where you are, so "Page 1 of 14" and jump-to-ends buttons were
+				     the same information twice. -->
+				<div class="flex items-center gap-0.5">
 					<button
 						onclick={() => goToPage(currentPage - 1)}
 						disabled={currentPage === 1}
-						class="p-1.5 rounded-md hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-						title="Previous page"
+						class="p-1.5 rounded-md hover:bg-surface-hover hover:text-text disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+						title="Newer"
 						aria-label="Previous page"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
 					</button>
-					<span class="px-2 tabular-nums">Page {currentPage} of {totalPages}</span>
 					<button
 						onclick={() => goToPage(currentPage + 1)}
 						disabled={currentPage >= totalPages}
-						class="p-1.5 rounded-md hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-						title="Next page"
+						class="p-1.5 rounded-md hover:bg-surface-hover hover:text-text disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer"
+						title="Older"
 						aria-label="Next page"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-					</button>
-					<button
-						onclick={() => goToPage(totalPages)}
-						disabled={currentPage >= totalPages}
-						class="p-1.5 rounded-md hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-						title="Last page"
-						aria-label="Last page"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
 					</button>
 				</div>
 			</footer>
@@ -521,10 +546,10 @@
 
 	{#if paneOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
+		<div class="max-md:hidden w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
 
-		<div class="flex-1 overflow-hidden min-w-0 flex flex-col relative">
+		<div class="max-md:hidden flex-1 overflow-hidden min-w-0 flex flex-col relative">
 			{#if loadingPreview}
 				<!-- Thin indeterminate bar — the current message stays visible
 				     underneath while the next one loads. -->
@@ -544,7 +569,15 @@
 			{:else if loadingPreview}
 				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Loading…</div>
 			{:else}
-				<div class="flex items-center justify-center h-full text-text-tertiary text-sm">Select an email to read</div>
+				<div class="h-full grid place-items-center px-6 text-center">
+					<div>
+						<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
+							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+						</div>
+						<p class="text-sm font-medium text-text">No message selected</p>
+						<p class="text-xs text-text-tertiary mt-1">Pick one from the list to read it here.</p>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}

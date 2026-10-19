@@ -105,8 +105,7 @@
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-lg
-					px-4 py-2.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+				class="btn btn-primary btn-lg w-full"
 			>
 				{loading ? 'Signing in...' : 'Sign in'}
 			</button>
@@ -122,8 +121,7 @@
 			<button
 				type="button"
 				onclick={passkeyLogin}
-				class="w-full flex items-center justify-center gap-2 bg-surface border border-border hover:bg-surface-hover
-					text-text font-medium rounded-lg px-4 py-2.5 transition-colors cursor-pointer"
+				class="btn btn-secondary btn-lg w-full"
 			>
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
 					<circle cx="7.5" cy="8.5" r="3.5"/>
