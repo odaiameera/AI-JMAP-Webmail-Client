@@ -83,7 +83,15 @@
 		closeDrawer: () => { drawerOpen = false; }
 	});
 	const inMail = $derived(/^\/(inbox|folder|email|search|flagged)(\/|$)/.test(page.url.pathname));
-	const panelKind = $derived<'mail' | 'app' | 'none'>(inMail ? 'mail' : appPanel ? 'app' : 'none');
+	// Apps that always host a panel get their column from the start. The
+	// shell's own markup (the column width) is written before the page has
+	// registered its panel, so going by `appPanel` alone rendered these
+	// pages with no column on a full load, and the panel slid in only once
+	// the page's script ran.
+	const panelRoute = $derived(/^\/(calendar|contacts|settings)(\/|$)/.test(page.url.pathname));
+	const panelKind = $derived<'mail' | 'app' | 'none'>(
+		inMail ? 'mail' : appPanel || panelRoute ? 'app' : 'none'
+	);
 	const railCollapsed = $derived(panelKind === 'mail' && sidebarCollapsed);
 	// Only the mail sidebar collapses to an icon strip; app panels are
 	// always full width.
