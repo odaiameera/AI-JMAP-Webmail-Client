@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import CornerActions from '$lib/components/CornerActions.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import AIAssistantRail from '$lib/components/AIAssistantRail.svelte';
@@ -364,47 +365,25 @@
 		</div>
 	{/if}
 
-	<!--
-		Row 2, Col 3: AI agent drawer anchor.
-
-		This column is pinned to 0px so opening the agent never resizes the
-		reading pane. It survives only as a positioning reference: it sits
-		exactly on the boundary between the reading pane and the app rail, so
-		the drawer inside it anchors to `right: 0` and expands leftward over
-		the reading pane. Height comes from the row, so the drawer needs no
-		hard-coded header offset.
-	-->
-	<!-- On phones the anchor is pinned to the screen's right edge between
-	     the header and the tab bar, and the drawer goes full-width. -->
-	<div class="relative md:col-start-3 md:row-start-2 md:mb-2 max-md:fixed max-md:right-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))]">
-		<AIAssistantRail
-			open={assistantOpen}
-			aiEnabled={data.aiEnabled}
-			{currentEmailId}
-			onClose={() => { assistantOpen = false; }}
-		/>
-	</div>
-
 	<!-- Row 2, Col 4: App rail (row 3 — the bottom tab bar — on phones) -->
-	<AppRail
-		aiOpen={assistantOpen}
-		aiEnabled={data.aiEnabled}
-		onToggleAI={() => { assistantOpen = !assistantOpen; }}
-	/>
+	<AppRail />
 </div>
 
-<!-- Phones have no sidebar on screen, so mail gets a floating Compose
-     button, lifted clear of the tab bar and the list's pager above it. -->
-{#if onMailRoute}
-	<button
-		type="button"
-		onclick={() => openCompose()}
-		class="md:hidden fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl bg-accent hover:bg-accent-hover text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
-		aria-label="Compose"
-	>
-		<Icon name="compose" size={20} />
-	</button>
-{/if}
+<!-- The AI mail agent and, in Mail, Compose: bottom-right, beside the app
+     rail on desktop and above the tab bar on phones. The agent opens as a
+     card above them. -->
+<CornerActions
+	{assistantOpen}
+	onToggleAssistant={() => { assistantOpen = !assistantOpen; }}
+	showCompose={inMail}
+	readingOnPhone={inMail && !onMailRoute}
+/>
+<AIAssistantRail
+	open={assistantOpen}
+	aiEnabled={data.aiEnabled}
+	{currentEmailId}
+	onClose={() => { assistantOpen = false; }}
+/>
 
 {#if profileOpen}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->

@@ -4,7 +4,6 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
-	import { openCompose } from '$lib/stores/compose';
 	import {
 		createFolderExpandedStore,
 		isExpandedDefault,
@@ -227,26 +226,8 @@
 		</div>
 	{/if}
 
-	<!-- Compose. pt-1.5 centres the 36px button on the 48px top bars of the
-	     panes beside it (list header, reading-pane toolbar). -->
-	<div class="{collapsed ? 'px-1.5 pt-1.5' : 'px-3 pt-1.5'} pb-1 mb-1">
-		{#if collapsed}
-			<button
-				onclick={() => openCompose()}
-				class="w-full aspect-square bg-accent hover:bg-accent-hover text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
-				title="Compose"
-			>
-				<Icon name="compose" size={20} />
-			</button>
-		{:else}
-			<button
-				onclick={() => openCompose()}
-				class="btn btn-primary btn-lg w-full"
-			>
-				Compose
-			</button>
-		{/if}
-	</div>
+	<!-- Compose lives in the bottom-right corner, beside the AI mail agent. -->
+	<div class="h-1.5 shrink-0" aria-hidden="true"></div>
 
 	{#if collapsed}
 		<!-- Collapsed: flat icon list, tooltips only -->

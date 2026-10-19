@@ -368,32 +368,27 @@
 </script>
 
 <!--
-	Drawer over the reading pane, not a column beside it. The parent is a
-	zero-width grid column sitting on the reading-pane/app-rail boundary, so
-	`inset-y-0 right-0` pins the drawer to that edge at full row height and its
-	own width expands leftward across the pane underneath.
+	A card that opens above the bottom-right corner buttons (CornerActions),
+	in the composer popup's style; on phones it fills the space between the
+	header and the tab bar.
 
 	z-[35] clears in-pane dropdowns (z-30) while staying under the composer
-	backdrop (z-40). While closed, `pointer-events-none` lets clicks reach the
-	reading pane it covers.
-
-	Square on purpose — no radius. The pane beneath is a rounded tray; a drawer
-	pulled across it covers the corners it reaches rather than repeating them,
-	which is what makes it read as sliding over the tray instead of being
-	another panel beside it. It is not clipped by the tray (different grid
-	column), so its own edges are the ones that show.
+	backdrop (z-40). While closed, `pointer-events-none` and `inert` let clicks
+	and focus reach whatever it covers.
 -->
 <aside
 	aria-label="AI mail agent"
 	aria-hidden={!open}
 	inert={!open}
-	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] max-md:min-w-0 max-md:w-screen overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
-		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
+	class="fixed z-[35] overflow-hidden bg-bg origin-bottom-right transition-[opacity,transform] duration-200 ease-out
+		md:right-[68px] md:bottom-[76px] md:w-[400px] md:max-w-[calc(100vw-96px)] md:h-[min(640px,calc(100dvh-148px))] md:rounded-xl md:border md:border-border md:shadow-[0_16px_48px_rgba(0,0,0,0.5)]
+		max-md:inset-x-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:border-t max-md:border-border
+		{open ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
-				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
+				<!-- Same mark as the corner button that opens it: one feature, one symbol. -->
 				<Icon name="assistant" size={20} />
 				<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface {aiEnabled ? 'bg-success' : 'bg-text-tertiary'}"></span>
 			</div>

@@ -14,28 +14,13 @@
 		comingSoon?: boolean;
 	};
 
-	let {
-		aiOpen = false,
-		aiEnabled = false,
-		onToggleAI = () => {}
-	}: {
-		aiOpen?: boolean;
-		aiEnabled?: boolean;
-		onToggleAI?: () => void;
-	} = $props();
-
 	const SETTINGS_HREF = '/settings/account';
 
-	// Order is deliberate: AI first (it acts across everything below it), then
-	// the three built surfaces in the order they get used. Unbuilt apps (Tasks)
+	// The three built surfaces in the order they get used (the AI mail agent
+	// lives in the bottom-right corner, beside Compose). Unbuilt apps (Tasks)
 	// stay off the rail until they exist — a dimmed icon that leads to a
 	// "coming soon" page promises a screen and then doesn't deliver it.
 	const items: RailItem[] = [
-		{
-			id: 'ai',
-			label: 'AI mail agent',
-			icon: 'assistant'
-		},
 		{
 			id: 'mail',
 			label: 'Mail',
@@ -80,35 +65,19 @@
 <div class="md:col-start-4 md:row-start-2 max-md:row-start-3 w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden
 	max-md:w-full max-md:h-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:flex-row max-md:justify-around max-md:py-0 max-md:pb-[env(safe-area-inset-bottom)] max-md:border-t max-md:border-border">
 	{#each items as item (item.id)}
-		{#if item.id === 'ai'}
-			<button
-				type="button"
-				title={aiEnabled ? (aiOpen ? 'Close AI mail agent' : 'Open AI mail agent') : 'AI mail agent is not configured'}
-				aria-label={aiOpen ? 'Close AI mail agent' : 'Open AI mail agent'}
-				aria-pressed={aiOpen}
-				onclick={onToggleAI}
-				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-all cursor-pointer
-					{aiOpen
-						? 'text-accent-fg bg-accent/10 shadow-sm'
-						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
-			>
-				<Icon name={item.icon} size={20} />
-			</button>
-		{:else}
-			<a
-				href={item.href}
-				title={item.comingSoon ? `${item.label} (coming soon)` : item.label}
-				aria-label={item.comingSoon ? `${item.label} (coming soon)` : item.label}
-				aria-current={isActive(item.href) ? 'page' : undefined}
-				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
-					{isActive(item.href)
-						? 'text-accent-fg bg-accent/10'
-						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}
-					{item.comingSoon && !isActive(item.href) ? 'opacity-50 max-md:hidden' : ''}"
-			>
-				<Icon name={item.icon} size={20} />
-			</a>
-		{/if}
+		<a
+			href={item.href}
+			title={item.comingSoon ? `${item.label} (coming soon)` : item.label}
+			aria-label={item.comingSoon ? `${item.label} (coming soon)` : item.label}
+			aria-current={isActive(item.href) ? 'page' : undefined}
+			class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+				{isActive(item.href)
+					? 'text-accent-fg bg-accent/10'
+					: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}
+				{item.comingSoon && !isActive(item.href) ? 'opacity-50 max-md:hidden' : ''}"
+		>
+			<Icon name={item.icon} size={20} />
+		</a>
 	{/each}
 
 	<!-- Spacer pushes Settings to the bottom of the rail -->
