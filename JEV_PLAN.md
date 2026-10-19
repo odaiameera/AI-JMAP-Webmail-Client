@@ -310,7 +310,13 @@ Cost doesn't limit anything here. Accuracy and privacy are the real constraints.
 
 ### Phase 5: Coverage and speed
 
-- **Sort the existing Inbox** (the last N days), with a preview and a cost estimate first.
+- **Sort the existing Inbox — built, pulled forward from this phase:**
+  - Settings → Jev shows how much of the Important tab is unsorted, with a cost estimate based on this month's real tokens per email
+  - "Sort N emails" queues it newest first in `jev_decisions` (`backfill = 1`, migration 015); the worker judges it after new arrivals, 100 per run
+  - existing mail gets its tab only: rules run on new mail, never retroactively, while pins still apply
+  - mail already in a tab isn't asked about at all, which also now holds for new mail
+  - progress and Cancel are on the settings page
+  - the tabs are keywords on the server, so mail sorted from any instance stays sorted everywhere
 - **Judge within seconds instead of on the one-minute run.** Subscribe on the server to Stalwart's push channel, which [api/events](src/routes/api/events/+server.ts) already proxies for the browser. This matters most for phishing.
 - **An urgency `score`**, so notifications fire only for urgent mail.
 - **A Jev activity log**, with undo.

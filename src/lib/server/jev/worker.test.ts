@@ -18,7 +18,7 @@ vi.mock('$lib/jmap/auth', () => ({
 import { getDb } from '$lib/server/db/index';
 import { runMigrations } from '$lib/server/db/migrate';
 import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
-import { getDecision, getUsage } from '$lib/server/db/queries/jev-decisions';
+import { enqueueEmails, getDecision, getUsage } from '$lib/server/db/queries/jev-decisions';
 import { setRules } from '$lib/server/db/queries/rules';
 import { recordSenderMoves, setPin } from '$lib/server/db/queries/jev-learning';
 import type { AuthState, MethodCall } from '$lib/jmap/types';
@@ -203,7 +203,8 @@ describe('sortNewMail', () => {
 
 		expect(getDecision(ACCT, 'news')).toMatchObject({ status: 'done', category: 'newsletters', applied: 'newsletters', model: 'mock' });
 		expect(getDecision(ACCT, 'person')).toMatchObject({ status: 'done', category: 'important', applied: 'important' });
-		expect(getDecision(ACCT, 'moved')).toMatchObject({ status: 'done', category: 'newsletters', applied: null });
+		// Already in a tab: Jev isn't even asked, so nothing is spent on it.
+		expect(getDecision(ACCT, 'moved')).toMatchObject({ status: 'done', category: null, applied: null, model: null });
 		expect(getDecision(ACCT, 'old')).toBeNull();
 		expect(getJevSettings(ACCT).sortCursor).toBe(at(10).toISOString());
 		// Mock answers cost nothing and aren't counted.
@@ -369,5 +370,35 @@ describe('sortNewMail', () => {
 		});
 		// The mock follows your habit, as Jev is meant to.
 		expect(decision?.applied).toBe('newsletters');
+	});
+
+	it('sorts mail already in the Inbox for its tab only, never running rules on it', async () => {
+		const markAll: Rule = {
+			id: 'all',
+			name: 'Mark invoices read',
+			enabled: true,
+			logic: 'allof',
+			conditions: [{ id: 'j1', field: 'jev', op: 'contains', value: 'an invoice', negate: false }],
+			actions: [{ type: 'markRead' }],
+			createdAt: 0
+		};
+		setRules(ME, [markAll]);
+		// Older than the cursor: only a backfill reaches these.
+		fake.add('oldNews', -60, { 'header:list-unsubscribe:asText': '<x>', subject: 'Your invoice digest' });
+		fake.add('oldPinned', -50, { from: [{ name: 'Shop', email: 'deals@shop.example' }] });
+		fake.add('oldSorted', -40, { keywords: { $cat_updates: true } });
+		setPin(ACCT, '@shop.example', 'promotions');
+		enqueueEmails(ACCT, ['oldNews', 'oldPinned', 'oldSorted'], T0.getTime(), true);
+
+		await sortNewMail(ACCT, ME, auth, at(10));
+
+		// Tab from Jev; the invoice rule did not run on old mail.
+		expect(fake.emails.get('oldNews')!.keywords).toEqual({ $cat_newsletters: true });
+		expect(getDecision(ACCT, 'oldNews')?.rules).toBeNull();
+		// Pins apply to existing mail too.
+		expect(fake.emails.get('oldPinned')!.keywords).toEqual({ $cat_promotions: true });
+		// Already in a tab: left alone, and nothing asked.
+		expect(fake.emails.get('oldSorted')!.keywords).toEqual({ $cat_updates: true });
+		expect(getDecision(ACCT, 'oldSorted')).toMatchObject({ status: 'done', model: null });
 	});
 });

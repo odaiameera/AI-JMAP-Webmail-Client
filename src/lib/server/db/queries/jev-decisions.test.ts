@@ -10,10 +10,13 @@ import { getDb } from '../index';
 import { runMigrations } from '../migrate';
 import {
 	addUsage,
+	backfillProgress,
+	cancelBackfill,
 	decisionStats,
 	enqueueEmails,
 	getDecision,
 	getUsage,
+	knownEmailIds,
 	listPendingEmailIds,
 	markSkipped,
 	MAX_JEV_ATTEMPTS,
@@ -104,5 +107,24 @@ describe('jev decisions', () => {
 		expect(getUsage(ACCT, '2026-10')).toEqual({ requests: 2, inputTokens: 1500 });
 		expect(getUsage(ACCT, '2026-11')).toEqual({ requests: 1, inputTokens: 70 });
 		expect(getUsage(ACCT, '2026-09')).toEqual({ requests: 0, inputTokens: 0 });
+	});
+
+	it('keeps existing mail in its own queue, in the order given, and can cancel it', () => {
+		const queued = enqueueEmails(ACCT, ['b-new', 'b-mid', 'b-old', 'e1'], 5000, true);
+		expect(queued).toBe(3); // e1 is already known
+		expect(listPendingEmailIds(ACCT, 10, true)).toEqual(['b-new', 'b-mid', 'b-old']);
+		expect(listPendingEmailIds(ACCT, 10)).not.toContain('b-new');
+
+		recordDecision(ACCT, 'b-new', answer);
+		expect(backfillProgress(ACCT)).toEqual({ pending: 2, done: 1, failed: 0, skipped: 0 });
+
+		cancelBackfill(ACCT);
+		expect(backfillProgress(ACCT)).toEqual({ pending: 0, done: 1, failed: 0, skipped: 2 });
+		expect(listPendingEmailIds(ACCT, 10, true)).toEqual([]);
+	});
+
+	it('tells which emails Jev already knows, judged or not', () => {
+		expect([...knownEmailIds(ACCT, ['e1', 'b-old', 'never-seen'])].sort()).toEqual(['b-old', 'e1']);
+		expect(knownEmailIds(ACCT, []).size).toBe(0);
 	});
 });

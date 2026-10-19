@@ -108,14 +108,22 @@ function prepareStmts() {
 	const db = getDb();
 	return {
 		enqueue: db.prepare(
-			`INSERT INTO jev_decisions (account_id, email_id, status, created_at)
-			 VALUES (?, ?, 'pending', ?)
+			`INSERT INTO jev_decisions (account_id, email_id, status, backfill, created_at)
+			 VALUES (?, ?, 'pending', ?, ?)
 			 ON CONFLICT (account_id, email_id) DO NOTHING`
 		),
 		pending: db.prepare(
 			`SELECT email_id FROM jev_decisions
-			 WHERE account_id = ? AND status = 'pending'
+			 WHERE account_id = ? AND status = 'pending' AND backfill = ?
 			 ORDER BY created_at, email_id LIMIT ?`
+		),
+		backfillProgress: db.prepare(
+			`SELECT status, COUNT(*) AS n FROM jev_decisions
+			 WHERE account_id = ? AND backfill = 1 GROUP BY status`
+		),
+		cancelBackfill: db.prepare(
+			`UPDATE jev_decisions SET status = 'skipped', decided_at = ?
+			 WHERE account_id = ? AND backfill = 1 AND status = 'pending'`
 		),
 		done: db.prepare(
 			`UPDATE jev_decisions SET
@@ -164,17 +172,71 @@ function stmts() {
 	return (_stmts ??= prepareStmts());
 }
 
-/** Queue newly arrived emails. Emails already known keep their row. */
-export function enqueueEmails(accountId: string, emailIds: string[], now = Date.now()): void {
+/**
+ * Queue emails; returns how many were new to the queue. Emails already
+ * known keep their row — an email Jev has answered for is never queued
+ * twice. `backfill` marks mail that was already in the Inbox (see migration
+ * 015) rather than newly arrived; it is queued a millisecond apart, so the
+ * oldest-first queue keeps the order given.
+ */
+export function enqueueEmails(
+	accountId: string,
+	emailIds: string[],
+	now = Date.now(),
+	backfill = false
+): number {
 	const s = stmts();
+	let added = 0;
 	getDb().transaction(() => {
-		for (const id of emailIds) s.enqueue.run(accountId, id, now);
+		emailIds.forEach((id, i) => {
+			added += s.enqueue.run(accountId, id, backfill ? 1 : 0, backfill ? now + i : now).changes;
+		});
 	})();
+	return added;
 }
 
-/** Oldest queued emails first. */
-export function listPendingEmailIds(accountId: string, limit: number): string[] {
-	return (stmts().pending.all(accountId, limit) as { email_id: string }[]).map((r) => r.email_id);
+/** Oldest queued emails first: new arrivals, or (with `backfill`) existing mail. */
+export function listPendingEmailIds(accountId: string, limit: number, backfill = false): string[] {
+	return (stmts().pending.all(accountId, backfill ? 1 : 0, limit) as { email_id: string }[]).map(
+		(r) => r.email_id
+	);
+}
+
+export interface BackfillProgress {
+	pending: number;
+	done: number;
+	failed: number;
+	/** Left the Inbox first, or cancelled. */
+	skipped: number;
+}
+
+export function backfillProgress(accountId: string): BackfillProgress {
+	const out: BackfillProgress = { pending: 0, done: 0, failed: 0, skipped: 0 };
+	for (const r of stmts().backfillProgress.all(accountId) as { status: keyof BackfillProgress; n: number }[]) {
+		out[r.status] = r.n;
+	}
+	return out;
+}
+
+/** Which of these emails Jev already has a row for — judged, queued or skipped. */
+export function knownEmailIds(accountId: string, emailIds: string[]): Set<string> {
+	const known = new Set<string>();
+	const db = getDb();
+	for (let i = 0; i < emailIds.length; i += 500) {
+		const chunk = emailIds.slice(i, i + 500);
+		const rows = db
+			.prepare(
+				`SELECT email_id FROM jev_decisions WHERE account_id = ? AND email_id IN (${chunk.map(() => '?').join(',')})`
+			)
+			.all(accountId, ...chunk) as { email_id: string }[];
+		for (const r of rows) known.add(r.email_id);
+	}
+	return known;
+}
+
+/** Stop sorting existing mail: what is still queued is dropped. */
+export function cancelBackfill(accountId: string, now = Date.now()): void {
+	stmts().cancelBackfill.run(now, accountId);
 }
 
 export function recordDecision(

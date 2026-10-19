@@ -5,6 +5,7 @@
 	import Toggle from '$lib/components/settings/Toggle.svelte';
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
 	import { categoryIcon } from '$lib/components/category-icons';
+	import JevBackfill from '$lib/components/JevBackfill.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -309,7 +310,9 @@
 	</div>
 
 	{#if configured && activeAccount}
-		<div class="mt-6 rounded-xl border border-border p-4">
+		<JevBackfill accountEmail={activeAccount.email} />
+
+		<div class="mt-4 rounded-xl border border-border p-4">
 			<div class="flex items-start gap-4">
 				<div class="flex-1 min-w-0">
 					<p class="text-sm font-medium text-text">Try Jev on your last {data.jev.previewLimit} emails</p>

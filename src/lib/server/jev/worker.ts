@@ -61,8 +61,10 @@ import type { JevQuestion, JevResponse } from './types';
 
 /** New arrivals queued per run. */
 const QUEUE_PAGE = 100;
-/** Queued emails judged per run. */
+/** Queued new emails judged per run. */
 const JUDGE_BATCH = 25;
+/** Queued existing emails judged per run, after the new ones. */
+const BACKFILL_BATCH = 100;
 /** Parallel calls to TypeSafe per account. */
 const CONCURRENCY = 4;
 /** Updates per Email/set. */
@@ -327,61 +329,96 @@ export async function sortNewMail(
 	const nextCursor = arrived.length >= QUEUE_PAGE ? arrived[arrived.length - 1].receivedAt : now.toISOString();
 	updateJevSettings(accountRowId, { sortCursor: nextCursor }, now);
 
-	// 2. Judge what's queued — new arrivals and earlier failures alike.
-	const ids = listPendingEmailIds(accountRowId, JUDGE_BATCH);
+	// Fetched only once there is mail to judge (contacts need the session).
+	let judgeCtx: JudgeContext | null = null;
+	const batch: Batch = {
+		client,
+		accountId,
+		accountRowId,
+		inboxId: inbox.id,
+		judge: async () =>
+			(judgeCtx ??= {
+				accountRowId,
+				accountEmail,
+				sentId: mailboxes.find((m) => m.role === 'sent')?.id ?? null,
+				session: await fetchSession(auth).catch(() => null)
+			}),
+		ruleCtx,
+		// A pinned sender's tab is already decided: Jev isn't asked for it.
+		pins: wantsTabs ? listPins(accountRowId) : [],
+		now
+	};
+
+	// 2. New arrivals, and earlier failures among them: tab and rules.
+	await judgeAndApply(batch, listPendingEmailIds(accountRowId, JUDGE_BATCH), rules, wantsTabs);
+
+	// 3. Then mail that was already in the Inbox when you asked Jev to sort
+	// it: its tab only — rules apply to new mail, never retroactively.
+	if (wantsTabs) {
+		await judgeAndApply(batch, listPendingEmailIds(accountRowId, BACKFILL_BATCH, true), [], true);
+	}
+}
+
+interface Batch {
+	client: JMAPClient;
+	accountId: string;
+	accountRowId: string;
+	inboxId: string;
+	judge: () => Promise<JudgeContext>;
+	ruleCtx: RuleActionCtx;
+	pins: SenderPin[];
+	now: Date;
+}
+
+/** Judge queued emails, apply what follows, and record it. */
+async function judgeAndApply(b: Batch, ids: string[], rules: Rule[], wantsTabs: boolean): Promise<void> {
 	if (ids.length === 0) return;
-	const fetched = new Map((await fetchEmailsForJev(client, accountId, ids)).map((e) => [e.id, e]));
+	const now = b.now.getTime();
+	const fetched = new Map((await fetchEmailsForJev(b.client, b.accountId, ids)).map((e) => [e.id, e]));
 	const inInbox: Email[] = [];
 	for (const id of ids) {
 		const email = fetched.get(id);
-		if (email?.mailboxIds[inbox.id]) inInbox.push(email);
-		else markSkipped(accountRowId, id, now.getTime());
+		if (email?.mailboxIds[b.inboxId]) inInbox.push(email);
+		else markSkipped(b.accountRowId, id, now);
 	}
 	if (inInbox.length === 0) return;
 
-	// A pinned sender's tab is already decided: Jev isn't asked for it.
-	const pins = wantsTabs ? listPins(accountRowId) : [];
-	const pinOf = (email: Email) => pinFor(pins, senderAddress(email));
+	const pinOf = (email: Email) => pinFor(b.pins, senderAddress(email));
+	const judged = await judgeEmails(b.client, b.accountId, inInbox, await b.judge(), (email) => ({
+		// No point asking for a tab the message already has: Jev won't overrule it.
+		...(wantsTabs && !pinOf(email) && categoryOf(email.keywords) === 'important' ? tabQuestion() : {}),
+		...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
+	}));
 
-	const session = await fetchSession(auth).catch(() => null);
-	const judged = await judgeEmails(
-		client,
-		accountId,
-		inInbox,
-		{ accountRowId, accountEmail, sentId: mailboxes.find((m) => m.role === 'sent')?.id ?? null, session },
-		(email) => ({
-			...(wantsTabs && !pinOf(email) ? tabQuestion() : {}),
-			...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
-		})
-	);
-
-	// 3. Plan each email. A failed call is retried next run; once it has
-	// failed for good, the rules still run, with no Jev answers.
+	// Plan each email. A failed call is retried next run; once it has failed
+	// for good, the rules still run, with no Jev answers.
 	const plans = new Map<string, Plan>();
 	for (const j of judged) {
 		if (j.error) {
-			recordFailure(accountRowId, j.email.id, j.error, now.getTime());
-			if (getDecision(accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
-			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, ruleCtx, false, null));
+			recordFailure(b.accountRowId, j.email.id, j.error, now);
+			if (getDecision(b.accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
+			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, b.ruleCtx, false, null));
 			continue;
 		}
-		plans.set(j.email.id, planFor(j, rules, ruleCtx, wantsTabs, pinOf(j.email)));
+		plans.set(j.email.id, planFor(j, rules, b.ruleCtx, wantsTabs, pinOf(j.email)));
 	}
 
-	// 4. Apply, worked out before anything changes.
-	const updates = [...plans].filter(([, p]) => Object.keys(p.update).length > 0).map(([id, p]) => [id, p.update] as [string, Record<string, unknown>]);
-	const refused = await writeUpdates(client, accountId, updates);
+	// Apply, worked out before anything changes.
+	const updates = [...plans]
+		.filter(([, p]) => Object.keys(p.update).length > 0)
+		.map(([id, p]) => [id, p.update] as [string, Record<string, unknown>]);
+	const refused = await writeUpdates(b.client, b.accountId, updates);
 
-	// 5. Record.
+	// Record.
 	for (const j of judged) {
 		const plan = plans.get(j.email.id);
 		if (!plan || j.error) continue; // failures were recorded above
 		if (refused.has(j.email.id)) {
-			recordFailure(accountRowId, j.email.id, 'The mail server refused the change', now.getTime());
+			recordFailure(b.accountRowId, j.email.id, 'The mail server refused the change', now);
 			continue;
 		}
 		recordDecision(
-			accountRowId,
+			b.accountRowId,
 			j.email.id,
 			{
 				category: plan.pin ? plan.pin.category : (j.decision?.category ?? null),
@@ -394,7 +431,7 @@ export async function sortNewMail(
 				model: j.response?.model ?? null,
 				inputTokens: j.response?.usage.inputTokens ?? 0
 			},
-			now.getTime()
+			now
 		);
 	}
 }
