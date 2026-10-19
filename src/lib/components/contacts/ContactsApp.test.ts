@@ -18,6 +18,7 @@ vi.mock('$lib/contacts/api', () => ({
 }));
 
 import ContactsApp from './ContactsApp.svelte';
+import { newRequest } from '$lib/stores/create';
 
 const writableBook = {
 	id: 'book-1',
@@ -47,6 +48,7 @@ const ada: ContactCard = {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	newRequest.set(null);
 	window.history.replaceState({}, '', '/');
 });
 
@@ -66,7 +68,6 @@ describe('ContactsApp', () => {
 		expect(screen.getByRole('status').textContent).toContain('Loading contacts');
 		await waitFor(() => expect(screen.getAllByText('Ada Lovelace').length).toBeGreaterThan(0));
 		expect(screen.getAllByText('ada@example.test').length).toBeGreaterThan(0);
-		expect(screen.getByRole('button', { name: 'New contact' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Import contacts' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Compose email' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Edit contact' })).toBeTruthy();
@@ -87,7 +88,9 @@ describe('ContactsApp', () => {
 		await waitFor(() => expect(screen.getByText('Contacts are not available')).toBeTruthy());
 		expect(screen.getByText(/does not advertise JMAP Contacts/i)).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Import contacts' }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'New contact' }) as HTMLButtonElement).disabled).toBe(true);
+		// New contact (from the corner's + menu) can't open a form either.
+		newRequest.set('contact');
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New contact' })).toBeNull());
 	});
 
 	it('disables create and import when every address book is read-only', async () => {
@@ -109,7 +112,9 @@ describe('ContactsApp', () => {
 		await waitFor(() => expect(screen.getByText('No contacts yet')).toBeTruthy());
 
 		expect((screen.getByRole('button', { name: 'Import contacts' }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'New contact' }) as HTMLButtonElement).disabled).toBe(true);
+		// New contact (from the corner's + menu) can't open a form either.
+		newRequest.set('contact');
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New contact' })).toBeNull());
 	});
 
 	it('does not allow a read-only address book to be selected in the contact form', async () => {
@@ -133,9 +138,10 @@ describe('ContactsApp', () => {
 
 		render(ContactsApp);
 		await waitFor(() => expect(screen.getByText('No contacts yet')).toBeTruthy());
-		await fireEvent.click(screen.getByRole('button', { name: 'New contact' }));
+		newRequest.set('contact');
+		await waitFor(() => expect(screen.getByRole('dialog', { name: 'New contact' })).toBeTruthy());
 
-		expect((screen.getByRole('checkbox', { name: 'Personal (default)' }) as HTMLInputElement).disabled).toBe(false);
+		expect((screen.getByRole('checkbox', { name: 'Personal' }) as HTMLInputElement).disabled).toBe(false);
 		expect((screen.getByRole('checkbox', { name: 'Directory' }) as HTMLInputElement).disabled).toBe(true);
 	});
 
@@ -285,8 +291,8 @@ describe('ContactsApp', () => {
 
 		render(ContactsApp);
 		await waitFor(() => expect(screen.getByText('No contacts yet')).toBeTruthy());
-		await fireEvent.click(screen.getByRole('button', { name: 'New contact' }));
-		expect(screen.getByRole('dialog', { name: 'New contact' })).toBeTruthy();
+		newRequest.set('contact');
+		await waitFor(() => expect(screen.getByRole('dialog', { name: 'New contact' })).toBeTruthy());
 		await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'Grace Hopper' } });
 		await fireEvent.input(screen.getByLabelText('Email address 1'), {
 			target: { value: 'grace@example.test' }

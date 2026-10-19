@@ -12,14 +12,12 @@
 		calendars,
 		selected,
 		weekStart,
-		onSelectDate,
-		onCreateEvent
+		onSelectDate
 	}: {
 		calendars: CalendarInfo[];
 		selected: Date;
 		weekStart: WeekStart;
 		onSelectDate: (date: Date) => void;
-		onCreateEvent: () => void;
 	} = $props();
 
 	let modalOpen = $state(false);
@@ -57,19 +55,8 @@
 <svelte:window onclick={closeMenus} />
 
 <!-- Rendered in the shell's left column, so it sits on the chrome like the
-     mail sidebar and its New event button lines up with Compose. -->
+     mail sidebar. New event is in the corner's + menu. -->
 <div class="h-full w-full flex flex-col overflow-y-auto">
-	<div class="px-3 pt-1.5 pb-1">
-		<button
-			type="button"
-			class="btn btn-primary btn-lg w-full"
-			onclick={onCreateEvent}
-		>
-			<Icon name="add" size={16} />
-			New event
-		</button>
-	</div>
-
 	<div class="p-3">
 		<MiniMonth {selected} {weekStart} onSelect={onSelectDate} />
 	</div>

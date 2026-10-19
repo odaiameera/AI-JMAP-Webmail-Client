@@ -38,6 +38,7 @@ export const PREF_KEYS = [
 	'notify_calendar_events',
 	'notify_event_reminders',
 	'calendar_week_start',
+	'calendar_view',
 	'auto_reply_enabled',
 	'auto_reply_subject',
 	'auto_reply_body',

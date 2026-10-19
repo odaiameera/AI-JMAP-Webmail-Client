@@ -383,13 +383,12 @@
 	<AppRail />
 </div>
 
-<!-- Raven (the AI mail agent) and, in Mail, Compose: bottom-right, beside the app
+<!-- + (new message, event or contact) and Raven, the AI mail agent: bottom-right, beside the app
      rail on desktop and above the tab bar on phones. The agent opens as a
      card above them. -->
 <CornerActions
 	{assistantOpen}
 	onToggleAssistant={() => { if (assistantOpen) assistantOpen = false; else openAssistant(); }}
-	showCompose={inMail}
 	readingOnPhone={inMail && !onMailRoute}
 />
 <AIAssistantRail

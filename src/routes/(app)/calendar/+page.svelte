@@ -20,6 +20,8 @@
 	import { showToast } from '$lib/stores/toast';
 	import CalendarPanel from '$lib/components/calendar/CalendarPanel.svelte';
 	import { hostAppPanel } from '$lib/app-panel';
+	import { newRequest } from '$lib/stores/create';
+	import { untrack } from 'svelte';
 	import MonthView from '$lib/components/calendar/MonthView.svelte';
 	import TimeGrid from '$lib/components/calendar/TimeGrid.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
@@ -82,6 +84,15 @@
 	});
 
 	function navigate(view: string, date: Date) {
+		// A different view (from the menu or a shortcut) is remembered, so
+		// Calendar opens on it next time.
+		if (view !== data.view) {
+			void fetch('/api/preferences/calendar', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ view })
+			}).catch(() => {});
+		}
 		goto(`/calendar?view=${view}&date=${dayKey(date)}`, { noScroll: true, keepFocus: true });
 	}
 
@@ -251,9 +262,16 @@
 		}
 	}
 
-	// New event, the mini-month and the calendar list live in the shell's
-	// left column (the drawer on phones), where Mail keeps its folders.
+	// The mini-month and the calendar list live in the shell's left column
+	// (the drawer on phones), where Mail keeps its folders.
 	hostAppPanel(calendarPanel);
+
+	// New event from the corner's + menu, here already or arriving now.
+	$effect(() => {
+		if ($newRequest !== 'event') return;
+		newRequest.set(null);
+		untrack(() => openCreate());
+	});
 </script>
 
 {#snippet calendarPanel()}
@@ -262,7 +280,6 @@
 		selected={selectedDate}
 		{weekStart}
 		onSelectDate={(date) => navigate(data.view, date)}
-		onCreateEvent={() => openCreate()}
 	/>
 {/snippet}
 
@@ -336,14 +353,6 @@
 					</div>
 				{/if}
 			</div>
-			<button
-				type="button"
-				class="md:hidden w-7 h-7 shrink-0 rounded-lg bg-accent hover:bg-accent-hover text-white flex items-center justify-center cursor-pointer transition-colors"
-				aria-label="New event"
-				onclick={() => openCreate()}
-			>
-				<Icon name="add" size={16} />
-			</button>
 		</div>
 
 		{#if data.calendarError}

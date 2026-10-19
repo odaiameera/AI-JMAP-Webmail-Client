@@ -208,8 +208,10 @@
 <svelte:window onpointermove={windowPointerMove} onpointerup={windowPointerUp} />
 
 <div class="h-full flex flex-col min-h-0 select-none">
-	<!-- Day headers -->
-	<div class="flex border-b border-border">
+	<!-- Day headers. The header, all-day lane and grid all keep room for the
+	     grid's scrollbar (scrollbar-gutter), so their columns line up; the
+	     header used to spread that width across its days and drift right. -->
+	<div class="flex border-b border-border overflow-y-hidden [scrollbar-gutter:stable]">
 		<div class="w-14 shrink-0"></div>
 		{#each days as day (dayKey(day))}
 			{@const isToday = sameDay(day, today)}
@@ -233,7 +235,7 @@
 
 	<!-- All-day lane -->
 	{#if allDaySegs.length > 0}
-		<div class="flex border-b border-border">
+		<div class="flex border-b border-border overflow-y-hidden [scrollbar-gutter:stable]">
 			<div class="w-14 shrink-0 py-1 pr-2 text-right text-3xs text-text-tertiary">all-day</div>
 			<div class="flex-1 relative" style="height: {Math.max(1, allDayLanes) * 22 + 4}px;">
 				{#each allDaySegs as seg (seg.event.id + (seg.event.recurrenceId ?? '') + seg.startCol)}
@@ -257,7 +259,7 @@
 	{/if}
 
 	<!-- Scrollable time grid -->
-	<div bind:this={scrollEl} class="flex-1 overflow-y-auto min-h-0">
+	<div bind:this={scrollEl} class="flex-1 overflow-y-auto min-h-0 [scrollbar-gutter:stable]">
 		<div class="flex" style="height: {24 * HOUR_H}px;">
 			<!-- Hour gutter -->
 			<div class="w-14 shrink-0 relative">

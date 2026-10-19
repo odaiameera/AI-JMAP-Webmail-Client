@@ -162,3 +162,11 @@ export function describeRRule(rule: RecurrenceRule | null): string {
 	else if (rule.count) base += `, ${rule.count} times`;
 	return base;
 }
+
+/** The calendar's views, as they appear in its URL (`?view=`). */
+export const CALENDAR_VIEWS = ['month', 'week', 'workweek', '3day', 'day'] as const;
+export type CalendarView = (typeof CALENDAR_VIEWS)[number];
+
+export function isCalendarView(value: unknown): value is CalendarView {
+	return typeof value === 'string' && (CALENDAR_VIEWS as readonly string[]).includes(value);
+}
