@@ -67,6 +67,34 @@
 		return `${parts.join(' · ')}.`;
 	}
 
+	// --- Pinned senders ---
+
+	const newPinSender = $state<Record<string, string>>({});
+	const newPinTab = $state<Record<string, InboxCategory>>({});
+	let pinError = $state<Record<string, string>>({});
+
+	async function savePin(accountId: string, sender: string, category: InboxCategory, method: 'POST' | 'DELETE' = 'POST') {
+		pinError = { ...pinError, [accountId]: '' };
+		const res = await fetch('/api/jev/pins', {
+			method,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ accountId, sender, category })
+		}).catch(() => null);
+		if (!res?.ok) {
+			const body = await res?.json().catch(() => null);
+			pinError = { ...pinError, [accountId]: body?.error ?? 'Couldn’t save the pin. Try again.' };
+			return false;
+		}
+		await invalidateAll();
+		return true;
+	}
+
+	async function addPin(accountId: string) {
+		const sender = (newPinSender[accountId] ?? '').trim();
+		if (!sender) return;
+		if (await savePin(accountId, sender, newPinTab[accountId] ?? 'updates')) newPinSender[accountId] = '';
+	}
+
 	// --- Preview ---
 
 	interface PreviewRow {
@@ -210,6 +238,75 @@
 			{/snippet}
 		</SettingRow>
 	{/each}
+
+	<div class="mt-8">
+		<h3 class="text-sm font-semibold text-text mb-1">Pinned senders</h3>
+		<p class="text-xs text-text-tertiary mb-3">
+			Mail from a pinned sender always goes to its tab — Jev isn’t asked. Pin one from the message
+			that appears after you move an email, or add it here; <span class="font-mono">@domain</span> pins
+			everyone at a domain, and an address pin wins over its domain’s.
+		</p>
+		{#each data.jevAccounts as account (account.id)}
+			{#if data.jevAccounts.length > 1}
+				<p class="text-xs font-medium text-text-secondary mt-3 mb-1.5">{account.email}</p>
+			{/if}
+			{#if account.pins.length > 0}
+				<ul class="rounded-lg border border-border divide-y divide-border mb-2">
+					{#each account.pins as pin (pin.sender)}
+						<li class="flex items-center gap-3 px-3 py-2">
+							<span class="flex-1 min-w-0 truncate text-sm text-text font-mono">{pin.sender}</span>
+							<select
+								value={pin.category}
+								aria-label="Tab for {pin.sender}"
+								onchange={(e) => savePin(account.id, pin.sender, e.currentTarget.value as InboxCategory)}
+								class="bg-surface-hover border border-border rounded-lg px-2 py-1 text-xs text-text outline-none focus:border-accent"
+							>
+								{#each INBOX_CATEGORIES as c (c.key)}
+									<option value={c.key}>{c.label}</option>
+								{/each}
+							</select>
+							<button
+								type="button"
+								onclick={() => savePin(account.id, pin.sender, pin.category, 'DELETE')}
+								title="Remove pin"
+								aria-label="Remove pin for {pin.sender}"
+								class="p-1 rounded-md text-text-tertiary hover:text-danger cursor-pointer"
+							>
+								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<form class="flex items-center gap-2" onsubmit={(e) => { e.preventDefault(); addPin(account.id); }}>
+				<input
+					bind:value={newPinSender[account.id]}
+					placeholder="sender@example.com or @example.com"
+					aria-label="Sender to pin"
+					class="flex-1 min-w-0 bg-surface-hover border border-border rounded-lg px-2.5 py-1.5 text-sm text-text outline-none focus:border-accent"
+				/>
+				<select
+					value={newPinTab[account.id] ?? 'updates'}
+					aria-label="Tab"
+					onchange={(e) => (newPinTab[account.id] = e.currentTarget.value as InboxCategory)}
+					class="bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+				>
+					{#each INBOX_CATEGORIES as c (c.key)}
+						<option value={c.key}>{c.label}</option>
+					{/each}
+				</select>
+				<button
+					type="submit"
+					class="px-3 py-1.5 rounded-lg text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary transition-colors cursor-pointer"
+				>
+					Pin
+				</button>
+			</form>
+			{#if pinError[account.id]}
+				<p class="text-xs text-danger mt-1">{pinError[account.id]}</p>
+			{/if}
+		{/each}
+	</div>
 
 	{#if configured && activeAccount}
 		<div class="mt-6 rounded-xl border border-border p-4">

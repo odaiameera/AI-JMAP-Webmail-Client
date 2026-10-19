@@ -20,6 +20,7 @@ import { runMigrations } from '$lib/server/db/migrate';
 import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
 import { getDecision, getUsage } from '$lib/server/db/queries/jev-decisions';
 import { setRules } from '$lib/server/db/queries/rules';
+import { recordSenderMoves, setPin } from '$lib/server/db/queries/jev-learning';
 import type { AuthState, MethodCall } from '$lib/jmap/types';
 import type { Rule } from '$lib/types/rules';
 import { sortNewMail } from './worker';
@@ -159,6 +160,8 @@ beforeEach(() => {
 	getDb().prepare('DELETE FROM jev_decisions').run();
 	getDb().prepare('DELETE FROM jev_usage').run();
 	setRules(ME, []);
+	getDb().prepare('DELETE FROM jev_sender_pins').run();
+	getDb().prepare('DELETE FROM jev_sender_moves').run();
 	// Off and on again, so every test's cursor starts at T0.
 	updateJevSettings(ACCT, { jevEnabled: false });
 	updateJevSettings(ACCT, { inboxTabs: true, jevEnabled: true }, T0);
@@ -330,5 +333,41 @@ describe('sortNewMail', () => {
 		updateJevSettings(ACCT, { jevEnabled: true });
 		expect(jevHandlesRules(ACCT, [jevRule])).toBe(true);
 		expect(jevHandlesRules(ACCT, [{ ...jevRule, conditions: [] }])).toBe(false);
+	});
+
+	it('puts a pinned sender’s mail in its tab without asking Jev', async () => {
+		delete env.JEV_MOCK;
+		env.TYPESAFE_API_KEY = 'ts-test-key';
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		setPin(ACCT, '@linkedin.com', 'updates');
+		fake.add('jobs', 1, { from: [{ name: 'LinkedIn', email: 'jobs@linkedin.com' }], subject: 'New jobs for you' });
+
+		await sortNewMail(ACCT, ME, auth, at(10));
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(fake.emails.get('jobs')!.keywords).toEqual({ $cat_updates: true });
+		expect(getDecision(ACCT, 'jobs')).toMatchObject({
+			status: 'done',
+			category: 'updates',
+			applied: 'updates',
+			pinnedBy: '@linkedin.com',
+			model: null
+		});
+	});
+
+	it('tells Jev where you have moved a sender’s mail before', async () => {
+		recordSenderMoves(ACCT, ['deals@shop.example', 'deals@shop.example'], 'newsletters');
+		// No list headers: on its own the mock would say Important.
+		fake.add('deal', 1, { from: [{ name: 'Shop', email: 'deals@shop.example' }], subject: 'This week' });
+
+		await sortNewMail(ACCT, ME, auth, at(10));
+
+		const decision = getDecision(ACCT, 'deal');
+		expect(decision?.facts).toMatchObject({
+			sender_history: 'You have moved 2 earlier emails from this sender to Newsletters.'
+		});
+		// The mock follows your habit, as Jev is meant to.
+		expect(decision?.applied).toBe('newsletters');
 	});
 });

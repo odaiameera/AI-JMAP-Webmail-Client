@@ -14,7 +14,8 @@ const noFacts: JevFacts = {
 	bulk_precedence: false,
 	auto_submitted: false,
 	sender_looks_automated: false,
-	contains_sign_in_code: false
+	contains_sign_in_code: false,
+	sender_history: null
 };
 
 function state(subject: string, facts: Partial<JevFacts> = {}): JevEmailState {

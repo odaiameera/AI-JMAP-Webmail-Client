@@ -14,6 +14,9 @@ const PROMO_WORDS = /\b(?:sale|deals?|offers?|discount|save|free|coupon|reward|%
 /** The rule of thumb behind mock category answers. */
 export function mockCategory(state: JevEmailState): InboxCategory {
 	const { facts, email } = state;
+	// Your own moves first: the tab you moved this sender's mail to most.
+	const habit = facts.sender_history?.match(/ to (Important|Updates|Newsletters|Promotions)\b/);
+	if (habit) return habit[1].toLowerCase() as InboxCategory;
 	if (facts.sender_in_contacts || facts.you_have_written_in_this_thread) return 'important';
 	if (facts.contains_sign_in_code) return 'updates';
 	const bulk = facts.has_list_unsubscribe || !!facts.list_id || facts.bulk_precedence;

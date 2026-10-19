@@ -17,6 +17,8 @@
 		threshold: number;
 		negate: boolean;
 		fired: boolean;
+		/** You said this rule shouldn't have fired here. */
+		markedWrong: boolean;
 	}
 
 	interface Decision {
@@ -28,6 +30,8 @@
 		probabilities: Record<string, number>;
 		facts: Record<string, boolean | string | null>;
 		rules: RuleCheck[];
+		/** The sender pin that chose the tab, when one did. */
+		pinnedBy: string | null;
 		model: string | null;
 		mock: boolean;
 	}
@@ -92,8 +96,32 @@
 		return firedRules.length === 1 ? `rule “${firedRules[0]}”` : firedRules.length > 1 ? `${firedRules.length} rules` : 'rules checked';
 	});
 
+	const history = $derived(
+		typeof decision?.facts.sender_history === 'string' ? decision.facts.sender_history : null
+	);
+
+	let feedbackError = $state('');
+
+	async function markWrong(ruleId: string) {
+		if (!decision) return;
+		feedbackError = '';
+		const res = await fetch('/api/jev/rule-feedback', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ emailId, ruleId })
+		}).catch(() => null);
+		if (!res?.ok) {
+			feedbackError = 'Couldn’t save that. Try again.';
+			return;
+		}
+		decision.rules = decision.rules.map((r) => (r.ruleId === ruleId ? { ...r, markedWrong: true } : r));
+	}
+
 	const summary = $derived.by(() => {
 		if (!decision?.category) return '';
+		if (decision.pinnedBy) {
+			return `You pinned ${decision.pinnedBy} to ${labelOf(decision.category)}, so Jev wasn’t asked which tab.`;
+		}
 		const sure = percent(decision.confidence);
 		if (decision.correctedTo && decision.correctedTo !== (decision.applied ?? 'important')) {
 			return `Jev picked ${labelOf(decision.category)}; you moved it to ${labelOf(decision.correctedTo)}.`;
@@ -139,12 +167,28 @@
 								<p class="text-text-tertiary">
 									{check.negate ? 'Not: ' : ''}“{check.statement}” — {percent(check.probability)}, needs {percent(check.threshold)}
 								</p>
+								{#if check.fired && (i === 0 || decision.rules[i - 1].ruleId !== check.ruleId)}
+									{#if check.markedWrong}
+										<p class="text-text-tertiary italic">Noted — counted against this rule.</p>
+									{:else}
+										<button
+											type="button"
+											onclick={() => markWrong(check.ruleId)}
+											class="text-accent-fg hover:text-accent-fg-hover cursor-pointer"
+										>
+											Shouldn’t have fired
+										</button>
+									{/if}
+								{/if}
 							</li>
 						{/each}
 					</ul>
+					{#if feedbackError}
+						<p class="mt-1 text-danger">{feedbackError}</p>
+					{/if}
 				{/if}
 
-				{#if decision.category}
+				{#if decision.category && !decision.pinnedBy}
 				<ul class="mt-2.5 space-y-1">
 					{#each INBOX_CATEGORIES as c (c.key)}
 						{@const p = decision.probabilities[c.key] ?? 0}
@@ -159,10 +203,18 @@
 				</ul>
 				{/if}
 
+				{#if decision.model}
+				<!-- Only when Jev was called: a pinned sender's mail sends nothing. -->
 				<p class="mt-3 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">
 					Sent with the email
 				</p>
 				<ul class="space-y-0.5">
+					{#if history}
+						<li class="flex items-start gap-1.5 text-text-secondary">
+							<span class="w-3 text-center" aria-hidden="true">↺</span>
+							<span>{history}</span>
+						</li>
+					{/if}
 					{#each factRows as f (f.label)}
 						<li class="flex items-center gap-1.5 {f.state === 'yes' ? 'text-text-secondary' : 'text-text-tertiary'}">
 							<span class="w-3 text-center" aria-hidden="true">{f.state === 'yes' ? '✓' : f.state === 'no' ? '–' : '?'}</span>
@@ -171,7 +223,6 @@
 					{/each}
 				</ul>
 
-				{#if decision.model}
 					<p class="mt-2 text-3xs text-text-tertiary">Model: {decision.model}</p>
 				{/if}
 			</div>

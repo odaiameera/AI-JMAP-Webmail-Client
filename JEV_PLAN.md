@@ -262,12 +262,22 @@ Cost doesn't limit anything here. Accuracy and privacy are the real constraints.
 
 **Done when:** a rule like "When it's an invoice or a payment request → label Finance" previews correctly on your own mail.
 
-### Phase 3: Learning from corrections
+### Phase 3: Learning from corrections — built
 
-- **Sender pins.** Moving a message between tabs records a correction and asks "Always put mail from X in Updates?". A yes creates a pin, which overrides Jev's category from then on.
-- **`sender_history`** is added to `facts`, so Jev sees your past corrections without being retrained.
-- **Rule feedback.** A rule hit gets a "Shouldn't have fired" option. The rules page shows each rule's hits and misses, so strictness is tuned on evidence.
-- **A pins list** in the Jev settings, to edit or remove pins.
+- **Sender pins** (`jev_sender_pins`, migration 014):
+  - after a move to a tab, the toast offers "Always for this sender" when every moved email came from one sender, Jev reads the account, and that sender isn't already pinned there
+  - a pin is an address or an `@domain`; an address pin wins over its domain's
+  - a pinned sender's tab is decided before Jev is asked, so it costs no call
+  - for the tab, a rule's "Move to Inbox tab" wins over a pin, and a pin wins over Jev's pick
+- **Sender history** (`jev_sender_moves`):
+  - every move between tabs is counted per sender and tab
+  - Jev receives it as the `sender_history` fact ("You have moved 3 earlier emails from this sender to Promotions")
+  - Undo takes its move back out, so a corrected mistake doesn't become a habit
+- **Rule feedback** (`jev_rule_feedback`):
+  - the "Why is this here?" chip offers "Shouldn't have fired" on a rule that fired
+  - the rules editor shows each Jev rule's hits and misses, and suggests a stricter setting when misses pass a fifth of at least five hits
+- **Settings → Jev → Pinned senders:** list, change, remove, or add an address or `@domain` per account.
+- **Scope.** Pins apply while Jev reads the account, since the Jev worker is what applies them. Mail sorted only by hand isn't pinned.
 
 ### Phase 4: Jev as the spam layer, watch-only first
 

@@ -8,6 +8,7 @@ import { categoryKeywordPatch, categoryOf, type InboxCategory } from '$lib/types
 import { hasJevCondition, type Rule } from '$lib/types/rules';
 import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
 import { getRules } from '$lib/server/db/queries/rules';
+import { listPins, pinFor, senderHistory, type SenderPin } from '$lib/server/db/queries/jev-learning';
 import {
 	addUsage,
 	enqueueEmails,
@@ -35,7 +36,7 @@ import {
 	type CategoryDecision
 } from './categorize';
 import { buildEmailState, type JevFacts } from './email-state';
-import { gatherFacts } from './facts';
+import { gatherFacts, senderAddress } from './facts';
 import { conditionAnswers, ruleChecks, ruleQuestions } from './rules';
 import type { JevQuestion, JevResponse } from './types';
 
@@ -138,6 +139,11 @@ export interface JudgeContext {
 	session: JMAPSession | null;
 }
 
+/** The judge context for an account, with your sender history attached. */
+function withHistory(ctx: JudgeContext) {
+	return { ...ctx, senderHistory: (sender: string) => senderHistory(ctx.accountRowId, sender) };
+}
+
 const tabQuestion = (): Record<string, JevQuestion> => ({ [CATEGORY_QUESTION_ID]: CATEGORY_QUESTION });
 
 /**
@@ -154,7 +160,7 @@ export async function judgeEmails(
 ): Promise<JudgedEmail[]> {
 	const questions = new Map(emails.map((e) => [e.id, questionsFor(e)]));
 	const asking = emails.filter((e) => Object.keys(questions.get(e.id)!).length > 0);
-	const facts = await gatherFacts(client, accountId, asking, ctx);
+	const facts = await gatherFacts(client, accountId, asking, withHistory(ctx));
 	return mapPool(emails, CONCURRENCY, async (email): Promise<JudgedEmail> => {
 		const emailQuestions = questions.get(email.id)!;
 		const emailFacts = facts.get(email.id) ?? null;
@@ -196,20 +202,25 @@ export function tabToApply(judged: JudgedEmail): InboxCategory | null {
 
 interface Plan {
 	update: Record<string, unknown>;
-	/** The tab Jev's pick put it in (not a rule's), for the record. */
-	jevTab: InboxCategory | null;
+	/** The tab a pin or Jev's pick put it in (not a rule's), for the record. */
+	tab: InboxCategory | null;
+	/** The pin that chose the tab, if one did. */
+	pin: SenderPin | null;
 	checks: JevRuleCheck[];
 }
 
 /**
  * What to do with one email: the rules' outcome — with Jev's answers for
- * their conditions — plus Jev's own tab when no rule chose one.
+ * their conditions — and then its tab. A rule that picks a tab wins, then
+ * your pin for the sender, then Jev's own pick; none of them overrules a tab
+ * the message already has.
  */
 function planFor(
 	judged: JudgedEmail,
 	rules: Rule[],
 	ruleCtx: RuleActionCtx,
-	wantsTabs: boolean
+	wantsTabs: boolean,
+	pin: SenderPin | null
 ): Plan {
 	const email = judged.email;
 	const answers = conditionAnswers(judged.response);
@@ -217,11 +228,14 @@ function planFor(
 		rules.length > 0
 			? evaluateRulesForEmail(email, rules, ruleCtx, extractBodyText(email), answers)
 			: emptyOutcome();
-	const jevTab = wantsTabs && !outcome.category ? tabToApply(judged) : null;
-	if (jevTab && jevTab !== 'important') Object.assign(outcome.keywords, categoryKeywordPatch(jevTab));
+	const open = wantsTabs && !outcome.category && categoryOf(email.keywords) === 'important';
+	const pinned = open && pin ? pin : null;
+	const tab = pinned ? pinned.category : open ? tabToApply(judged) : null;
+	if (tab && tab !== 'important') Object.assign(outcome.keywords, categoryKeywordPatch(tab));
 	return {
 		update: outcomeToUpdate(email, outcome),
-		jevTab,
+		tab,
+		pin: pinned,
 		checks: ruleChecks(rules, answers, outcome.firedRuleIds)
 	};
 }
@@ -325,6 +339,10 @@ export async function sortNewMail(
 	}
 	if (inInbox.length === 0) return;
 
+	// A pinned sender's tab is already decided: Jev isn't asked for it.
+	const pins = wantsTabs ? listPins(accountRowId) : [];
+	const pinOf = (email: Email) => pinFor(pins, senderAddress(email));
+
 	const session = await fetchSession(auth).catch(() => null);
 	const judged = await judgeEmails(
 		client,
@@ -332,7 +350,7 @@ export async function sortNewMail(
 		inInbox,
 		{ accountRowId, accountEmail, sentId: mailboxes.find((m) => m.role === 'sent')?.id ?? null, session },
 		(email) => ({
-			...(wantsTabs ? tabQuestion() : {}),
+			...(wantsTabs && !pinOf(email) ? tabQuestion() : {}),
 			...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
 		})
 	);
@@ -344,10 +362,10 @@ export async function sortNewMail(
 		if (j.error) {
 			recordFailure(accountRowId, j.email.id, j.error, now.getTime());
 			if (getDecision(accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
-			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, ruleCtx, false));
+			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, ruleCtx, false, null));
 			continue;
 		}
-		plans.set(j.email.id, planFor(j, rules, ruleCtx, wantsTabs));
+		plans.set(j.email.id, planFor(j, rules, ruleCtx, wantsTabs, pinOf(j.email)));
 	}
 
 	// 4. Apply, worked out before anything changes.
@@ -366,9 +384,10 @@ export async function sortNewMail(
 			accountRowId,
 			j.email.id,
 			{
-				category: j.decision?.category ?? null,
-				confidence: j.decision?.confidence ?? null,
-				applied: plan.jevTab,
+				category: plan.pin ? plan.pin.category : (j.decision?.category ?? null),
+				confidence: plan.pin ? null : (j.decision?.confidence ?? null),
+				applied: plan.tab,
+				pinnedBy: plan.pin?.sender ?? null,
 				answers: j.response?.answers ?? {},
 				facts: j.facts ?? {},
 				rules: plan.checks,

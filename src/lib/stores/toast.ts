@@ -9,6 +9,8 @@ export interface Toast {
 	id: string;
 	message: string;
 	action?: ToastAction;
+	/** More buttons after `action`, e.g. Undo and "Always for this sender". */
+	extraActions?: ToastAction[];
 	/** Auto-dismiss after this many ms. Pass 0 to keep open until dismissed. */
 	duration?: number;
 }

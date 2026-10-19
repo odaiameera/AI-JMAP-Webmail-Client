@@ -24,6 +24,8 @@ export interface JevDecisionRow {
 	correctedTo: InboxCategory | null;
 	/** What Jev said about each rule condition it was asked about. */
 	rules: JevRuleCheck[] | null;
+	/** The sender pin that decided the tab, when one did. */
+	pinnedBy: string | null;
 	createdAt: number;
 	decidedAt: number | null;
 }
@@ -55,6 +57,7 @@ interface RawRow {
 	input_tokens: number | null;
 	corrected_to: string | null;
 	rules_json: string | null;
+	pinned_by: string | null;
 	created_at: number;
 	decided_at: number | null;
 }
@@ -92,6 +95,7 @@ function toRow(r: RawRow): JevDecisionRow {
 		inputTokens: r.input_tokens,
 		correctedTo: r.corrected_to as InboxCategory | null,
 		rules: r.rules_json ? (parseJsonArray(r.rules_json) as JevRuleCheck[] | null) : null,
+		pinnedBy: r.pinned_by,
 		createdAt: r.created_at,
 		decidedAt: r.decided_at
 	};
@@ -117,7 +121,7 @@ function prepareStmts() {
 			`UPDATE jev_decisions SET
 			   status = 'done', last_error = NULL, attempts = attempts + 1,
 			   category = @category, confidence = @confidence, applied = @applied,
-			   answers_json = @answers, facts_json = @facts, rules_json = @rules, model = @model,
+			   answers_json = @answers, facts_json = @facts, rules_json = @rules, pinned_by = @pinnedBy, model = @model,
 			   input_tokens = @inputTokens, decided_at = @now
 			 WHERE account_id = @accountId AND email_id = @emailId`
 		),
@@ -183,6 +187,8 @@ export function recordDecision(
 		answers: unknown;
 		facts: unknown;
 		rules?: JevRuleCheck[];
+		/** The pin that decided the tab instead of Jev. */
+		pinnedBy?: string | null;
 		/** Null when there was nothing to ask, so Jev wasn't called. */
 		model: string | null;
 		inputTokens: number;
@@ -198,6 +204,7 @@ export function recordDecision(
 		answers: JSON.stringify(d.answers),
 		facts: JSON.stringify(d.facts),
 		rules: d.rules?.length ? JSON.stringify(d.rules) : null,
+		pinnedBy: d.pinnedBy ?? null,
 		model: d.model,
 		inputTokens: d.inputTokens,
 		now

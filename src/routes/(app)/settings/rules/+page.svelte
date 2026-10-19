@@ -716,6 +716,17 @@
 					{#if selectedIsJev}
 						<!-- Jev rule: tested on recent mail rather than counted. -->
 						<div class="rounded-xl border border-border bg-surface-hover/40 p-4 flex flex-col gap-3">
+							{#if data.jev.stats[rule.id]}
+								{@const stats = data.jev.stats[rule.id]}
+								<p class="text-xs text-text-secondary">
+									So far it fired on <span class="font-semibold text-text">{stats.hits}</span>
+									{stats.hits === 1 ? 'email' : 'emails'}; you marked
+									<span class="font-semibold text-text">{stats.misses}</span> as shouldn’t have.
+									{#if stats.hits >= 5 && stats.misses / stats.hits >= 0.2 && rule.conditions.some((c) => c.field === 'jev' && (c.strictness ?? 'normal') !== 'strict')}
+										That’s a lot of misses — try a stricter setting, or a narrower statement.
+									{/if}
+								</p>
+							{/if}
 							{#if data.jev.mode === 'off'}
 								<p class="text-xs text-warning">Jev isn’t configured on this server, so this rule never fires.</p>
 							{:else if !data.jev.enabled}

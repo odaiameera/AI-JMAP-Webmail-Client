@@ -14,6 +14,17 @@ import {
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
 import { isInboxCategory } from '$lib/types/categories';
 import { recordCorrections } from '$lib/server/db/queries/jev-decisions';
+import { forgetSenderMoves, getPinCategory, recordSenderMoves } from '$lib/server/db/queries/jev-learning';
+import { getJevSettings } from '$lib/server/db/queries/jev-settings';
+import { normalizeAddress } from '$lib/server/trust-sender';
+import type { JMAPClient } from '$lib/jmap/client';
+
+/** The sender of each email, lowercased; emails without one are left out. */
+async function sendersOf(client: JMAPClient, accountId: string, ids: string[]): Promise<string[]> {
+	const response = await client.request([['Email/get', { accountId, ids, properties: ['from'] }, 'g']]);
+	const list = (response.methodResponses[0][1] as { list?: { from?: { email?: string }[] | null }[] }).list ?? [];
+	return list.map((e) => normalizeAddress(e.from?.[0]?.email ?? '')).filter((a) => a.includes('@'));
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) return json({ error: 'Not authenticated' }, { status: 401 });
@@ -43,10 +54,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				return json({ error: 'invalid category' }, { status: 400 });
 			}
 			await setEmailCategory(client, accountId, ids, body.category);
+			const account = locals.activeAccountId;
+			if (!account) return json({ success: true, pinSuggestion: null });
+
 			// Where Jev had sorted any of these, note that you moved them —
 			// it's how Settings shows how often Jev's picks get corrected.
-			if (locals.activeAccountId) recordCorrections(locals.activeAccountId, ids, body.category);
-			return json({ success: true });
+			recordCorrections(account, ids, body.category);
+			// And where you move each sender's mail, which Jev is told next time.
+			// Undo takes its move back out instead of adding one.
+			const senders = await sendersOf(client, accountId, ids).catch(() => []);
+			if (isInboxCategory(body.undoOf)) {
+				forgetSenderMoves(account, senders, body.undoOf);
+				return json({ success: true, pinSuggestion: null });
+			}
+			recordSenderMoves(account, senders, body.category);
+
+			// All from one sender: offer to pin it, so Jev never has to guess again.
+			const unique = [...new Set(senders)];
+			const pinSuggestion =
+				unique.length === 1 &&
+				getJevSettings(account).jevEnabled &&
+				getPinCategory(account, unique[0]) !== body.category
+					? { sender: unique[0], category: body.category }
+					: null;
+			return json({ success: true, pinSuggestion });
 		}
 
 		if (action === 'spam') {

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDecision } from '$lib/server/db/queries/jev-decisions';
+import { hasRuleFeedback } from '$lib/server/db/queries/jev-learning';
 import { CATEGORY_QUESTION_ID } from '$lib/server/jev/categorize';
 
 /**
@@ -15,7 +16,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	const row = getDecision(locals.activeAccountId, params.emailId);
-	const rules = row?.rules ?? [];
+	const account = locals.activeAccountId;
+	const rules = (row?.rules ?? []).map((check) => ({
+		...check,
+		markedWrong: hasRuleFeedback(account, check.ruleId, params.emailId)
+	}));
 	if (!row || row.status !== 'done' || (!row.category && rules.length === 0)) {
 		return json({ decision: null });
 	}
@@ -32,6 +37,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			probabilities: answer?.probabilities ?? {},
 			facts: row.facts ?? {},
 			rules,
+			pinnedBy: row.pinnedBy,
 			model: row.model,
 			mock: row.model === 'mock',
 			decidedAt: row.decidedAt

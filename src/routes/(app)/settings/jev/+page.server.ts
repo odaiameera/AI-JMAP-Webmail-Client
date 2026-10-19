@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getJevSettings } from '$lib/server/db/queries/jev-settings';
 import { decisionStats, getUsage } from '$lib/server/db/queries/jev-decisions';
+import { listPins } from '$lib/server/db/queries/jev-learning';
 import {
 	costUsd,
 	jevMode,
@@ -35,6 +36,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 				isActive: a.id === activeAccountId,
 				inboxTabs: settings.inboxTabs,
 				jevEnabled: settings.jevEnabled,
+				pins: listPins(a.id).map((p) => ({ sender: p.sender, category: p.category })),
 				month: {
 					...decisionStats(a.id, monthStart),
 					inputTokens: usage.inputTokens,

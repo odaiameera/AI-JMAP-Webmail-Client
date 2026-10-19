@@ -27,6 +27,8 @@ export interface JevFacts {
 	/** A no-reply style sender address. */
 	sender_looks_automated: boolean;
 	contains_sign_in_code: boolean;
+	/** Where you have moved this sender's mail before, in a sentence; null if never. */
+	sender_history: string | null;
 }
 
 export interface JevEmailState {

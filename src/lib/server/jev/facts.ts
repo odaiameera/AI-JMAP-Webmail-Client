@@ -26,7 +26,10 @@ export function senderAddress(email: Email): string {
 export function headerFacts(
 	email: Email,
 	accountEmail: string
-): Omit<JevFacts, 'sender_in_contacts' | 'you_have_written_to_sender' | 'you_have_written_in_this_thread'> {
+): Omit<
+	JevFacts,
+	'sender_in_contacts' | 'you_have_written_to_sender' | 'you_have_written_in_this_thread' | 'sender_history'
+> {
 	const me = normalizeAddress(accountEmail);
 	const precedence = (email['header:precedence:asText'] ?? '').trim().toLowerCase();
 	const autoSubmitted = (email['header:auto-submitted:asText'] ?? '').trim().toLowerCase();
@@ -154,13 +157,19 @@ async function sendersInContacts(
 
 /**
  * Facts for a batch of emails from one account. `session` is only needed
- * for the contacts lookup; pass null to skip it.
+ * for the contacts lookup; pass null to skip it. `senderHistory` says where
+ * you have moved a sender's mail before (see jev-learning.ts).
  */
 export async function gatherFacts(
 	client: JMAPClient,
 	accountId: string,
 	emails: Email[],
-	ctx: { accountEmail: string; sentId: string | null; session: JMAPSession | null }
+	ctx: {
+		accountEmail: string;
+		sentId: string | null;
+		session: JMAPSession | null;
+		senderHistory?: (sender: string) => string | null;
+	}
 ): Promise<Map<string, JevFacts>> {
 	const senders = [...new Set(emails.map(senderAddress).filter(Boolean))];
 	const threadIds = [...new Set(emails.map((e) => e.threadId).filter(Boolean))];
@@ -178,7 +187,8 @@ export async function gatherFacts(
 			sender_in_contacts: contacts.get(sender) ?? null,
 			you_have_written_to_sender: wroteTo?.get(sender) ?? null,
 			you_have_written_in_this_thread: threads ? threads.has(email.threadId) : null,
-			...headerFacts(email, ctx.accountEmail)
+			...headerFacts(email, ctx.accountEmail),
+			sender_history: sender ? (ctx.senderHistory?.(sender) ?? null) : null
 		});
 	}
 	return facts;
