@@ -13,11 +13,14 @@
 	import { setFolderMeta, setLabelMeta } from '$lib/stores/userState';
 	import ColorGrid from './ColorGrid.svelte';
 	import FolderLocationPicker from './FolderLocationPicker.svelte';
+	import IconPicker from '$lib/components/IconPicker.svelte';
 
 	export type EditingMailbox = {
 		id: string;
 		name: string;
 		color: LabelColor;
+		/** A Lucide icon name, or null for the plain folder / colour dot. */
+		icon?: string | null;
 		parentId?: string | null;
 	};
 
@@ -39,6 +42,7 @@
 
 	let name = $state('');
 	let color = $state<LabelColor>(DEFAULT_LABEL_COLOR);
+	let icon = $state<string | null>(null);
 	let parentId = $state<string | null>(null);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -55,11 +59,6 @@
 				? 'Create folder'
 				: 'Create label'
 	);
-	const subtitle = $derived(
-		kind === 'folder' && !isEdit
-			? 'Name your new folder and select the parent folder you want to put it in. If you do not select a parent folder, this new folder will be created as a top level folder.'
-			: null
-	);
 	const nameLabel = $derived(kind === 'folder' ? 'Folder name' : 'Label name');
 	const submitLabel = $derived(isEdit ? 'Save' : saving ? 'Saving…' : 'Save');
 
@@ -70,6 +69,7 @@
 			if (editing) {
 				name = editing.name;
 				color = editing.color;
+				icon = editing.icon ?? null;
 				parentId = editing.parentId ?? null;
 			} else {
 				name = '';
@@ -79,6 +79,7 @@
 					kind === 'label'
 						? autoLabelColor('', new Set(existingLabels.map((l) => l.color.toLowerCase())))
 						: DEFAULT_LABEL_COLOR;
+				icon = null;
 				parentId = null;
 			}
 			error = null;
@@ -133,7 +134,7 @@
 			if (!res.ok) throw new Error(res.error);
 			const id: string | undefined = res.data?.id;
 			if (id) {
-				await setFolderMeta(id, { displayName: trimmed, color: color.hex });
+				await setFolderMeta(id, { displayName: trimmed, color: color.hex, icon });
 			}
 		} else {
 			const res = await postJson('/api/preferences/labels', {
@@ -144,7 +145,7 @@
 			if (!res.ok) throw new Error(res.error);
 			const id: string | undefined = res.data?.id;
 			if (id) {
-				await setLabelMeta(id, { displayName: trimmed, color: color.hex });
+				await setLabelMeta(id, { displayName: trimmed, color: color.hex, icon });
 			}
 		}
 	}
@@ -152,6 +153,7 @@
 	async function saveEdit(target: EditingMailbox, trimmed: string) {
 		const nameChanged = trimmed !== target.name;
 		const colorChanged = color.hex.toLowerCase() !== target.color.hex.toLowerCase();
+		const iconChanged = icon !== (target.icon ?? null);
 		const parentChanged =
 			kind === 'folder' && (parentId ?? null) !== (target.parentId ?? null);
 
@@ -168,8 +170,8 @@
 				});
 				if (!r.ok) throw new Error(r.error);
 			}
-			if (nameChanged || colorChanged) {
-				await setFolderMeta(target.id, { displayName: trimmed, color: color.hex });
+			if (nameChanged || colorChanged || iconChanged) {
+				await setFolderMeta(target.id, { displayName: trimmed, color: color.hex, icon });
 			}
 		} else {
 			if (nameChanged) {
@@ -188,8 +190,8 @@
 				});
 				if (!r.ok) throw new Error(r.error);
 			}
-			if (nameChanged || colorChanged) {
-				await setLabelMeta(target.id, { displayName: trimmed, color: color.hex });
+			if (nameChanged || colorChanged || iconChanged) {
+				await setLabelMeta(target.id, { displayName: trimmed, color: color.hex, icon });
 			}
 		}
 	}
@@ -242,10 +244,6 @@
 				</button>
 			</div>
 
-			{#if subtitle}
-				<p class="text-sm text-text-secondary mb-5 leading-relaxed">{subtitle}</p>
-			{/if}
-
 			<div class="space-y-5">
 				<div>
 					<label class="block text-sm font-medium text-text mb-2" for="mailbox-name">
@@ -257,8 +255,7 @@
 						bind:value={name}
 						bind:this={inputEl}
 						maxlength={kind === 'label' ? 64 : 100}
-						class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text placeholder-text-tertiary outline-none transition-colors"
-						placeholder={nameLabel}
+						class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text outline-none transition-colors"
 					/>
 				</div>
 
@@ -282,6 +279,16 @@
 						<span class="text-sm text-text-secondary">{colorName}</span>
 					</div>
 					<ColorGrid value={color} onChange={(c) => (color = c)} />
+				</div>
+
+				<div>
+					<span class="block text-sm font-medium text-text mb-2">Icon</span>
+					<IconPicker
+						value={icon}
+						color={color.hex}
+						fallback={kind === 'folder' ? 'folder' : 'dot'}
+						onPick={(name) => (icon = name)}
+					/>
 				</div>
 
 				{#if error}

@@ -13,10 +13,12 @@ import {
 	getLabelsForUser,
 	upsertLabelMeta
 } from '$lib/server/db/queries/label-meta';
+import { lucideNode } from '$lib/server/lucide-icons';
 
 export interface LabelMetaEntry {
 	color: string;
 	displayName: string;
+	icon: string | null;
 	createdAt: number;
 }
 
@@ -39,6 +41,7 @@ export function getLabelMeta(userEmail: string): LabelMeta {
 		out[r.mailboxId] = {
 			color: r.color,
 			displayName: r.displayName,
+			icon: r.icon,
 			createdAt: r.createdAt
 		};
 	}
@@ -95,6 +98,8 @@ export async function listLabels(
 			id: m.id,
 			name: entry?.displayName?.trim() || m.name,
 			color: entry?.color ?? autoColors.get(m.id) ?? DEFAULT_LABEL_COLOR,
+			icon: entry?.icon || null,
+			iconNode: lucideNode(entry?.icon),
 			createdAt: entry?.createdAt ?? 0
 		};
 	});

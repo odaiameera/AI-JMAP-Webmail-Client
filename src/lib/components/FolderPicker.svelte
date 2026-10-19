@@ -4,6 +4,9 @@
 	import { onMount, tick } from 'svelte';
 	import type { Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
+	import type { IconNode } from '$lib/types/icon-node';
+	import { userState } from '$lib/stores/userState';
+	import MailboxIcon from '$lib/components/MailboxIcon.svelte';
 	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 	let {
@@ -33,6 +36,7 @@
 		kind: PickerKind;
 		role?: string | null;
 		color?: string;
+		iconNode?: IconNode | null;
 		unread: number;
 	}
 
@@ -61,6 +65,7 @@
 					name: lbl?.name ?? m.name,
 					kind: 'label',
 					color: lbl?.color,
+					iconNode: lbl?.iconNode,
 					unread: m.unreadEmails
 				});
 			} else if (m.role) {
@@ -246,7 +251,9 @@
 						{highlight === i ? 'bg-accent/10 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
 					{#if item.kind === 'label'}
-						<span class="w-3 h-3 rounded-full shrink-0 border border-white/20" style="background-color: {item.color ?? '#0969da'}"></span>
+						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center"><MailboxIcon node={item.iconNode} fallback="dot" color={item.color ?? '#0969da'} size={14} /></span>
+					{:else if item.kind === 'folder'}
+						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-current"><MailboxIcon node={$userState.folders.get(item.id)?.iconNode} fallback="folder" size={14} /></span>
 					{:else}
 						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-current"><Icon name={iconFor(item)} size={14} /></span>
 					{/if}

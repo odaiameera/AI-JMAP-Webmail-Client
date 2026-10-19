@@ -10,11 +10,13 @@
 	import { colorByHex, DEFAULT_LABEL_COLOR, type LabelColor } from '$lib/constants/colors';
 	import { buildFolderTree, flattenFolderTree } from '$lib/utils/folder-tree';
 	import CreateMailboxModal from '$lib/components/modals/CreateMailboxModal.svelte';
+	import MailboxIcon from '$lib/components/MailboxIcon.svelte';
 
 	type EditingMailbox = {
 		id: string;
 		name: string;
 		color: LabelColor;
+		icon?: string | null;
 		parentId?: string | null;
 	};
 
@@ -46,6 +48,7 @@
 			id: folder.id,
 			name: folder.name,
 			color: meta?.color ? colorByHex(meta.color) : DEFAULT_LABEL_COLOR,
+			icon: meta?.icon ?? null,
 			parentId: folder.parentId
 		};
 		modalOpen = true;
@@ -106,10 +109,7 @@
 							class="group flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-hover/50 border border-border/60"
 							style="padding-left: {12 + opt.depth * 16}px"
 						>
-							<span
-								class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10"
-								style="background-color: {meta?.color ?? '#59636e'}"
-							></span>
+							<MailboxIcon node={meta?.iconNode} fallback="folder" color={meta?.color ?? null} />
 							<span class="flex-1 truncate text-sm text-text">{folder.name}</span>
 							{#if folder.unreadEmails > 0}
 								<span class="text-xs text-text-tertiary shrink-0">{folder.unreadEmails} unread</span>

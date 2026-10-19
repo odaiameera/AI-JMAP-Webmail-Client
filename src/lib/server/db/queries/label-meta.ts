@@ -4,6 +4,8 @@ export interface LabelMetaRow {
 	mailboxId: string;
 	displayName: string;
 	color: string;
+	/** A Lucide icon name; '' or null for none. */
+	icon: string | null;
 	createdAt: number;
 }
 
@@ -11,6 +13,7 @@ interface DbLabelMetaRow {
 	mailboxId: string;
 	displayName: string;
 	color: string;
+	icon: string | null;
 	createdAt: string;
 }
 
@@ -22,6 +25,7 @@ function prepareStmts() {
 			`SELECT mailbox_id AS mailboxId,
 			        display_name AS displayName,
 			        color,
+			        icon,
 			        created_at AS createdAt
 			 FROM label_meta
 			 WHERE user_email = ?`
@@ -30,16 +34,18 @@ function prepareStmts() {
 			`SELECT mailbox_id AS mailboxId,
 			        display_name AS displayName,
 			        color,
+			        icon,
 			        created_at AS createdAt
 			 FROM label_meta
 			 WHERE user_email = ? AND mailbox_id = ?`
 		),
 		upsert: db.prepare(
-			`INSERT INTO label_meta (user_email, mailbox_id, display_name, color)
-			 VALUES (@userEmail, @mailboxId, @displayName, @color)
+			`INSERT INTO label_meta (user_email, mailbox_id, display_name, color, icon)
+			 VALUES (@userEmail, @mailboxId, @displayName, @color, @icon)
 			 ON CONFLICT (user_email, mailbox_id) DO UPDATE SET
 			   display_name = COALESCE(excluded.display_name, label_meta.display_name),
 			   color        = COALESCE(excluded.color,        label_meta.color),
+			   icon         = COALESCE(excluded.icon,         label_meta.icon),
 			   updated_at   = datetime('now')`
 		),
 		delete: db.prepare(
@@ -58,6 +64,7 @@ function rowToMeta(row: DbLabelMetaRow | undefined): LabelMetaRow | null {
 		mailboxId: row.mailboxId,
 		displayName: row.displayName,
 		color: row.color,
+		icon: row.icon,
 		createdAt: Number.isFinite(createdAt) ? createdAt : 0
 	};
 }
@@ -75,13 +82,14 @@ export function getLabelMeta(userEmail: string, mailboxId: string): LabelMetaRow
 export function upsertLabelMeta(
 	userEmail: string,
 	mailboxId: string,
-	patch: { displayName?: string | null; color?: string | null }
+	patch: { displayName?: string | null; color?: string | null; icon?: string | null }
 ): void {
 	stmts().upsert.run({
 		userEmail,
 		mailboxId,
 		displayName: patch.displayName ?? null,
-		color: patch.color ?? null
+		color: patch.color ?? null,
+		icon: patch.icon ?? null
 	});
 }
 

@@ -7,11 +7,13 @@
 	import type { Label } from '$lib/types/labels';
 	import { colorByHex, type LabelColor } from '$lib/constants/colors';
 	import CreateMailboxModal from '$lib/components/modals/CreateMailboxModal.svelte';
+	import MailboxIcon from '$lib/components/MailboxIcon.svelte';
 
 	type EditingMailbox = {
 		id: string;
 		name: string;
 		color: LabelColor;
+		icon?: string | null;
 		parentId?: string | null;
 	};
 
@@ -32,6 +34,7 @@
 			id: label.id,
 			name: label.name,
 			color: colorByHex(label.color),
+			icon: label.icon ?? null,
 			parentId: null
 		};
 		modalOpen = true;
@@ -84,10 +87,7 @@
 		<div class="flex flex-col gap-1.5">
 			{#each labels as label (label.id)}
 				<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-hover/50 border border-border/60">
-					<span
-						class="w-3 h-3 rounded-full shrink-0 border border-white/20"
-						style="background-color: {label.color}"
-					></span>
+					<MailboxIcon node={label.iconNode} fallback="dot" color={label.color} />
 					<span class="flex-1 truncate text-sm text-text">{label.name}</span>
 					<a
 						href={`/folder/${label.id}`}
