@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { tick } from 'svelte';
 
 	type AgentAction =
@@ -393,12 +394,7 @@
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
 				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
-				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<path d="M12 8V4H8"/>
-					<rect width="16" height="12" x="4" y="8" rx="2"/>
-					<path d="M2 14h2"/><path d="M20 14h2"/>
-					<path d="M15 13v2"/><path d="M9 13v2"/>
-				</svg>
+				<Icon name="assistant" size={20} />
 				<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface {aiEnabled ? 'bg-success' : 'bg-text-tertiary'}"></span>
 			</div>
 			<div class="min-w-0 flex-1">
@@ -420,7 +416,7 @@
 				aria-label="New conversation"
 				title="New conversation"
 			>
-				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+				<Icon name="add" size={16} />
 			</button>
 			<button
 				type="button"
@@ -430,10 +426,10 @@
 				aria-pressed={historyOpen}
 				title="Conversation history"
 			>
-				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+				<Icon name="history" size={16} />
 			</button>
 			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close AI mail agent">
-				<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+				<Icon name="close" size={16} />
 			</button>
 		</header>
 
@@ -467,7 +463,7 @@
 									class="mr-1.5 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-tertiary opacity-0 transition-opacity hover:text-danger focus:opacity-100 group-hover:opacity-100"
 									aria-label="Delete conversation {session.title}"
 								>
-									<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+									<Icon name="delete" size={14} />
 								</button>
 							</li>
 						{/each}
@@ -589,14 +585,14 @@
 				<div class="grid grid-cols-2 gap-2 pt-1">
 					<button type="button" onclick={() => ask('summarize_today', "Summarize today's email and highlight anything that needs my attention.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v16H4zM8 9h8M8 13h6M8 17h4"/></svg>
+							<Icon name="inbox" size={16} />
 						</span>
 						<span class="block text-xs font-medium text-text">Today’s mail</span>
 						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and priorities</span>
 					</button>
 					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+							<Icon name="calendar" size={16} />
 						</span>
 						<span class="block text-xs font-medium text-text">Tomorrow</span>
 						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Calendar briefing</span>
@@ -604,7 +600,7 @@
 					{#if currentEmailId}
 						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 							<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-								<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+								<Icon name="mail" size={16} />
 							</span>
 							<span class="block text-xs font-medium text-text">This email</span>
 							<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and actions</span>
@@ -612,7 +608,7 @@
 					{/if}
 					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
 						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+							<Icon name="task" size={16} />
 						</span>
 						<span class="block text-xs font-medium text-text">Create task</span>
 						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Review before creating</span>
@@ -643,7 +639,7 @@
 			<form class="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
 				<textarea bind:value={input} rows="1" maxlength="1500" placeholder="Ask about your mail…" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
 				<button type="submit" disabled={busy || !aiEnabled || !input.trim()} aria-label="Send message" class="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent text-white transition-all hover:bg-accent-hover disabled:cursor-default disabled:opacity-40">
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+					<Icon name="send" size={16} />
 				</button>
 			</form>
 			<p class="mt-2 text-center text-3xs text-text-tertiary">Mail content is shared only with your configured AI service.</p>

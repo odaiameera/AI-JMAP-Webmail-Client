@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { LIST_FILTERS, parseListFilter } from '$lib/email-filters';
@@ -29,9 +30,7 @@
 		class="p-1.5 rounded-md transition-colors cursor-pointer
 			{active !== 'all' || open ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
 	>
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-			<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-		</svg>
+		<Icon name="filter" size={16} />
 	</button>
 
 	{#if open}
@@ -53,9 +52,7 @@
 				>
 					<span>{f.label}</span>
 					{#if active === f.key}
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<Icon name="check" size={14} />
 					{/if}
 				</button>
 			{/each}

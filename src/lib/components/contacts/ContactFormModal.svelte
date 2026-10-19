@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { AddressBook, ContactCard } from '$lib/jmap/types';
 	import {
 		emptyContactForm,
@@ -119,7 +120,7 @@
 			<header class="h-14 shrink-0 px-5 border-b border-border flex items-center justify-between">
 				<h2 id="contact-form-title" class="text-lg font-semibold text-text">{title}</h2>
 				<button type="button" aria-label="Close contact form" class="p-2 rounded-lg text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" onclick={cancel}>
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+					<Icon name="close" size={20} />
 				</button>
 			</header>
 
@@ -158,7 +159,7 @@
 								<select aria-label={`Email type ${index + 1}`} bind:value={email.type} class="h-10 px-2 rounded-lg bg-surface-hover border border-border text-sm text-text outline-none">
 									<option value="other">Other</option><option value="home">Home</option><option value="work">Work</option>
 								</select>
-								<button type="button" aria-label={`Remove email ${index + 1}`} class="h-10 rounded-lg text-text-tertiary hover:text-danger hover:bg-surface-hover cursor-pointer" onclick={() => removeEmail(index)}>×</button>
+								<button type="button" aria-label={`Remove email ${index + 1}`} class="h-10 rounded-lg grid place-items-center text-text-tertiary hover:text-danger hover:bg-surface-hover cursor-pointer" onclick={() => removeEmail(index)}><Icon name="close" /></button>
 							</div>
 						{/each}
 					</div>
@@ -179,7 +180,7 @@
 									<select aria-label={`Phone type ${index + 1}`} bind:value={phone.type} class="h-10 px-2 rounded-lg bg-surface-hover border border-border text-sm text-text outline-none">
 										<option value="other">Other</option><option value="home">Home</option><option value="work">Work</option>
 									</select>
-									<button type="button" aria-label={`Remove phone ${index + 1}`} class="h-10 rounded-lg text-text-tertiary hover:text-danger hover:bg-surface-hover cursor-pointer" onclick={() => removePhone(index)}>×</button>
+									<button type="button" aria-label={`Remove phone ${index + 1}`} class="h-10 rounded-lg grid place-items-center text-text-tertiary hover:text-danger hover:bg-surface-hover cursor-pointer" onclick={() => removePhone(index)}><Icon name="close" /></button>
 								</div>
 							{/each}
 						</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import EmailListItem from './EmailListItem.svelte';
 	import EmailDetail from './EmailDetail.svelte';
 	import FolderPicker from './FolderPicker.svelte';
@@ -354,7 +355,7 @@
 							tabindex={0}
 						>
 							{#if allSelected}
-								<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+								<Icon name="check" size={14} />
 							{/if}
 						</div>
 				</div>
@@ -362,10 +363,10 @@
 				<span class="text-sm text-text-secondary whitespace-nowrap">{selectedIds.size}<span class="sr-only @md:not-sr-only"> selected</span></span>
 				<div class="flex items-center gap-1 ml-2">
 					<button onclick={() => bulkAction('markRead')} title="Mark Read" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+						<Icon name="mark-read" size={16} />
 					</button>
 					<button onclick={() => bulkAction('markUnread')} title="Mark Unread" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
+						<Icon name="mark-unread" size={16} />
 					</button>
 					<button
 						bind:this={moveTriggerEl}
@@ -375,12 +376,7 @@
 						class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
 							{showMovePicker ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
-							<path d="M2 13h10"/>
-							<path d="m9 16 3-3-3-3"/>
-							<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
-						</svg>
+						<Icon name="move-to-folder" size={16} />
 					</button>
 					{#if showMovePicker}
 						<FolderPicker
@@ -405,7 +401,7 @@
 							class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
 								{showCategoryPicker ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+							<Icon name="move-to-tab" size={16} />
 						</button>
 						{#if showCategoryPicker}
 							<CategoryPicker
@@ -418,13 +414,13 @@
 						{/if}
 					{/if}
 					<button onclick={() => bulkAction('archive')} title="Archive" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+						<Icon name="archive" size={16} />
 					</button>
 					<button onclick={() => bulkAction('trash')} title="Trash" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+						<Icon name="delete" size={16} />
 					</button>
 					<button onclick={() => bulkAction('spam')} title="Spam" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
+						<Icon name="spam" size={16} />
 					</button>
 				</div>
 				<div class="flex-1"></div>
@@ -451,10 +447,10 @@
 				{/if}
 				<button onclick={() => readingPane.toggle()} title="Toggle reading pane"
 					class="max-md:hidden p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer {paneOpen ? 'text-accent-fg' : 'text-text-secondary hover:text-text'}">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="10" y1="3" x2="10" y2="21"/></svg>
+					<Icon name="reading-pane" size={16} />
 				</button>
 				<button onclick={refresh} title="Refresh" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+					<Icon name="refresh" size={16} />
 				</button>
 			{/if}
 		</header>
@@ -468,7 +464,7 @@
 				<div class="h-full grid place-items-center px-6 text-center">
 					<div class="max-w-xs">
 						<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
-							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+							<Icon name="inbox" size={20} />
 						</div>
 						<p class="text-sm font-medium text-text">{emptyTitle}</p>
 					</div>
@@ -497,9 +493,7 @@
 							class="inline-flex items-center justify-center w-4 h-4 text-text-tertiary transition-transform"
 							style={isCollapsed ? '' : 'transform: rotate(90deg)'}
 						>
-							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-								<polyline points="9 18 15 12 9 6" />
-							</svg>
+							<Icon name="expand" size={12} />
 						</span>
 						<span class="text-2xs font-semibold uppercase tracking-wider text-text-secondary">
 							{group.label}
@@ -536,7 +530,7 @@
 						title="Newer"
 						aria-label="Previous page"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+						<Icon name="previous" size={16} />
 					</button>
 					<button
 						onclick={() => goToPage(currentPage + 1)}
@@ -545,7 +539,7 @@
 						title="Older"
 						aria-label="Next page"
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+						<Icon name="next" size={16} />
 					</button>
 				</div>
 			</footer>
@@ -580,7 +574,7 @@
 				<div class="h-full grid place-items-center px-6 text-center">
 					<div>
 						<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
-							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+							<Icon name="mail" size={20} />
 						</div>
 						<p class="text-sm font-medium text-text">No message selected</p>
 					</div>

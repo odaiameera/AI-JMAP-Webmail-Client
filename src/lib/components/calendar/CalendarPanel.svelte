@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { CalendarInfo } from '$lib/calendar/types';
 	import type { WeekStart } from '$lib/calendar/dates';
@@ -64,7 +65,7 @@
 			class="btn btn-primary btn-lg w-full"
 			onclick={onCreateEvent}
 		>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+			<Icon name="add" size={16} />
 			New event
 		</button>
 	</div>
@@ -86,7 +87,7 @@
 					modalOpen = true;
 				}}
 			>
-				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+				<Icon name="add" size={14} />
 			</button>
 		</div>
 
@@ -111,7 +112,7 @@
 						menuFor = menuFor === cal.id ? null : cal.id;
 					}}
 				>
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+					<Icon name="more" size={14} />
 				</button>
 
 				{#if menuFor === cal.id}

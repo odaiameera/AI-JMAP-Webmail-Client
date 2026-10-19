@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import MenuSelect from '$lib/components/MenuSelect.svelte';
 	import type {
 		CalendarInfo,
@@ -321,12 +322,6 @@
 	}
 </script>
 
-{#snippet ico(paths: string[], size = 16)}
-	<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-		{#each paths as d}<path {d} />{/each}
-	</svg>
-{/snippet}
-
 {#if open}
 	<div
 		class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
@@ -353,7 +348,7 @@
 					onclick={() => !saving && onClose()}
 					aria-label="Close"
 				>
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+					<Icon name="close" size={20} />
 				</button>
 			</div>
 
@@ -374,7 +369,7 @@
 				<div class="space-y-3">
 					<!-- When -->
 					<div class="flex gap-3">
-						<span class="ev-icon" title="When">{@render ico(['M12 6v6l4 2', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'])}</span>
+						<span class="ev-icon" title="When"><Icon name="time" size={16} /></span>
 						<div class="flex-1 min-w-0 space-y-2">
 							<div class="grid grid-cols-[3.25rem_1fr] items-center gap-x-2 gap-y-2">
 								<span class="text-xs text-text-tertiary">Starts</span>
@@ -401,7 +396,7 @@
 
 					<!-- Repeats -->
 					<div class="flex gap-3">
-						<span class="ev-icon" title="Repeats">{@render ico(['m17 2 4 4-4 4', 'M3 11v-1a4 4 0 0 1 4-4h14', 'm7 22-4-4 4-4', 'M21 13v1a4 4 0 0 1-4 4H3'])}</span>
+						<span class="ev-icon" title="Repeats"><Icon name="repeat" size={16} /></span>
 						<div class="flex-1 min-w-0 space-y-2">
 							<div class="-ml-2">
 								<MenuSelect
@@ -515,7 +510,7 @@
 
 					<!-- Reminders -->
 					<div class="flex gap-3">
-						<span class="ev-icon" title="Reminders">{@render ico(['M10.268 21a2 2 0 0 0 3.464 0', 'M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326'])}</span>
+						<span class="ev-icon" title="Reminders"><Icon name="reminder" size={16} /></span>
 						<div class="flex-1 min-w-0 space-y-1">
 							{#each alarms as alarm, i (i)}
 								<div class="flex items-center gap-1 -ml-2">
@@ -536,7 +531,7 @@
 										title="Remove reminder"
 										onclick={() => (alarms = alarms.filter((_, idx) => idx !== i))}
 									>
-										{@render ico(['M18 6 6 18', 'm6 6 12 12'], 14)}
+										<Icon name="close" size={14} />
 									</button>
 								</div>
 							{/each}
@@ -554,7 +549,7 @@
 
 					<!-- Location -->
 					<div class="flex gap-3 items-center">
-						<span class="ev-icon" title="Location">{@render ico(['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0'])}</span>
+						<span class="ev-icon" title="Location"><Icon name="location" size={16} /></span>
 						<input
 							type="text"
 							bind:value={location}
@@ -566,7 +561,7 @@
 
 					<!-- Notes -->
 					<div class="flex gap-3">
-						<span class="ev-icon pt-2" title="Notes">{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'])}</span>
+						<span class="ev-icon pt-2" title="Notes"><Icon name="notes" size={16} /></span>
 						<textarea
 							bind:value={description}
 							maxlength={10000}
@@ -578,7 +573,7 @@
 
 					<!-- Guests -->
 					<div class="flex gap-3">
-						<span class="ev-icon pt-2" title="Guests">{@render ico(['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M22 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'])}</span>
+						<span class="ev-icon pt-2" title="Guests"><Icon name="guests" size={16} /></span>
 						<div class="flex-1 min-w-0">
 							{#if attendees.length > 0}
 								<div class="flex flex-wrap gap-1.5 mb-1.5">
@@ -591,7 +586,7 @@
 												aria-label="Remove {a}"
 												onclick={() => (attendees = attendees.filter((x) => x !== a))}
 											>
-												{@render ico(['M18 6 6 18', 'm6 6 12 12'], 10)}
+												<Icon name="close" size={12} />
 											</button>
 										</span>
 									{/each}

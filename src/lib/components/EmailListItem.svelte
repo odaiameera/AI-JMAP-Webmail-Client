@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Email } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
 	import { categoryOf, type InboxTabsState } from '$lib/types/categories';
@@ -172,7 +173,7 @@
 				tabindex={0}
 			>
 				{#if selected}
-					<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+					<Icon name="check" size={14} />
 				{/if}
 			</div>
 		</div>
@@ -204,7 +205,7 @@
 		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5 flex items-center gap-1.5">
 			{#if wasReminded}
 				<span class="inline-flex items-center text-accent-fg shrink-0" title="Returned from Remind Me Later">
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+					<Icon name="remind-later" size={14} />
 				</span>
 			{/if}
 			<span class="truncate">{email.subject || '(no subject)'}</span>
@@ -213,12 +214,12 @@
 					class="inline-flex items-center gap-1 shrink-0 rounded-full bg-accent/15 text-accent-fg text-3xs font-medium px-1.5 py-0.5"
 					title="Snoozed — returns to the inbox automatically"
 				>
-					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+					<Icon name="remind-later" size={12} />
 					Returns {formatReturnTime(reminderAt)}
 				</span>
 			{/if}
 			{#if email.hasAttachment}
-				<span class="text-text-tertiary shrink-0">📎</span>
+				<Icon name="attachment" size={12} class="text-text-tertiary" aria-label="Has attachment" />
 			{/if}
 		</div>
 		{#if appliedLabels.length > 0}

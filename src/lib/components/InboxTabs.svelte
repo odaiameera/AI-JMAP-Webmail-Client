@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { page } from '$app/state';
 	import { moveToCategory } from '$lib/categories/api';
 	import {
@@ -7,7 +8,7 @@
 		type InboxCategory,
 		type InboxTabsState
 	} from '$lib/types/categories';
-	import { categoryIcon } from './category-icons';
+	import { CATEGORY_ICON } from './category-icons';
 
 	let { tabs }: { tabs: InboxTabsState } = $props();
 
@@ -82,7 +83,7 @@
 							? 'text-text font-semibold'
 							: 'text-text-secondary hover:text-text hover:bg-surface-hover'}"
 			>
-				<span class="shrink-0 {active ? 'text-text' : 'text-text-tertiary'}">{@html categoryIcon(c.key)}</span>
+				<span class="shrink-0 {active ? 'text-text' : 'text-text-tertiary'}"><Icon name={CATEGORY_ICON[c.key]} size={16} /></span>
 				<span class={active ? '' : 'sr-only @xl:not-sr-only'}>{c.label}</span>
 				{#if unread > 0}
 					<span

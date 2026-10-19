@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import {
 		addMonths,
 		dayKey,
@@ -54,7 +55,7 @@
 				onclick={() => page(-1)}
 				aria-label="Previous month"
 			>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+				<Icon name="previous" size={14} />
 			</button>
 			<button
 				type="button"
@@ -62,7 +63,7 @@
 				onclick={() => page(1)}
 				aria-label="Next month"
 			>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+				<Icon name="next" size={14} />
 			</button>
 		</div>
 	</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { DEFAULT_LABEL_COLOR, colorByHex, type LabelColor } from '$lib/constants/colors';
 	import ColorGrid from '$lib/components/modals/ColorGrid.svelte';
@@ -100,9 +101,7 @@
 					onclick={() => !saving && onClose()}
 					aria-label="Close"
 				>
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M6 18L18 6M6 6l12 12" />
-					</svg>
+					<Icon name="close" size={20} />
 				</button>
 			</div>
 

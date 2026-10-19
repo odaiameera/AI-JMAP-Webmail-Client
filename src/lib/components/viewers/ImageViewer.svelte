@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { ViewerAttachment } from '$lib/attachments/types';
 	import { attachmentUrl } from '$lib/attachments/fetch';
 
@@ -74,16 +75,12 @@
 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-surface border border-border rounded-full px-2 py-1 shadow-lg">
 	<button onclick={() => { zoom = Math.max(0.2, zoom * 0.8); }} title="Zoom out"
 		class="p-1.5 rounded-full text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer">
-		<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
-			<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/>
-		</svg>
+		<Icon name="zoom-out" size={14} />
 	</button>
 	<span class="text-xs text-text-tertiary tabular-nums px-2 w-14 text-center">{Math.round(zoom * 100)}%</span>
 	<button onclick={() => { zoom = Math.min(10, zoom * 1.25); }} title="Zoom in"
 		class="p-1.5 rounded-full text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer">
-		<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
-			<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/>
-		</svg>
+		<Icon name="zoom-in" size={14} />
 	</button>
 	<div class="w-px h-4 bg-border mx-1"></div>
 	<button onclick={reset} title="Reset (double-click also resets)"

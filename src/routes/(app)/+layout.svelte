@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import AIAssistantRail from '$lib/components/AIAssistantRail.svelte';
@@ -254,7 +255,7 @@
 			aria-label="Open menu"
 			aria-expanded={drawerOpen}
 		>
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+			<Icon name="menu" size={20} />
 		</button>
 		<h1 class="max-md:hidden text-lg font-bold text-text tracking-tight leading-none shrink-0 {railCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
 			{railCollapsed ? '' : 'ameera.'}
@@ -393,7 +394,7 @@
 		class="md:hidden fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl bg-accent hover:bg-accent-hover text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
 		aria-label="Compose"
 	>
-		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+		<Icon name="compose" size={20} />
 	</button>
 {/if}
 

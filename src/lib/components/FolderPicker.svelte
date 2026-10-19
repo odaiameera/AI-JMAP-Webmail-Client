@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
+	import { mailboxIconName, type IconName } from '$lib/icons';
 	import { onMount, tick } from 'svelte';
 	import type { Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
@@ -204,16 +206,8 @@
 		};
 	}
 
-	function iconFor(item: PickerItem): string {
-		if (item.kind === 'system') {
-			switch (item.role) {
-				case 'inbox': return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>`;
-				case 'trash': return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>`;
-				case 'junk': return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-				case 'archive': return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
-			}
-		}
-		return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`;
+	function iconFor(item: PickerItem): IconName {
+		return item.kind === 'system' ? mailboxIconName(item.role) : 'folder';
 	}
 </script>
 
@@ -229,12 +223,7 @@
 >
 	<div class="px-2 py-2 border-b border-border">
 		<div class="relative">
-			<svg
-				class="absolute left-2 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-				width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
-			>
-				<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>
-			</svg>
+			<Icon name="search" size={14} class="absolute left-2 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
 			<input
 				bind:this={inputEl}
 				bind:value={query}
@@ -259,7 +248,7 @@
 					{#if item.kind === 'label'}
 						<span class="w-3 h-3 rounded-full shrink-0 border border-white/20" style="background-color: {item.color ?? '#0969da'}"></span>
 					{:else}
-						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-current">{@html iconFor(item)}</span>
+						<span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center text-current"><Icon name={iconFor(item)} size={14} /></span>
 					{/if}
 					<span class="flex-1 truncate">{item.name}</span>
 					{#if item.unread > 0}

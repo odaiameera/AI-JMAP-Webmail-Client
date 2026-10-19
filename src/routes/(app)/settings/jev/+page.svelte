@@ -1,10 +1,11 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { pageTitle } from '$lib/utils/title';
 	import { invalidateAll } from '$app/navigation';
 	import SettingRow, { type SaveState } from '$lib/components/settings/SettingRow.svelte';
 	import Toggle from '$lib/components/settings/Toggle.svelte';
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
-	import { categoryIcon } from '$lib/components/category-icons';
+	import { CATEGORY_ICON } from '$lib/components/category-icons';
 	import JevBackfill from '$lib/components/JevBackfill.svelte';
 	import JevSpamReport from '$lib/components/JevSpamReport.svelte';
 	import Select from '$lib/components/settings/Select.svelte';
@@ -194,7 +195,7 @@
 	<ul class="grid grid-cols-2 gap-2 mb-4">
 		{#each INBOX_CATEGORIES as c (c.key)}
 			<li class="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-surface-hover/50 border border-border/60">
-				<span class="mt-0.5 shrink-0 text-text-secondary">{@html categoryIcon(c.key, 14)}</span>
+				<span class="mt-0.5 shrink-0 text-text-secondary"><Icon name={CATEGORY_ICON[c.key]} size={14} /></span>
 				<span class="min-w-0">
 					<span class="block text-sm text-text">{c.label}</span>
 					<span class="block text-xs text-text-tertiary">{c.description}</span>
@@ -346,7 +347,7 @@
 								aria-label="Remove pin for {pin.sender}"
 								class="p-1 rounded-md text-text-tertiary hover:text-danger cursor-pointer"
 							>
-								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+								<Icon name="close" size={14} />
 							</button>
 						</li>
 					{/each}
@@ -416,7 +417,7 @@
 					{#each INBOX_CATEGORIES as c (c.key)}
 						<div class="rounded-lg bg-surface-hover/50 border border-border/60 px-3 py-2">
 							<div class="flex items-center gap-1.5 text-xs text-text-secondary">
-								{@html categoryIcon(c.key, 13)}
+								<Icon name={CATEGORY_ICON[c.key]} size={14} />
 								{c.label}
 							</div>
 							<div class="text-lg font-semibold text-text tabular-nums mt-0.5">{preview.counts[c.key]}</div>
@@ -447,7 +448,7 @@
 									class="shrink-0 inline-flex items-center gap-1 {row.tab && row.tab !== 'important' ? 'text-text' : 'text-text-secondary'}"
 									title="Jev’s pick: {labelOf(row.pick)}, confidence {Math.round((row.confidence ?? 0) * 100)}%"
 								>
-									{#if row.tab}{@html categoryIcon(row.tab, 12)}{/if}
+									{#if row.tab}<Icon name={CATEGORY_ICON[row.tab]} size={12} />{/if}
 									{labelOf(row.tab)}
 									{#if row.pick && row.pick !== row.tab}
 										<!-- Not sure enough to move it: say where Jev leaned. -->

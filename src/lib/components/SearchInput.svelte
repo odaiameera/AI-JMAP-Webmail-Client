@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { parseSearch, type Token } from '$lib/search/parse';
 	import SearchHelp from './SearchHelp.svelte';
 	import SearchQuickFilters from './SearchQuickFilters.svelte';
@@ -246,7 +247,7 @@
 	<div class="relative">
 		<!-- Leading search glyph -->
 		<span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+			<Icon name="search" size={16} />
 		</span>
 		<!-- Underlay: rendered tokens. Mirrors the input's typography so the
 		     pills sit where the text actually is. Hidden when the caret is
@@ -298,7 +299,7 @@
 			aria-label="Search help"
 			title="Search operators"
 		>
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+			<Icon name="help" size={14} />
 		</button>
 	</div>
 
@@ -325,7 +326,7 @@
 						onmousedown={(e) => { e.preventDefault(); runRecent(r); }}
 						class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm text-text-secondary hover:bg-surface-hover hover:text-text cursor-pointer"
 					>
-						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-text-tertiary"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+						<Icon name="history" size={14} class="text-text-tertiary" />
 						<span class="truncate">{r}</span>
 					</button>
 				{/each}

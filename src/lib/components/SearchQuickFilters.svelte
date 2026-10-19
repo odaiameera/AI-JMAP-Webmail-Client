@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { parseSearch, type Token } from '$lib/search/parse';
@@ -159,9 +160,7 @@
 </script>
 
 {#snippet closeIcon()}
-	<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-		<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-	</svg>
+	<Icon name="close" size={12} />
 {/snippet}
 
 <svelte:window onclick={handleClickOutside} />
@@ -227,7 +226,7 @@
 					{@render closeIcon()}
 				</span>
 			{:else}
-				<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+				<Icon name="dropdown" size={12} />
 			{/if}
 		</button>
 		{#if folderDropdownOpen}

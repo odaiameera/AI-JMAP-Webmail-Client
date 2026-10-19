@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -37,7 +38,7 @@
 			</span>
 		{:else if state === 'saved'}
 			<span class="text-2xs text-accent-fg inline-flex items-center gap-1">
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+				<Icon name="check" size={14} />
 				Saved
 			</span>
 		{/if}

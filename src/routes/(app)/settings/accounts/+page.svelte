@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { pageTitle } from '$lib/utils/title';
 	import ColorGrid from '$lib/components/modals/ColorGrid.svelte';
@@ -226,7 +227,7 @@
 		onclick={openAdd}
 		class="btn btn-primary shrink-0"
 	>
-		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+		<Icon name="add" size={14} />
 		Add account
 	</button>
 </header>
@@ -352,11 +353,11 @@
 				<div class="flex flex-col mr-1">
 					<button type="button" aria-label="Move up" disabled={i === 0} onclick={() => move(account.id, -1)}
 						class="text-text-tertiary hover:text-text disabled:opacity-30 cursor-pointer disabled:cursor-default p-0.5">
-						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+						<Icon name="move-up" size={14} />
 					</button>
 					<button type="button" aria-label="Move down" disabled={i === accounts.length - 1} onclick={() => move(account.id, 1)}
 						class="text-text-tertiary hover:text-text disabled:opacity-30 cursor-pointer disabled:cursor-default p-0.5">
-						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+						<Icon name="move-down" size={14} />
 					</button>
 				</div>
 
@@ -375,9 +376,7 @@
 						onclick={() => (confirmRemoveId = account.id)}
 						disabled={accounts.length === 1}
 						class="text-text-tertiary hover:text-danger disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-surface-hover">
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-							<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-						</svg>
+						<Icon name="delete" size={16} />
 					</button>
 				{/if}
 			</div>
@@ -421,9 +420,7 @@
 					onclick={closeAdd}
 					aria-label="Close"
 				>
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M6 18L18 6M6 6l12 12" />
-					</svg>
+					<Icon name="close" size={20} />
 				</button>
 			</div>
 			<p class="text-sm text-text-secondary mb-5 leading-relaxed">

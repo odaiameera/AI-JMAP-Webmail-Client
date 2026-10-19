@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onDestroy } from 'svelte';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
@@ -755,18 +756,11 @@
 
 <svelte:window onkeydown={handleKeydown} onpointerdown={closeMenusOnOutsideClick} />
 
-<!-- Lucide-style stroke icon from path data (24×24 viewBox). -->
-{#snippet ico(paths: string[], size = 16)}
-	<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-		{#each paths as d}<path {d} />{/each}
-	</svg>
-{/snippet}
-
 {#snippet markButtons()}
-	<button type="button" onclick={() => run((c) => c.toggleBold())} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold" aria-label="Bold" aria-pressed={isActive('bold')}><strong>B</strong></button>
-	<button type="button" onclick={() => run((c) => c.toggleItalic())} class="fc-btn {isActive('italic') ? 'fc-active' : ''}" title="Italic" aria-label="Italic" aria-pressed={isActive('italic')}><em class="font-serif">I</em></button>
-	<button type="button" onclick={() => run((c) => c.toggleUnderline())} class="fc-btn {isActive('underline') ? 'fc-active' : ''}" title="Underline" aria-label="Underline" aria-pressed={isActive('underline')}><u>U</u></button>
-	<button type="button" onclick={() => run((c) => c.toggleStrike())} class="fc-btn {isActive('strike') ? 'fc-active' : ''}" title="Strikethrough" aria-label="Strikethrough" aria-pressed={isActive('strike')}><s>S</s></button>
+	<button type="button" onclick={() => run((c) => c.toggleBold())} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold" aria-label="Bold" aria-pressed={isActive('bold')}><Icon name="bold" /></button>
+	<button type="button" onclick={() => run((c) => c.toggleItalic())} class="fc-btn {isActive('italic') ? 'fc-active' : ''}" title="Italic" aria-label="Italic" aria-pressed={isActive('italic')}><Icon name="italic" /></button>
+	<button type="button" onclick={() => run((c) => c.toggleUnderline())} class="fc-btn {isActive('underline') ? 'fc-active' : ''}" title="Underline" aria-label="Underline" aria-pressed={isActive('underline')}><Icon name="underline" /></button>
+	<button type="button" onclick={() => run((c) => c.toggleStrike())} class="fc-btn {isActive('strike') ? 'fc-active' : ''}" title="Strikethrough" aria-label="Strikethrough" aria-pressed={isActive('strike')}><Icon name="strikethrough" /></button>
 {/snippet}
 
 {#if $composer.mode === 'fullscreen'}
@@ -802,11 +796,11 @@
 			<div class="flex items-center gap-0.5 shrink-0 ml-2">
 				{#if $composer.mode === 'minimized'}
 					<button onclick={(e) => { e.stopPropagation(); restoreFromMinimized(); }} aria-label="Restore" title="Restore" class="header-btn">
-						{@render ico(['m18 15-6-6-6 6'], 14)}
+						<Icon name="restore" size={14} />
 					</button>
 				{:else}
 					<button onclick={minimize} aria-label="Minimize" title="Minimize" class="header-btn">
-						{@render ico(['M5 12h14'], 14)}
+						<Icon name="minimize" size={14} />
 					</button>
 					<button
 						onclick={toggleFullscreen}
@@ -815,14 +809,14 @@
 						class="header-btn"
 					>
 						{#if $composer.mode === 'fullscreen'}
-							{@render ico(['m14 10 7-7', 'M20 10h-6V4', 'm3 21 7-7', 'M4 14h6v6'], 14)}
+							<Icon name="exit-full-screen" size={14} />
 						{:else}
-							{@render ico(['M15 3h6v6', 'm21 3-7 7', 'm3 21 7-7', 'M9 21H3v-6'], 14)}
+							<Icon name="full-screen" size={14} />
 						{/if}
 					</button>
 				{/if}
 				<button onclick={(e) => { e.stopPropagation(); void closeComposer(); }} aria-label="Save draft and close" title="Save draft and close" class="header-btn">
-					{@render ico(['M18 6 6 18', 'm6 6 12 12'], 14)}
+					<Icon name="close" size={14} />
 				</button>
 			</div>
 		</div>
@@ -885,13 +879,13 @@
 					{@render markButtons()}
 					<div class="fc-sep"></div>
 					<button type="button" onclick={openLinkPopover} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Link" aria-label="Link">
-						{@render ico(['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'], 15)}
+						<Icon name="link" size={16} />
 					</button>
 					<button type="button" onclick={() => run((c) => c.toggleHighlight())} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight" aria-label="Highlight">
-						{@render ico(['m9 11-6 6v3h9l3-3', 'm22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'], 15)}
+						<Icon name="highlight" size={16} />
 					</button>
 					<button type="button" onclick={() => run((c) => c.clearNodes().unsetAllMarks())} class="fc-btn" title="Clear formatting" aria-label="Clear formatting">
-						{@render ico(['M4 7V4h16v3', 'M5 20h6', 'M13 4 8 20', 'm15 15 5 5', 'm20 15-5 5'], 15)}
+						<Icon name="clear-formatting" size={16} />
 					</button>
 				</div>
 			{/if}
@@ -908,17 +902,17 @@
 			<div class="shrink-0 px-4 py-2 flex flex-wrap gap-1.5" class:hidden={$composer.mode === 'minimized'}>
 				{#each attachments as a (a.blobId)}
 					<span class="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-1 rounded-lg bg-surface border border-border text-xs text-text max-w-[240px]">
-						<span class="shrink-0 text-text-tertiary">{@render ico(['M13.234 20.252 21 12.3', 'm16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486'], 14)}</span>
+						<span class="shrink-0 text-text-tertiary"><Icon name="attachment" size={14} /></span>
 						<span class="truncate" title={a.name}>{a.name}</span>
 						<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
 						<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 w-5 h-5 grid place-items-center rounded-md text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" aria-label={`Remove ${a.name}`}>
-							{@render ico(['M18 6 6 18', 'm6 6 12 12'], 12)}
+							<Icon name="close" size={14} />
 						</button>
 					</span>
 				{/each}
 				{#each pendingUploads as u (u.id)}
 					<span class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-surface border border-border text-xs text-text-tertiary max-w-[240px]">
-						<svg viewBox="0 0 24 24" width="13" height="13" class="shrink-0 animate-spin" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+						<Icon name="loading" size={14} class="animate-spin" />
 						<span class="truncate">{u.name}</span>
 					</span>
 				{/each}
@@ -937,7 +931,7 @@
 		>
 			<div class="relative" data-menu-root>
 				<button type="button" onclick={() => toggleMenu('size')} class="fc-btn {openMenu === 'size' ? 'fc-active' : ''}" title="Text size" aria-label="Text size" aria-haspopup="menu" aria-expanded={openMenu === 'size'}>
-					{@render ico(['M21 14h-5', 'M16 16v-3.5a2.5 2.5 0 0 1 5 0V16', 'M4.5 13h6', 'm3 16 4.5-9 4.5 9'], 16)}
+					<Icon name="text-size" size={16} />
 				</button>
 				{#if openMenu === 'size'}
 					<div class="absolute bottom-full mb-1 left-0 z-50 w-36 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]" role="menu">
@@ -952,7 +946,7 @@
 			<div class="relative" data-menu-root>
 				<button type="button" onclick={() => toggleMenu('color')} class="fc-btn {openMenu === 'color' ? 'fc-active' : ''}" title="Text color" aria-label="Text color" aria-haspopup="menu" aria-expanded={openMenu === 'color'}>
 					<span class="flex flex-col items-center leading-none">
-						{@render ico(['m6 16 6-12 6 12', 'M8 12h8'], 14)}
+						<Icon name="text-color" size={14} />
 						<span class="mt-0.5 h-0.5 w-3.5 rounded-full" style="background: {(editor?.getAttributes('textStyle').color as string) ?? 'currentColor'}"></span>
 					</span>
 				</button>
@@ -968,43 +962,43 @@
 				{/if}
 			</div>
 			<button type="button" onclick={() => run((c) => c.toggleHighlight())} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight" aria-label="Highlight" aria-pressed={isActive('highlight')}>
-				{@render ico(['m9 11-6 6v3h9l3-3', 'm22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'], 16)}
+				<Icon name="highlight" size={16} />
 			</button>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => run((c) => c.toggleBulletList())} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bulleted list" aria-label="Bulleted list" aria-pressed={isActive('bulletList')}>
-				{@render ico(['M3 12h.01', 'M3 18h.01', 'M3 6h.01', 'M8 12h13', 'M8 18h13', 'M8 6h13'], 16)}
+				<Icon name="bulleted-list" size={16} />
 			</button>
 			<button type="button" onclick={() => run((c) => c.toggleOrderedList())} class="fc-btn {isActive('orderedList') ? 'fc-active' : ''}" title="Numbered list" aria-label="Numbered list" aria-pressed={isActive('orderedList')}>
-				{@render ico(['M10 12h11', 'M10 18h11', 'M10 6h11', 'M4 10h2', 'M4 6h1v4', 'M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'], 16)}
+				<Icon name="numbered-list" size={16} />
 			</button>
 			<button type="button" onclick={() => run((c) => c.toggleBlockquote())} class="fc-btn {isActive('blockquote') ? 'fc-active' : ''}" title="Quote" aria-label="Quote" aria-pressed={isActive('blockquote')}>
-				{@render ico(['M17 6H3', 'M21 12H8', 'M21 18H8', 'M3 12v6'], 16)}
+				<Icon name="quote" size={16} />
 			</button>
 			<div class="relative" data-menu-root>
 				<button type="button" onclick={() => toggleMenu('align')} class="fc-btn {openMenu === 'align' ? 'fc-active' : ''}" title="Align" aria-label="Align" aria-haspopup="menu" aria-expanded={openMenu === 'align'}>
 					{#if isActive('', { textAlign: 'center' })}
-						{@render ico(['M17 12H7', 'M19 18H5', 'M21 6H3'], 16)}
+						<Icon name="align-center" size={16} />
 					{:else if isActive('', { textAlign: 'right' })}
-						{@render ico(['M21 12H9', 'M21 18H7', 'M21 6H3'], 16)}
+						<Icon name="align-right" size={16} />
 					{:else}
-						{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'], 16)}
+						<Icon name="align-left" size={16} />
 					{/if}
 				</button>
 				{#if openMenu === 'align'}
 					<div class="absolute bottom-full mb-1 left-0 z-50 flex gap-0.5 p-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]" role="menu" aria-label="Align">
-						<button type="button" role="menuitem" onclick={() => setAlign('left')} class="fc-btn" title="Align left" aria-label="Align left">{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'], 16)}</button>
-						<button type="button" role="menuitem" onclick={() => setAlign('center')} class="fc-btn" title="Center" aria-label="Center">{@render ico(['M17 12H7', 'M19 18H5', 'M21 6H3'], 16)}</button>
-						<button type="button" role="menuitem" onclick={() => setAlign('right')} class="fc-btn" title="Align right" aria-label="Align right">{@render ico(['M21 12H9', 'M21 18H7', 'M21 6H3'], 16)}</button>
+						<button type="button" role="menuitem" onclick={() => setAlign('left')} class="fc-btn" title="Align left" aria-label="Align left"><Icon name="align-left" size={16} /></button>
+						<button type="button" role="menuitem" onclick={() => setAlign('center')} class="fc-btn" title="Center" aria-label="Center"><Icon name="align-center" size={16} /></button>
+						<button type="button" role="menuitem" onclick={() => setAlign('right')} class="fc-btn" title="Align right" aria-label="Align right"><Icon name="align-right" size={16} /></button>
 					</div>
 				{/if}
 			</div>
 			<div class="fc-sep"></div>
 			<button type="button" onclick={() => run((c) => c.clearNodes().unsetAllMarks())} class="fc-btn" title="Clear formatting" aria-label="Clear formatting">
-				{@render ico(['M4 7V4h16v3', 'M5 20h6', 'M13 4 8 20', 'm15 15 5 5', 'm20 15-5 5'], 16)}
+				<Icon name="clear-formatting" size={16} />
 			</button>
 			<div class="relative" data-menu-root>
 				<button type="button" onclick={() => toggleMenu('more')} class="fc-btn {openMenu === 'more' ? 'fc-active' : ''}" title="More formatting" aria-label="More formatting" aria-haspopup="menu" aria-expanded={openMenu === 'more'}>
-					{@render ico(['M12 12h.01', 'M19 12h.01', 'M5 12h.01'], 16)}
+					<Icon name="more" size={16} />
 				</button>
 				{#if openMenu === 'more'}
 					<div class="absolute bottom-full mb-1 left-0 z-50 w-48 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu">
@@ -1052,7 +1046,7 @@
 					aria-haspopup="menu"
 					aria-expanded={openMenu === 'schedule'}
 				>
-					{@render ico(['m18 15-6-6-6 6'], 14)}
+					<Icon name="send-later" size={14} />
 				</button>
 				{#if openMenu === 'schedule'}
 					<div class="absolute bottom-full mb-1 left-0 z-50 w-72 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu" aria-label="Send later">
@@ -1065,7 +1059,7 @@
 							{/each}
 							<div class="my-1 border-t border-border"></div>
 							<button type="button" role="menuitem" onclick={() => (pickingTime = true)} class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">
-								{@render ico(['M8 2v4', 'M16 2v4', 'M3 10h18', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2'], 14)}
+								<Icon name="pick-date" size={14} />
 								Pick date & time
 							</button>
 						{:else}
@@ -1119,11 +1113,11 @@
 				</button>
 			{:else}
 				<button type="button" onclick={triggerFilePick} class="fc-btn" title="Attach files" aria-label="Attach files">
-					{@render ico(['M13.234 20.252 21 12.3', 'm16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486'], 16)}
+					<Icon name="attachment" size={16} />
 				</button>
 				<div class="relative" data-menu-root>
 					<button type="button" onclick={() => toggleMenu('link')} class="fc-btn {openMenu === 'link' || isActive('link') ? 'fc-active' : ''}" title="Link" aria-label="Link" aria-haspopup="dialog" aria-expanded={openMenu === 'link'}>
-						{@render ico(['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'], 16)}
+						<Icon name="link" size={16} />
 					</button>
 					{#if openMenu === 'link'}
 						<div class="absolute bottom-full mb-1 right-0 z-50 w-72 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
@@ -1145,7 +1139,7 @@
 				</div>
 				<div class="relative" data-menu-root>
 					<button type="button" onclick={() => toggleMenu('emoji')} class="fc-btn {openMenu === 'emoji' ? 'fc-active' : ''}" title="Emoji" aria-label="Emoji" aria-haspopup="menu" aria-expanded={openMenu === 'emoji'}>
-						{@render ico(['M8 14s1.5 2 4 2 4-2 4-2', 'M9 9h.01', 'M15 9h.01', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'], 16)}
+						<Icon name="emoji" size={16} />
 					</button>
 					{#if openMenu === 'emoji'}
 						<div class="absolute bottom-full mb-1 right-0 z-50 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-6 gap-1" role="menu" aria-label="Emoji">
@@ -1165,17 +1159,13 @@
 						aria-haspopup="menu"
 						aria-expanded={openMenu === 'importance'}
 					>
-						{#if importance === 'low'}
-							{@render ico(['M12 5v14', 'm19 12-7 7-7-7'], 16)}
-						{:else}
-							{@render ico(['M12 8v4', 'M12 16h.01', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'], 16)}
-						{/if}
+						<Icon name={importance === 'high' ? 'importance-high' : importance === 'low' ? 'importance-low' : 'importance'} />
 					</button>
 					{#if openMenu === 'importance'}
 						<div class="absolute bottom-full mb-1 right-0 z-50 w-40 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu" aria-label="Importance">
 							{#each [['high', 'High importance'], ['normal', 'Normal'], ['low', 'Low importance']] as [value, label] (value)}
 								<button type="button" role="menuitemradio" aria-checked={importance === value} onclick={() => { importance = value as typeof importance; openMenu = null; }} class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">
-									<span class="w-3.5 text-accent-fg">{#if importance === value}{@render ico(['M20 6 9 17l-5-5'], 14)}{/if}</span>
+									<span class="w-3.5 text-accent-fg">{#if importance === value}<Icon name="check" size={14} />{/if}</span>
 									{label}
 								</button>
 							{/each}
@@ -1191,7 +1181,7 @@
 					title="Discard draft"
 					aria-label="Discard draft"
 				>
-					{@render ico(['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'], 16)}
+					<Icon name="delete" size={16} />
 				</button>
 			{/if}
 		</div>

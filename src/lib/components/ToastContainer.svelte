@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { toasts, dismissToast, type Toast, type ToastAction } from '$lib/stores/toast';
 	import { fly } from 'svelte/transition';
 
@@ -35,10 +36,7 @@
 				title="Dismiss"
 				class="p-1 rounded-md text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer shrink-0"
 			>
-				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75">
-					<line x1="18" y1="6" x2="6" y2="18" />
-					<line x1="6" y1="6" x2="18" y2="18" />
-				</svg>
+				<Icon name="close" size={14} />
 			</button>
 		</div>
 	{/each}

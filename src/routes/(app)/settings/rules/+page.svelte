@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { pageTitle } from '$lib/utils/title';
 	import { slide, fade, fly } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
@@ -518,7 +519,7 @@
 								title="Delete rule"
 								class="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-danger p-1 rounded-md cursor-pointer transition-opacity"
 							>
-								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+								<Icon name="close" size={14} />
 							</button>
 						</li>
 					{/each}
@@ -622,7 +623,7 @@
 									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded-md"
 									aria-label="Remove condition"
 								>
-									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+									<Icon name="close" size={14} />
 								</button>
 							</div>
 						{/each}
@@ -698,7 +699,7 @@
 									class="text-text-tertiary hover:text-danger cursor-pointer p-1 rounded-md"
 									aria-label="Remove action"
 								>
-									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+									<Icon name="close" size={14} />
 								</button>
 							</div>
 						{/each}
@@ -765,7 +766,7 @@
 									{#each currentJevTest.rows as row (row.id)}
 										{@const matches = jevMatches.some((m) => m.id === row.id)}
 										<li class="flex items-center gap-3 px-3 py-2 text-xs">
-											<span class="w-3 shrink-0 {matches ? 'text-success' : 'text-text-tertiary'}" aria-label={matches ? 'Matches' : 'Doesn’t match'}>{matches ? '✓' : '–'}</span>
+											<Icon name={matches ? 'check' : 'rule-miss'} size={12} class={matches ? 'text-success' : 'text-text-tertiary'} aria-label={matches ? 'Matches' : 'Doesn’t match'} />
 											<div class="flex-1 min-w-0">
 												<p class="truncate {matches ? 'text-text' : 'text-text-secondary'}">{row.subject}</p>
 												<p class="truncate text-text-tertiary">{row.from}</p>
@@ -866,10 +867,10 @@
 					<span class="w-3 h-3 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
 					<h2 class="text-sm font-semibold text-text">Applying rule…</h2>
 				{:else if progress.status === 'done'}
-					<svg class="text-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+					<Icon name="check" size={16} class="text-success" />
 					<h2 class="text-sm font-semibold text-text">Applied</h2>
 				{:else if progress.status === 'error'}
-					<svg class="text-danger" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+					<Icon name="error" size={16} class="text-danger" />
 					<h2 class="text-sm font-semibold text-text">Failed</h2>
 				{/if}
 			</div>

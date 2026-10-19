@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
+	import { mailboxIconName } from '$lib/icons';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
@@ -121,25 +123,8 @@
 		return page.url.pathname === `/folder/${m.id}`;
 	}
 
-	function getSystemIcon(role: string | null): string {
-		switch (role) {
-			case 'remind-me-later': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-			case 'inbox': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>`;
-			case 'scheduled': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg>`;
-			case 'drafts': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-			case 'sent': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-			case 'trash': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`;
-			case 'junk': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-			case 'archive': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
-			default: return folderIcon;
-		}
-	}
-
-	const folderIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`;
-
 	// Flagged is a virtual view (a keyword query, not a mailbox), so it gets
 	// its own entry instead of riding the mailbox list.
-	const flaggedIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 	const flaggedActive = $derived(page.url.pathname.startsWith('/flagged'));
 
 	function isLabelActive(label: Label): boolean {
@@ -251,9 +236,7 @@
 				class="w-full aspect-square bg-accent hover:bg-accent-hover text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
 				title="Compose"
 			>
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
-				</svg>
+				<Icon name="compose" size={20} />
 			</button>
 		{:else}
 			<button
@@ -277,7 +260,7 @@
 							? 'bg-accent/10 text-accent-fg'
 							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
-					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(pseudoRole(mailbox))}</span>
+					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name={mailboxIconName(pseudoRole(mailbox))} /></span>
 				</a>
 				{#if pseudoRole(mailbox) === 'inbox'}
 					<a
@@ -288,7 +271,7 @@
 								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 					>
-						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
+						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="star" /></span>
 					</a>
 				{/if}
 			{/each}
@@ -305,7 +288,7 @@
 							? 'bg-accent/10 text-accent-fg'
 							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
-					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html folderIcon}</span>
+					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="folder" /></span>
 				</a>
 			{/each}
 
@@ -342,7 +325,7 @@
 								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 				>
-					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html getSystemIcon(pseudoRole(mailbox))}</span>
+					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name={mailboxIconName(pseudoRole(mailbox))} /></span>
 					<span class="flex-1 truncate">{mailbox.name}</span>
 					{#if mailbox.unreadEmails > 0}
 						<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full">{mailbox.unreadEmails}</span>
@@ -356,7 +339,7 @@
 								? 'bg-accent/10 text-accent-fg'
 								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 					>
-						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current">{@html flaggedIcon}</span>
+						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="star" /></span>
 						<span class="flex-1 truncate">Starred</span>
 					</a>
 				{/if}
@@ -369,7 +352,7 @@
 					class="w-full flex items-center gap-1.5 py-1 text-3xs font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
 				>
 					<span class="chevron {isExpanded(SECTION_FOLDERS) ? 'expanded' : ''}">
-						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+						<Icon name="expand" size={12} />
 					</span>
 					Folders
 				</button>
@@ -392,7 +375,7 @@
 					class="w-full flex items-center gap-1.5 py-1 text-3xs font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary cursor-pointer"
 				>
 					<span class="chevron {isExpanded(SECTION_LABELS) ? 'expanded' : ''}">
-						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+						<Icon name="expand" size={12} />
 					</span>
 					Labels
 				</button>
@@ -438,13 +421,9 @@
 			title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 		>
 			{#if collapsed}
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="9 18 15 12 9 6"/>
-				</svg>
+				<Icon name="expand-sidebar" size={16} />
 			{:else}
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="15 18 9 12 15 6"/>
-				</svg>
+				<Icon name="collapse-sidebar" size={16} />
 				<span>Collapse</span>
 			{/if}
 		</button>
@@ -495,7 +474,7 @@
 					style="left: {depth * 0.75}rem"
 				>
 					<span class="chevron {isExpanded(node.id) ? 'expanded' : ''}">
-						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+						<Icon name="expand" size={12} />
 					</span>
 				</button>
 			{/if}
@@ -509,7 +488,7 @@
 					style={$userState.folders.get(node.id)?.color
 						? `color: ${$userState.folders.get(node.id)?.color}`
 						: ''}
-				>{@html folderIcon}</span>
+				><Icon name="folder" /></span>
 				<span class="flex-1 truncate">{node.name}</span>
 				{#if node.unreadEmails > 0}
 					<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full shrink-0">{node.unreadEmails}</span>
