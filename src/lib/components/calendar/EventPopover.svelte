@@ -67,7 +67,13 @@
 					<h3 class="text-base font-semibold text-text leading-snug break-words">
 						{event.title || '(untitled event)'}
 					</h3>
-					<p class="text-sm text-text-secondary mt-0.5">{rangeText}</p>
+					<!-- Date and times each stay whole; a narrow popover breaks
+					     between them, not inside "7:00 PM – 8:00 PM". -->
+					<p class="text-sm text-text-secondary mt-0.5">
+						{#each rangeText.split(' · ') as part, i}
+							{#if i > 0}{' · '}{/if}<span class="whitespace-nowrap">{part}</span>
+						{/each}
+					</p>
 					{#if event.recurring}
 						<p class="text-xs text-text-tertiary mt-0.5">{describeRRule(event.rrule)}</p>
 					{/if}

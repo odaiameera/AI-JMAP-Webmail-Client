@@ -25,5 +25,6 @@
 	ariaLabel="Signature"
 	icon={penIcon}
 	align="right"
+	placement="up"
 	triggerClass="text-xs"
 />
