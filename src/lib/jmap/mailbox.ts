@@ -53,6 +53,29 @@ export async function ensureRemindMeLaterMailbox(
 	return result.created?.rml1?.id ?? '';
 }
 
+/**
+ * Messages waiting for Send later or Undo send. A server may mark such a
+ * folder with the 'scheduled' role; otherwise it's ours, found by name at
+ * the top level like Remind Me Later.
+ */
+export const SCHEDULED_NAME = 'Scheduled';
+
+export function isScheduledMailbox(m: Pick<Mailbox, 'name' | 'role' | 'parentId'>): boolean {
+	return m.role === 'scheduled' || (m.role === null && m.parentId === null && m.name === SCHEDULED_NAME);
+}
+
+export async function ensureScheduledMailbox(client: JMAPClient, accountId: string): Promise<string> {
+	const mailboxes = await getMailboxes(client, accountId);
+	const existing = mailboxes.find(isScheduledMailbox);
+	if (existing) return existing.id;
+
+	const response = await client.request([
+		['Mailbox/set', { accountId, create: { sch1: { name: SCHEDULED_NAME, parentId: null } } }, '0']
+	]);
+	const result = response.methodResponses[0][1] as { created?: Record<string, { id: string }> };
+	return result.created?.sch1?.id ?? '';
+}
+
 export async function ensureArchiveMailbox(client: JMAPClient, accountId: string): Promise<string> {
 	const mailboxes = await getMailboxes(client, accountId);
 	const archive = mailboxes.find((m) => m.role === 'archive');

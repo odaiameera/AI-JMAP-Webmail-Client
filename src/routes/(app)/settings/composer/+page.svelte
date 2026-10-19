@@ -10,6 +10,7 @@
 	let font = $state(data.composerFont);
 	let fontSize = $state(data.composerFontSize);
 	let autoSaveInterval = $state(String(data.autoSaveInterval));
+	let undoSendSeconds = $state(String(data.undoSendSeconds));
 
 	const states = $state<Record<string, SaveState>>({});
 	function flash(key: string, ok: boolean) {
@@ -46,6 +47,23 @@
 </header>
 
 <section>
+	<SettingRow title="Undo send" state={states.undoSend ?? 'idle'}>
+		{#snippet control()}
+			<Select
+				value={undoSendSeconds}
+				ariaLabel="Undo send"
+				onchange={(v) => { undoSendSeconds = v; save('/api/preferences/composer', { undoSendSeconds: Number(v) }, 'undoSend'); }}
+				options={[
+					{ value: '0', label: 'Off' },
+					{ value: '5', label: '5 seconds' },
+					{ value: '10', label: '10 seconds' },
+					{ value: '20', label: '20 seconds' },
+					{ value: '30', label: '30 seconds' }
+				]}
+			/>
+		{/snippet}
+	</SettingRow>
+
 	<SettingRow title="Default font" description="Base font for outgoing HTML email." state={states.font ?? 'idle'}>
 		{#snippet control()}
 			<Select

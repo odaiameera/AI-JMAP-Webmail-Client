@@ -3,6 +3,7 @@ import type { LayoutServerLoad } from './$types';
 import { readPreferences } from '$lib/server/preferences';
 import { getDisplayName } from '$lib/server/db/queries/app-prefs';
 import { parseTrashRetentionDays } from '$lib/constants/trash-retention';
+import { parseUndoSendSeconds } from '$lib/server/compose-input';
 
 function num(value: string | undefined, fallback: number): number {
 	if (value === undefined) return fallback;
@@ -44,6 +45,7 @@ export const load: LayoutServerLoad = async ({ cookies, locals, parent }) => {
 		composerFont: prefs.composer_font ?? 'Calibri',
 		composerFontSize: prefs.composer_font_size ?? '12',
 		autoSaveInterval: num(prefs.autosave_interval, 10),
+		undoSendSeconds: parseUndoSendSeconds(prefs.undo_send_seconds),
 		// Mail
 		conversationView: prefs.conversation_view === 'on',
 		markReadDelay: num(prefs.mark_read_delay, 1000),

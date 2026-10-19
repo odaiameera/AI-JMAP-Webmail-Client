@@ -13,7 +13,7 @@
 	import type { Label } from '$lib/types/labels';
 	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 	import { userState } from '$lib/stores/userState';
-	import { REMIND_ME_LATER_NAME } from '$lib/jmap/mailbox';
+	import { REMIND_ME_LATER_NAME, isScheduledMailbox } from '$lib/jmap/mailbox';
 
 	let {
 		mailboxes,
@@ -39,6 +39,7 @@
 		inbox: 0,
 		'remind-me-later': 1,
 		drafts: 2,
+		scheduled: 2.5,
 		sent: 3,
 		archive: 4,
 		junk: 5,
@@ -51,6 +52,7 @@
 	 * sorts next to Inbox and gets its own icon.
 	 */
 	function pseudoRole(m: Mailbox): string | null {
+		if (isScheduledMailbox(m)) return 'scheduled';
 		if (m.role) return m.role;
 		if (m.name === REMIND_ME_LATER_NAME && m.parentId === null) return 'remind-me-later';
 		return null;
@@ -75,7 +77,8 @@
 				m.role === null &&
 				!isLabelMailbox(m, labelsParentId) &&
 				!isLabelsParent(m, labelsParentId) &&
-				!(m.name === REMIND_ME_LATER_NAME && m.parentId === null)
+				!(m.name === REMIND_ME_LATER_NAME && m.parentId === null) &&
+				!isScheduledMailbox(m)
 		)
 	);
 
@@ -122,6 +125,7 @@
 		switch (role) {
 			case 'remind-me-later': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
 			case 'inbox': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>`;
+			case 'scheduled': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg>`;
 			case 'drafts': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
 			case 'sent': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 			case 'trash': return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`;
@@ -154,9 +158,11 @@
 	const EMAIL_DRAG_TYPE = 'application/x-email-ids';
 	let dragOverId = $state<string | null>(null);
 
-	function canDropOn(m: { role?: string | null; name?: string }): boolean {
+	function canDropOn(m: Mailbox): boolean {
 		if (m.role === 'drafts' || m.role === 'sent') return false;
 		if (m.name === 'Sent Messages') return false;
+		// Only Send later puts mail in Scheduled.
+		if (isScheduledMailbox(m)) return false;
 		return true;
 	}
 

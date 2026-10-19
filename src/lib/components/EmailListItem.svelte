@@ -5,6 +5,7 @@
 	import { getContext, onDestroy } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { formatTimeOfDay } from '$lib/utils/date-buckets';
+	import { formatSendTime } from '$lib/utils/send-later';
 	import EmailRowActions from './EmailRowActions.svelte';
 	import SenderAvatar from './SenderAvatar.svelte';
 
@@ -15,6 +16,9 @@
 	const getReminderAt = getContext<(() => Map<string, string>) | undefined>('reminderAt');
 	const getInboxTabs = getContext<(() => InboxTabsState | null) | undefined>('inboxTabs');
 	const getShowRecipients = getContext<(() => boolean) | undefined>('showRecipients');
+	const getScheduledSends = getContext<
+		(() => Map<string, { sendAt: string; status: string; error: string | null }>) | undefined
+	>('scheduledSends');
 
 	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
@@ -27,6 +31,7 @@
 
 	const wasReminded = $derived(getRemindedIds?.().has(email.id) ?? false);
 	const reminderAt = $derived(getReminderAt?.().get(email.id) ?? null);
+	const scheduledSend = $derived(getScheduledSends?.().get(email.id) ?? null);
 	const isUnread = $derived(!('$seen' in email.keywords));
 	const sourceMailboxId = $derived(
 		listMailboxId?.() || Object.keys(email.mailboxIds)[0] || ''
@@ -183,9 +188,17 @@
 				{/if}
 				<span class="truncate">{senderName}</span>
 			</span>
-			<span class="text-xs text-text-tertiary shrink-0 group-hover:invisible" title={new Date(email.receivedAt).toLocaleString()}>
-				{formatTimeOfDay(email.receivedAt)}
-			</span>
+			{#if scheduledSend?.status === 'failed'}
+				<span class="text-xs text-danger shrink-0 group-hover:invisible" title={scheduledSend.error ?? undefined}>Not sent</span>
+			{:else if scheduledSend}
+				<span class="text-xs text-accent-fg shrink-0 group-hover:invisible" title={new Date(scheduledSend.sendAt).toLocaleString()}>
+					{formatSendTime(new Date(scheduledSend.sendAt))}
+				</span>
+			{:else}
+				<span class="text-xs text-text-tertiary shrink-0 group-hover:invisible" title={new Date(email.receivedAt).toLocaleString()}>
+					{formatTimeOfDay(email.receivedAt)}
+				</span>
+			{/if}
 			<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} {category} />
 		</div>
 		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5 flex items-center gap-1.5">

@@ -25,6 +25,7 @@ export const PREF_KEYS = [
 	'composer_font',
 	'composer_font_size',
 	'autosave_interval',
+	'undo_send_seconds',
 	'conversation_view',
 	'mark_read_delay',
 	'auto_load_images',

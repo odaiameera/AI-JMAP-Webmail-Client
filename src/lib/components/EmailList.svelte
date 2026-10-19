@@ -17,7 +17,7 @@
 	import { now } from '$lib/stores/now';
 	import { browser } from '$app/environment';
 	import { isPhone } from '$lib/stores/viewport';
-	import { REMIND_ME_LATER_NAME } from '$lib/jmap/mailbox';
+	import { REMIND_ME_LATER_NAME, isScheduledMailbox } from '$lib/jmap/mailbox';
 
 	let {
 		emails,
@@ -64,7 +64,20 @@
 	// In Sent and Drafts every sender is you, so rows name the recipients
 	// instead — otherwise the whole list reads as your own name repeated.
 	const listRole = $derived(mailboxes.find((m) => m.id === mailboxId)?.role ?? null);
-	setContext('showRecipients', () => listRole === 'sent' || listRole === 'drafts');
+	const listIsScheduled = $derived(
+		mailboxes.some((m) => m.id === mailboxId && isScheduledMailbox(m))
+	);
+	setContext('showRecipients', () => listRole === 'sent' || listRole === 'drafts' || listIsScheduled);
+	// emailId → when it goes out (or that it didn't), for rows in Scheduled.
+	setContext(
+		'scheduledSends',
+		() =>
+			new Map<string, { sendAt: string; status: string; error: string | null }>(
+				(page.data.scheduled ?? []).map(
+					(s: { emailId: string; sendAt: string; status: string; error: string | null }) => [s.emailId, s]
+				)
+			)
+	);
 	// Getter so callers always see the current page's marker set even
 	// after invalidateAll() refreshes the load data without remounting.
 	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
@@ -195,6 +208,7 @@
 		}
 		const listMailbox = mailboxes.find((m) => m.id === mailboxId);
 		if (listMailbox?.name === REMIND_ME_LATER_NAME && listMailbox.parentId === null) return 'Nothing snoozed';
+		if (listIsScheduled) return 'Nothing scheduled';
 		return 'This folder is empty';
 	});
 

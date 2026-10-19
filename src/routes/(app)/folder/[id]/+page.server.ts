@@ -6,6 +6,8 @@ import { mailboxDisplayName } from '$lib/utils/mailbox-display';
 import { userEmailFromAuth } from '$lib/server/user';
 import { getDefaultPageSize } from '$lib/server/db/queries/app-prefs';
 import { listMarkedIds, listReminders } from '$lib/server/db/queries/reminders';
+import { listScheduledSends } from '$lib/server/db/queries/scheduled-sends';
+import { isScheduledMailbox } from '$lib/jmap/mailbox';
 import { parseListFilter, listFilterCondition } from '$lib/email-filters';
 
 const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
@@ -40,6 +42,7 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 			totalPages: 1,
 			remindedIds: [],
 			reminders: [],
+			scheduled: [],
 			filter: parseListFilter(url.searchParams.get('filter'))
 		};
 	}
@@ -67,6 +70,17 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 		originalMailboxId: r.original_mailbox_id
 	}));
 
+	// When each message in Scheduled goes out, or that it didn't.
+	const scheduled =
+		isScheduledMailbox(mailbox) && locals.activeAccountId
+			? listScheduledSends(locals.activeAccountId).map((r) => ({
+					emailId: r.jmap_email_id,
+					sendAt: r.send_at,
+					status: r.status,
+					error: r.last_error
+				}))
+			: [];
+
 	return {
 		emails: result.emails,
 		total: result.total,
@@ -78,6 +92,7 @@ export const load: PageServerLoad = async ({ locals, url, params, parent }) => {
 		totalPages,
 		remindedIds: listMarkedIds(userEmail),
 		reminders,
+		scheduled,
 		filter
 	};
 };

@@ -188,6 +188,8 @@ export interface ComposeEmail {
 	references?: string;
 	attachments?: ComposeAttachment[];
 	importance?: 'high' | 'normal' | 'low';
+	/** The Date header, when it isn't now: a scheduled message carries its send time. */
+	sentAt?: string;
 }
 
 export interface AuthState {

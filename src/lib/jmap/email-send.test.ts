@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { saveDraft, sendEmail } from './email';
+import { buildEnvelope, saveDraft, sendEmail, submitStoredEmail } from './email';
 import type { JMAPClient } from './client';
 import type { ComposeEmail } from './types';
 
@@ -107,5 +107,74 @@ describe('saveDraft', () => {
 		const { client, request } = clientReturning([['Email/set', { created: { draft1: { id: 'M1' } } }, '0']]);
 		await saveDraft(client, 'acct', 'D', compose);
 		expect(request.mock.calls[0][0][0][1].destroy).toBeUndefined();
+	});
+});
+
+describe('buildEnvelope', () => {
+	it('includes Bcc and lists each address once', () => {
+		expect(
+			buildEnvelope(
+				{
+					to: [{ name: null, email: 'dana@example.test' }],
+					cc: [{ name: 'Dana', email: 'Dana@Example.test' }],
+					bcc: [{ name: null, email: 'secret@example.test' }]
+				},
+				'me@example.test'
+			)
+		).toEqual({
+			mailFrom: { email: 'me@example.test' },
+			rcptTo: [{ email: 'dana@example.test' }, { email: 'secret@example.test' }]
+		});
+	});
+});
+
+describe('scheduled messages', () => {
+	it('carry their send time as the Date header', async () => {
+		const { client, request } = clientReturning([['Email/set', { created: { draft1: { id: 'M1' } } }, '0']]);
+		await saveDraft(client, 'acct', 'SCHED', { ...compose, sentAt: '2026-10-20T07:00:00Z' });
+		const created = request.mock.calls[0][0][0][1].create.draft1;
+		expect(created.sentAt).toBe('2026-10-20T07:00:00Z');
+		expect(created.mailboxIds).toEqual({ SCHED: true });
+	});
+
+	const envelope = { mailFrom: { email: 'me@example.test' }, rcptTo: [{ email: 'dana@example.test' }] };
+	const boxes = { scheduled: 'SCHED', sent: 'SENT' };
+
+	it('are submitted as stored and moved to Sent', async () => {
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce({ methodResponses: [['Email/get', { list: [{ id: 'M1', mailboxIds: { SCHED: true } }] }, '0']] })
+			.mockResolvedValueOnce({ methodResponses: [['EmailSubmission/set', { created: { sub1: { id: 'S1' } } }, '0']] });
+		const client = { request } as unknown as JMAPClient;
+
+		expect(await submitStoredEmail(client, 'acct', 'M1', 'I1', envelope, boxes)).toEqual({ status: 'sent' });
+		const [[submission]] = request.mock.calls[1];
+		expect(submission[1].create.sub1).toEqual({ emailId: 'M1', identityId: 'I1', envelope });
+		expect(submission[1].onSuccessUpdateEmail).toEqual({
+			'#sub1': { mailboxIds: { SENT: true }, keywords: { $seen: true } }
+		});
+	});
+
+	it('aren’t sent once they have left Scheduled', async () => {
+		for (const list of [[], [{ id: 'M1', mailboxIds: { DRAFTS: true } }]]) {
+			const request = vi.fn().mockResolvedValueOnce({ methodResponses: [['Email/get', { list }, '0']] });
+			const client = { request } as unknown as JMAPClient;
+			expect(await submitStoredEmail(client, 'acct', 'M1', 'I1', envelope, boxes)).toEqual({ status: 'gone' });
+			expect(request).toHaveBeenCalledTimes(1);
+		}
+	});
+
+	it('report why the server refused them', async () => {
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce({ methodResponses: [['Email/get', { list: [{ id: 'M1', mailboxIds: { SCHED: true } }] }, '0']] })
+			.mockResolvedValueOnce({
+				methodResponses: [['EmailSubmission/set', { notCreated: { sub1: { type: 'forbiddenToSend', description: 'Quota exceeded' } } }, '0']]
+			});
+		const client = { request } as unknown as JMAPClient;
+		expect(await submitStoredEmail(client, 'acct', 'M1', 'I1', envelope, boxes)).toEqual({
+			status: 'failed',
+			error: 'Quota exceeded'
+		});
 	});
 });

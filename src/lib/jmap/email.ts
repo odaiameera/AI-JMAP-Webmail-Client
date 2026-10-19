@@ -191,6 +191,10 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 		}));
 	}
 
+	if (compose.sentAt) {
+		emailCreate.sentAt = compose.sentAt;
+	}
+
 	if (compose.inReplyTo) {
 		emailCreate.inReplyTo = [compose.inReplyTo];
 	}
@@ -207,6 +211,26 @@ function buildEmailCreate(compose: ComposeEmail): Record<string, unknown> {
 	}
 
 	return emailCreate;
+}
+
+/**
+ * Who the message goes to, as the submission's envelope. Bcc recipients are
+ * in it so they receive the message; the stored copy's Bcc header is the
+ * server's to strip.
+ */
+export function buildEnvelope(
+	compose: Pick<ComposeEmail, 'to' | 'cc' | 'bcc'>,
+	mailFrom: string
+): { mailFrom: { email: string }; rcptTo: { email: string }[] } {
+	const seen = new Set<string>();
+	const rcptTo: { email: string }[] = [];
+	for (const a of [...compose.to, ...compose.cc, ...(compose.bcc ?? [])]) {
+		const key = a.email.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		rcptTo.push({ email: a.email });
+	}
+	return { mailFrom: { email: mailFrom }, rcptTo };
 }
 
 export interface SendResult {
@@ -236,10 +260,6 @@ export async function sendEmail(
 	const emailCreate = buildEmailCreate(compose);
 	emailCreate.mailboxIds = { [mailboxes.drafts]: true };
 
-	// Bcc recipients are in the envelope so they receive the message; the
-	// stored copy's Bcc header is the server's to strip.
-	const allRecipients: EmailAddress[] = [...compose.to, ...compose.cc, ...(compose.bcc ?? [])];
-
 	const response = await client.request([
 		[
 			'Email/set',
@@ -258,10 +278,7 @@ export async function sendEmail(
 					sub1: {
 						emailId: '#draft1',
 						identityId: identity.id,
-						envelope: {
-							mailFrom: { email: identity.email },
-							rcptTo: allRecipients.map((a) => ({ email: a.email }))
-						}
+						envelope: buildEnvelope(compose, identity.email)
 					}
 				},
 				// Whole values, not patch paths: Stalwart mishandles some
@@ -293,6 +310,54 @@ export async function sendEmail(
 		return { success: false, error: err?.description ?? err?.type ?? 'Failed to send email', draftId };
 	}
 	return { success: true };
+}
+
+export type StoredSendResult =
+	| { status: 'sent' }
+	/** Deleted, moved out of Scheduled, or already sent: nothing to send. */
+	| { status: 'gone' }
+	| { status: 'failed'; error: string };
+
+/**
+ * Send a message that is already stored, waiting in the Scheduled folder.
+ * It is submitted as it is (its Date header was set to the send time when it
+ * was scheduled), and moved to Sent with its draft flag dropped in the same
+ * request, so a message that has left Scheduled has been dealt with.
+ */
+export async function submitStoredEmail(
+	client: JMAPClient,
+	accountId: string,
+	emailId: string,
+	identityId: string,
+	envelope: { mailFrom: { email: string }; rcptTo: { email: string }[] },
+	mailboxes: { scheduled: string; sent: string }
+): Promise<StoredSendResult> {
+	const check = await client.request([
+		['Email/get', { accountId, ids: [emailId], properties: ['mailboxIds'] }, '0']
+	]);
+	const found = (check.methodResponses[0][1] as { list?: { mailboxIds?: Record<string, boolean> }[] })
+		.list?.[0];
+	if (!found?.mailboxIds?.[mailboxes.scheduled]) return { status: 'gone' };
+
+	const response = await client.request([
+		[
+			'EmailSubmission/set',
+			{
+				accountId,
+				create: { sub1: { emailId, identityId, envelope } },
+				onSuccessUpdateEmail: {
+					'#sub1': { mailboxIds: { [mailboxes.sent]: true }, keywords: { $seen: true } }
+				}
+			},
+			'0'
+		]
+	]);
+	const submission = response.methodResponses.find(([name]) => name === 'EmailSubmission/set')?.[1] as
+		| { created?: Record<string, unknown>; notCreated?: Record<string, { type: string; description?: string }> }
+		| undefined;
+	if (submission?.created?.sub1) return { status: 'sent' };
+	const err = submission?.notCreated?.sub1;
+	return { status: 'failed', error: err?.description || err?.type || 'The mail server refused the message' };
 }
 
 /**
