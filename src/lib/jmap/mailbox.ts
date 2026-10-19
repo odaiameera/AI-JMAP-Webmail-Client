@@ -78,7 +78,12 @@ export async function ensureScheduledMailbox(client: JMAPClient, accountId: stri
 
 export async function ensureArchiveMailbox(client: JMAPClient, accountId: string): Promise<string> {
 	const mailboxes = await getMailboxes(client, accountId);
-	const archive = mailboxes.find((m) => m.role === 'archive');
+	// A folder with the archive role, or else one the user made and called
+	// Archive. Without that fallback, an account whose Archive has no role
+	// tried to create a second "Archive", was refused, and nothing archived.
+	const archive =
+		mailboxes.find((m) => m.role === 'archive') ??
+		mailboxes.find((m) => m.parentId === null && m.name.trim().toLowerCase() === 'archive');
 	if (archive) return archive.id;
 
 	const response = await client.request([

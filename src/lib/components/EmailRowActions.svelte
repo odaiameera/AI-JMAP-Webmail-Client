@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { showToast } from '$lib/stores/toast';
 	import RemindMeLaterPicker from './RemindMeLaterPicker.svelte';
 	import CategoryPicker from './CategoryPicker.svelte';
 	import { moveToCategory } from '$lib/categories/api';
@@ -42,12 +43,18 @@
 		if (loading) return;
 		loading = action;
 		try {
-			await fetch(`/api/email/${emailId}`, {
+			const res = await fetch(`/api/email/${emailId}`, {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ action, sourceMailboxId })
 			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				showToast({ message: data.error ?? 'That didn’t work. Try again.' });
+			}
 			await invalidateAll();
+		} catch {
+			showToast({ message: 'Network error' });
 		} finally {
 			loading = '';
 		}
