@@ -4,7 +4,6 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
-	import { openCompose } from '$lib/stores/compose';
 	import {
 		createFolderExpandedStore,
 		isExpandedDefault,
@@ -227,26 +226,8 @@
 		</div>
 	{/if}
 
-	<!-- Compose. pt-1.5 centres the 36px button on the 48px top bars of the
-	     panes beside it (list header, reading-pane toolbar). -->
-	<div class="{collapsed ? 'px-1.5 pt-1.5' : 'px-3 pt-1.5'} pb-1 mb-1">
-		{#if collapsed}
-			<button
-				onclick={() => openCompose()}
-				class="w-full aspect-square bg-accent hover:bg-accent-hover text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
-				title="Compose"
-			>
-				<Icon name="compose" size={20} />
-			</button>
-		{:else}
-			<button
-				onclick={() => openCompose()}
-				class="btn btn-primary btn-lg w-full"
-			>
-				Compose
-			</button>
-		{/if}
-	</div>
+	<!-- Compose lives in the bottom-right corner, beside Raven. -->
+	<div class="h-1.5 shrink-0" aria-hidden="true"></div>
 
 	{#if collapsed}
 		<!-- Collapsed: flat icon list, tooltips only -->
@@ -258,7 +239,7 @@
 					class="flex items-center justify-center py-2 rounded-lg transition-colors
 						{isMailboxActive(mailbox)
 							? 'bg-accent/10 text-accent-fg'
-							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+							: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name={mailboxIconName(pseudoRole(mailbox))} /></span>
 				</a>
@@ -269,7 +250,7 @@
 						class="flex items-center justify-center py-2 rounded-lg transition-colors
 							{flaggedActive
 								? 'bg-accent/10 text-accent-fg'
-								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+								: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 					>
 						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="star" /></span>
 					</a>
@@ -286,7 +267,7 @@
 					class="flex items-center justify-center py-2 rounded-lg transition-colors
 						{isMailboxActive(mailbox)
 							? 'bg-accent/10 text-accent-fg'
-							: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+							: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="folder" /></span>
 				</a>
@@ -323,7 +304,7 @@
 							? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 							: isMailboxActive(mailbox)
 								? 'bg-accent/10 text-accent-fg'
-								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+								: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 				>
 					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name={mailboxIconName(pseudoRole(mailbox))} /></span>
 					<span class="flex-1 truncate">{mailbox.name}</span>
@@ -337,7 +318,7 @@
 						class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
 							{flaggedActive
 								? 'bg-accent/10 text-accent-fg'
-								: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+								: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 					>
 						<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="star" /></span>
 						<span class="flex-1 truncate">Starred</span>
@@ -398,7 +379,7 @@
 										? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 										: isLabelActive(label)
 											? 'bg-accent/10 text-accent-fg'
-											: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+											: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 							>
 								<span class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20" style="background-color: {label.color}"></span>
 								<span class="flex-1 truncate">{label.name}</span>
@@ -449,7 +430,7 @@
 					? 'bg-accent/20 text-accent-fg ring-1 ring-accent/40'
 					: isMailboxActive(node)
 						? 'bg-accent/10 text-accent-fg'
-						: 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
+						: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 			style="padding-left: {0.75 * (depth + 1)}rem"
 		>
 			<!--

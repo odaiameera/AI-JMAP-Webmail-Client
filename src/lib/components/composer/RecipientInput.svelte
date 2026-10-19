@@ -121,11 +121,8 @@
 	}
 
 	function handleBlur() {
-		// Delay so a suggestion click registers before we tear down the menu.
-		setTimeout(() => {
-			commitDraft();
-			focused = false;
-		}, 120);
+		commitDraft();
+		focused = false;
 	}
 </script>
 

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import { expoOut } from 'svelte/easing';
+	import { cornerWindow } from '$lib/transitions';
 	import { Editor } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import Underline from '@tiptap/extension-underline';
@@ -24,7 +26,8 @@
 		setMode,
 		setSignature,
 		setFromIdentity,
-		closeCompose
+		closeCompose,
+		closeRequests
 	} from '$lib/stores/compose';
 	import { userState } from '$lib/stores/userState';
 	import {
@@ -555,6 +558,15 @@
 	 * away anything unsaved. Now it saves first and only closes once the
 	 * draft is safe; if saving fails the composer stays open.
 	 */
+	// The corner's Compose button closes an open composer the same way.
+	let seenCloseRequest = 0;
+	$effect(() => {
+		const n = $closeRequests;
+		if (n === seenCloseRequest) return;
+		seenCloseRequest = n;
+		untrack(() => void closeComposer());
+	});
+
 	async function closeComposer() {
 		if (sending || discarding) return;
 		confirmingDiscard = false;
@@ -778,7 +790,9 @@
 		onchange={(e) => handleFiles((e.target as HTMLInputElement).files)}
 	/>
 	<div
-		class="composer-shell animate-compose-shell-in bg-bg border border-border shadow-2xl flex flex-col z-50"
+		class="composer-shell bg-bg border border-border shadow-[0_16px_48px_rgba(0,0,0,0.5)] flex flex-col z-50"
+		in:cornerWindow={{ duration: 200, easing: expoOut }}
+		out:cornerWindow={{ duration: 140, easing: expoOut }}
 		class:composer--popup={$composer.mode === 'popup'}
 		class:composer--fullscreen={$composer.mode === 'fullscreen'}
 		class:composer--minimized={$composer.mode === 'minimized'}
@@ -799,11 +813,13 @@
 						<Icon name="restore" size={14} />
 					</button>
 				{:else}
-					<button onclick={minimize} aria-label="Minimize" title="Minimize" class="header-btn">
+					<!-- The title bar restores a minimized composer on click, so these
+					     must not reach it: Minimize used to restore straight away. -->
+					<button onclick={(e) => { e.stopPropagation(); minimize(); }} aria-label="Minimize" title="Minimize" class="header-btn">
 						<Icon name="minimize" size={14} />
 					</button>
 					<button
-						onclick={toggleFullscreen}
+						onclick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
 						aria-label={$composer.mode === 'fullscreen' ? 'Exit full screen' : 'Full screen'}
 						title={$composer.mode === 'fullscreen' ? 'Exit full screen' : 'Full screen'}
 						class="header-btn"
@@ -1142,7 +1158,7 @@
 						<Icon name="emoji" size={16} />
 					</button>
 					{#if openMenu === 'emoji'}
-						<div class="absolute bottom-full mb-1 right-0 z-50 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-6 gap-1" role="menu" aria-label="Emoji">
+						<div class="absolute bottom-full mb-1 right-0 z-50 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-[repeat(6,2rem)] gap-1 w-max" role="menu" aria-label="Emoji">
 							{#each EMOJIS as emoji}
 								<button type="button" role="menuitem" onclick={() => insertEmoji(emoji)} class="w-8 h-8 flex items-center justify-center text-lg rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
 							{/each}
@@ -1195,13 +1211,14 @@
 		overflow: hidden;
 		transition: width 0.18s ease, height 0.18s ease, top 0.18s ease, left 0.18s ease, bottom 0.18s ease, right 0.18s ease, border-radius 0.18s ease;
 	}
+	/* Above the corner buttons, the same size as Raven's card. */
 	.composer--popup {
-		bottom: 16px;
-		right: 16px;
-		width: 540px;
-		height: 640px;
-		max-height: calc(100vh - 32px);
-		max-width: calc(100vw - 32px);
+		bottom: var(--corner-window-bottom);
+		right: var(--corner-window-right);
+		width: var(--corner-window-width);
+		height: var(--corner-window-height);
+		max-width: calc(100vw - 96px);
+		transform-origin: bottom right;
 	}
 	.composer--fullscreen {
 		top: 50%;
@@ -1211,12 +1228,14 @@
 		height: 84vh;
 		max-width: 1100px;
 	}
+	/* Beside the corner buttons, on their row: 68px rail gap + two 48px
+	   circles and the 10px between them + 12px. */
 	.composer--minimized {
-		bottom: 0;
-		right: 16px;
-		width: 320px;
+		bottom: 24px;
+		right: 186px;
+		width: 280px;
 		height: 40px;
-		border-radius: 10px 10px 0 0;
+		border-radius: 10px;
 	}
 	/* Phones: a 540px floating window doesn't fit, so both the popup and the
 	   expanded composer take the whole screen. Same breakpoint as Tailwind's
@@ -1232,8 +1251,10 @@
 			transform: none;
 			border-radius: 0;
 		}
+		/* Just above the tab bar, clear of the corner buttons above it. */
 		.composer--minimized {
 			right: 8px;
+			bottom: calc(3.5rem + env(safe-area-inset-bottom) + 8px);
 			width: calc(100vw - 16px);
 		}
 	}

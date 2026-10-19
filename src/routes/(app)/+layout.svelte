@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import CornerActions from '$lib/components/CornerActions.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppRail from '$lib/components/AppRail.svelte';
 	import AIAssistantRail from '$lib/components/AIAssistantRail.svelte';
@@ -10,8 +11,8 @@
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { isPhone } from '$lib/stores/viewport';
-	import { openCompose } from '$lib/stores/compose';
-	import { onMount, setContext, type Snippet } from 'svelte';
+	import { composer, openCompose, setMode } from '$lib/stores/compose';
+	import { onMount, setContext, untrack, type Snippet } from 'svelte';
 	import { APP_PANEL, type AppPanelContext } from '$lib/app-panel';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
@@ -47,8 +48,22 @@
 	let sidebarCollapsed = $state(false);
 	let assistantOpen = $state(page.url.searchParams.get('assistant') === 'open');
 	let currentEmailId = $state<string | null>(null);
+
+	// The composer and the agent open in the same spot above the corner
+	// buttons, so one gives way to the other: opening the agent folds a
+	// message being written down to its bar, and bringing the composer up
+	// (or starting a new message) closes the agent.
+	function openAssistant() {
+		if ($composer.mode === 'popup' || $composer.mode === 'fullscreen') setMode('minimized');
+		assistantOpen = true;
+	}
+	$effect(() => {
+		const mode = $composer.mode;
+		if (mode === 'popup' || mode === 'fullscreen') untrack(() => { assistantOpen = false; });
+	});
+
 	setContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT, {
-		open: () => { assistantOpen = true; },
+		open: openAssistant,
 		setCurrentEmail: (id) => { currentEmailId = id; },
 		clearCurrentEmail: (id) => {
 			if (currentEmailId === id) currentEmailId = null;
@@ -83,7 +98,15 @@
 		closeDrawer: () => { drawerOpen = false; }
 	});
 	const inMail = $derived(/^\/(inbox|folder|email|search|flagged)(\/|$)/.test(page.url.pathname));
-	const panelKind = $derived<'mail' | 'app' | 'none'>(inMail ? 'mail' : appPanel ? 'app' : 'none');
+	// Apps that always host a panel get their column from the start. The
+	// shell's own markup (the column width) is written before the page has
+	// registered its panel, so going by `appPanel` alone rendered these
+	// pages with no column on a full load, and the panel slid in only once
+	// the page's script ran.
+	const panelRoute = $derived(/^\/(calendar|contacts|settings)(\/|$)/.test(page.url.pathname));
+	const panelKind = $derived<'mail' | 'app' | 'none'>(
+		inMail ? 'mail' : appPanel || panelRoute ? 'app' : 'none'
+	);
 	const railCollapsed = $derived(panelKind === 'mail' && sidebarCollapsed);
 	// Only the mail sidebar collapses to an icon strip; app panels are
 	// always full width.
@@ -356,47 +379,25 @@
 		</div>
 	{/if}
 
-	<!--
-		Row 2, Col 3: AI agent drawer anchor.
-
-		This column is pinned to 0px so opening the agent never resizes the
-		reading pane. It survives only as a positioning reference: it sits
-		exactly on the boundary between the reading pane and the app rail, so
-		the drawer inside it anchors to `right: 0` and expands leftward over
-		the reading pane. Height comes from the row, so the drawer needs no
-		hard-coded header offset.
-	-->
-	<!-- On phones the anchor is pinned to the screen's right edge between
-	     the header and the tab bar, and the drawer goes full-width. -->
-	<div class="relative md:col-start-3 md:row-start-2 md:mb-2 max-md:fixed max-md:right-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))]">
-		<AIAssistantRail
-			open={assistantOpen}
-			aiEnabled={data.aiEnabled}
-			{currentEmailId}
-			onClose={() => { assistantOpen = false; }}
-		/>
-	</div>
-
 	<!-- Row 2, Col 4: App rail (row 3 — the bottom tab bar — on phones) -->
-	<AppRail
-		aiOpen={assistantOpen}
-		aiEnabled={data.aiEnabled}
-		onToggleAI={() => { assistantOpen = !assistantOpen; }}
-	/>
+	<AppRail />
 </div>
 
-<!-- Phones have no sidebar on screen, so mail gets a floating Compose
-     button, lifted clear of the tab bar and the list's pager above it. -->
-{#if onMailRoute}
-	<button
-		type="button"
-		onclick={() => openCompose()}
-		class="md:hidden fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-30 h-14 w-14 rounded-2xl bg-accent hover:bg-accent-hover text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors"
-		aria-label="Compose"
-	>
-		<Icon name="compose" size={20} />
-	</button>
-{/if}
+<!-- Raven (the AI mail agent) and, in Mail, Compose: bottom-right, beside the app
+     rail on desktop and above the tab bar on phones. The agent opens as a
+     card above them. -->
+<CornerActions
+	{assistantOpen}
+	onToggleAssistant={() => { if (assistantOpen) assistantOpen = false; else openAssistant(); }}
+	showCompose={inMail}
+	readingOnPhone={inMail && !onMailRoute}
+/>
+<AIAssistantRail
+	open={assistantOpen}
+	aiEnabled={data.aiEnabled}
+	{currentEmailId}
+	onClose={() => { assistantOpen = false; }}
+/>
 
 {#if profileOpen}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->

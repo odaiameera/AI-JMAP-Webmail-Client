@@ -69,9 +69,6 @@
 		onClose: () => void;
 	} = $props();
 
-	const WELCOME =
-		'I can search your whole mailbox, check your calendar, and prepare tasks. Ask me anything — I will always ask before creating anything.';
-
 	let input = $state('');
 	let busy = $state(false);
 	let error = $state('');
@@ -87,15 +84,19 @@
 	let historyOpen = $state(false);
 	let loadingHistory = $state(false);
 	let retentionDays = $state(7);
-	let messages = $state<ChatMessage[]>([
-		{
-			id: 'welcome',
-			role: 'assistant',
-			content: WELCOME
-		}
-	]);
+	let messages = $state<ChatMessage[]>([]);
 
 	const hasConversation = $derived(messages.some((message) => message.role === 'user'));
+
+	// Starting points for an empty conversation, as plain prompts.
+	const prompts = $derived<{ action: AgentAction; label: string; prompt: string }[]>([
+		{ action: 'summarize_today', label: 'Summarize today’s mail', prompt: "Summarize today's email and highlight anything that needs my attention." },
+		{ action: 'calendar_tomorrow', label: 'What’s on tomorrow?', prompt: 'Check my calendar for tomorrow and help me prepare.' },
+		...(currentEmailId
+			? [{ action: 'summarize_current' as AgentAction, label: 'Summarize this email', prompt: 'Summarize this email and tell me what I need to do.' }]
+			: []),
+		{ action: 'propose_task', label: 'Create a task', prompt: 'Create a task from this conversation and the relevant email context.' }
+	]);
 
 	function id(): string {
 		sequence += 1;
@@ -149,7 +150,7 @@
 		conversationId = null;
 		historyOpen = false;
 		error = '';
-		messages = [{ id: 'welcome', role: 'assistant', content: WELCOME }];
+		messages = [];
 	}
 
 	async function openSession(sessionId: string) {
@@ -368,41 +369,33 @@
 </script>
 
 <!--
-	Drawer over the reading pane, not a column beside it. The parent is a
-	zero-width grid column sitting on the reading-pane/app-rail boundary, so
-	`inset-y-0 right-0` pins the drawer to that edge at full row height and its
-	own width expands leftward across the pane underneath.
+	A card that opens above the bottom-right corner buttons (CornerActions),
+	in the composer popup's style; on phones it fills the space between the
+	header and the tab bar.
 
 	z-[35] clears in-pane dropdowns (z-30) while staying under the composer
-	backdrop (z-40). While closed, `pointer-events-none` lets clicks reach the
-	reading pane it covers.
-
-	Square on purpose — no radius. The pane beneath is a rounded tray; a drawer
-	pulled across it covers the corners it reaches rather than repeating them,
-	which is what makes it read as sliding over the tray instead of being
-	another panel beside it. It is not clipped by the tray (different grid
-	column), so its own edges are the ones that show.
+	backdrop (z-40). While closed, `pointer-events-none` and `inert` let clicks
+	and focus reach whatever it covers.
 -->
 <aside
-	aria-label="AI mail agent"
+	aria-label="Raven"
 	aria-hidden={!open}
 	inert={!open}
-	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] max-md:min-w-0 max-md:w-screen overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
-		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
+	class="fixed z-[35] overflow-hidden bg-bg origin-bottom-right transition-[opacity,transform] will-change-[opacity,transform]
+		md:right-[var(--corner-window-right)] md:bottom-[var(--corner-window-bottom)] md:w-[var(--corner-window-width)] md:max-w-[calc(100vw-96px)] md:h-[var(--corner-window-height)] md:rounded-xl md:border md:border-border md:shadow-[0_16px_48px_rgba(0,0,0,0.5)]
+		max-md:inset-x-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:border-t max-md:border-border
+		{open
+			? 'opacity-100 scale-100 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]'
+			: 'opacity-0 scale-95 pointer-events-none duration-[140ms] ease-[cubic-bezier(0.16,1,0.3,1)]'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
-				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
+				<!-- Same mark as the corner button that opens it: one feature, one symbol. -->
 				<Icon name="assistant" size={20} />
 				<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface {aiEnabled ? 'bg-success' : 'bg-text-tertiary'}"></span>
 			</div>
-			<div class="min-w-0 flex-1">
-				<h2 class="truncate text-sm font-semibold text-text">AI Mail Agent</h2>
-				<p class="truncate text-2xs text-text-tertiary">
-					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'Not set up yet'}
-				</p>
-			</div>
+			<h2 class="min-w-0 flex-1 truncate text-sm font-semibold text-text">Raven</h2>
 			<!--
 				Separates the panel's identity from its controls. The drawer now
 				shares the reading pane's background, so grouping inside the
@@ -428,7 +421,7 @@
 			>
 				<Icon name="history" size={16} />
 			</button>
-			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close AI mail agent">
+			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close Raven">
 				<Icon name="close" size={16} />
 			</button>
 		</header>
@@ -471,7 +464,7 @@
 				{/if}
 			</div>
 		{:else}
-		<div bind:this={scrollEl} class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+		<div bind:this={scrollEl} class="min-h-0 flex-1 flex flex-col space-y-4 overflow-y-auto px-4 py-4">
 			{#each messages as message (message.id)}
 				<div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
 					<div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-5
@@ -582,43 +575,23 @@
 			{/each}
 
 			{#if !hasConversation}
-				<div class="grid grid-cols-2 gap-2 pt-1">
-					<button type="button" onclick={() => ask('summarize_today', "Summarize today's email and highlight anything that needs my attention.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<Icon name="inbox" size={16} />
-						</span>
-						<span class="block text-xs font-medium text-text">Today’s mail</span>
-						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and priorities</span>
-					</button>
-					<button type="button" onclick={() => ask('calendar_tomorrow', "Check my calendar for tomorrow and help me prepare.")} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<Icon name="calendar" size={16} />
-						</span>
-						<span class="block text-xs font-medium text-text">Tomorrow</span>
-						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Calendar briefing</span>
-					</button>
-					{#if currentEmailId}
-						<button type="button" onclick={() => ask('summarize_current', 'Summarize this email and tell me what I need to do.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-							<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-								<Icon name="mail" size={16} />
-							</span>
-							<span class="block text-xs font-medium text-text">This email</span>
-							<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Summary and actions</span>
+				<div class="mt-auto flex flex-col items-start gap-0.5">
+					{#each prompts as p (p.action)}
+						<button
+							type="button"
+							onclick={() => ask(p.action, p.prompt)}
+							disabled={busy || !aiEnabled}
+							class="-mx-2 cursor-pointer rounded-lg px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+						>
+							{p.label}
 						</button>
-					{/if}
-					<button type="button" onclick={() => ask('propose_task', 'Create a task from this conversation and the relevant email context.')} disabled={busy || !aiEnabled} class="group cursor-pointer rounded-xl border border-border bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-sm disabled:cursor-default disabled:opacity-50">
-						<span class="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-fg">
-							<Icon name="task" size={16} />
-						</span>
-						<span class="block text-xs font-medium text-text">Create task</span>
-						<span class="mt-0.5 block text-3xs leading-4 text-text-tertiary">Review before creating</span>
-					</button>
+					{/each}
 				</div>
 			{/if}
 
 			{#if busy}
 				<div class="flex justify-start">
-					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3" aria-label="AI mail agent is thinking">
+					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3" aria-label="Raven is thinking">
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]"></span>
@@ -632,17 +605,12 @@
 			{#if error}
 				<p class="mb-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>
 			{/if}
-			{#if !aiEnabled}
-				<!-- For whoever reads it: an end user can't set server variables. -->
-				<p class="mb-2 text-xs text-text-tertiary">The AI assistant isn't set up on this server yet. Ask whoever runs your mail server to turn it on.</p>
-			{/if}
 			<form class="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
-				<textarea bind:value={input} rows="1" maxlength="1500" placeholder="Ask about your mail…" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
+				<textarea bind:value={input} rows="1" maxlength="1500" aria-label="Message Raven" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
 				<button type="submit" disabled={busy || !aiEnabled || !input.trim()} aria-label="Send message" class="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent text-white transition-all hover:bg-accent-hover disabled:cursor-default disabled:opacity-40">
 					<Icon name="send" size={16} />
 				</button>
 			</form>
-			<p class="mt-2 text-center text-3xs text-text-tertiary">Mail content is shared only with your configured AI service.</p>
 		</div>
 	</div>
 </aside>

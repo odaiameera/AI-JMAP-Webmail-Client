@@ -810,7 +810,7 @@
 			{#if aiEnabled && !isDraft}
 				<button
 					onclick={() => { assistantOpen = !assistantOpen; }}
-					title="Open mail assistant"
+					title="Ask Raven"
 					aria-pressed={assistantOpen}
 					class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer
 						{assistantOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-accent-fg'}"
@@ -1134,18 +1134,15 @@
 	{#if assistantOpen}
 		<section class="shrink-0 border-b border-border bg-surface-hover/40 {compact ? 'px-4' : 'px-6'} py-3">
 			<div class="flex items-center justify-between gap-3 mb-3">
-				<div>
-					<h2 class="text-sm font-semibold text-text">Mail assistant</h2>
-					<p class="text-xs text-text-tertiary">Reviews this email only. Generated replies are never sent automatically.</p>
-				</div>
-				<button onclick={() => { assistantOpen = false; }} aria-label="Close mail assistant" class="text-text-tertiary hover:text-text cursor-pointer">&times;</button>
+				<h2 class="text-sm font-semibold text-text">Raven</h2>
+				<button onclick={() => { assistantOpen = false; }} aria-label="Close Raven" class="text-text-tertiary hover:text-text cursor-pointer"><Icon name="close" /></button>
 			</div>
 
 			<div class="flex flex-wrap gap-2">
 				<button onclick={() => runAssistant('summarize')} disabled={assistantBusy} class="px-3 py-1.5 rounded-lg text-xs border border-border text-text hover:border-accent disabled:opacity-50 cursor-pointer">Summarize</button>
 				<button onclick={() => runAssistant('draft')} disabled={assistantBusy} class="px-3 py-1.5 rounded-lg text-xs border border-border text-text hover:border-accent disabled:opacity-50 cursor-pointer">Draft reply</button>
 				<form class="flex min-w-[240px] flex-1 gap-2" onsubmit={(event) => { event.preventDefault(); runAssistant('answer'); }}>
-					<input bind:value={assistantQuestion} maxlength="500" placeholder="Ask about this email…" class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text outline-none focus:border-accent" />
+					<input bind:value={assistantQuestion} maxlength="500" aria-label="Ask Raven about this email" class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text outline-none focus:border-accent" />
 					<button type="submit" disabled={assistantBusy || !assistantQuestion.trim()} class="btn btn-primary btn-sm">Ask</button>
 				</form>
 			</div>

@@ -111,10 +111,11 @@
 	// list, so rows open the full message there whatever the saved
 	// preference says (the preference is left alone for wider screens; the
 	// markup also hides the pane below `md` in CSS, covering the first paint
-	// before this store has read the viewport). And an empty folder gets the
-	// whole width for its empty state instead of sharing it with an equally
-	// empty pane.
-	const paneOpen = $derived(panePreference && !$isPhone && (emails.length > 0 || previewEmail !== null));
+	// before this store has read the viewport). It doesn't depend on the list
+	// having anything in it: it used to close for an empty list, so a filter
+	// with no results (Unread on a read tab) made it vanish, and the toggle
+	// then appeared to do nothing.
+	const paneOpen = $derived(panePreference && !$isPhone);
 	let listWidth = $state(420);
 	let dragging = $state(false);
 	let loadingPreview = $state(false);
