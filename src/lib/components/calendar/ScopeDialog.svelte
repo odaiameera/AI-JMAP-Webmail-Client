@@ -68,16 +68,14 @@
 			<div class="flex justify-end gap-2">
 				<button
 					type="button"
-					class="px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer"
+					class="btn btn-ghost btn-lg"
 					onclick={() => onResolve(null)}
 				>
 					Cancel
 				</button>
 				<button
 					type="button"
-					class="px-4 py-2 text-sm text-white rounded-lg transition-colors cursor-pointer {action === 'delete'
-						? 'bg-danger hover:opacity-90'
-						: 'bg-accent hover:bg-accent-hover'}"
+					class="btn btn-lg {action === 'delete' ? 'btn-danger-solid' : 'btn-primary'}"
 					onclick={() => onResolve(scope)}
 				>
 					{action === 'delete' ? 'Delete' : 'Save'}

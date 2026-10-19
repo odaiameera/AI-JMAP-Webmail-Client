@@ -248,7 +248,7 @@
 		{:else}
 			<button
 				onclick={() => openCompose()}
-				class="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors cursor-pointer"
+				class="btn btn-primary btn-lg w-full"
 			>
 				Compose
 			</button>

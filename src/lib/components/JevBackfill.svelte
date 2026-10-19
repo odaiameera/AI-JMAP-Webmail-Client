@@ -116,7 +116,7 @@
 				type="button"
 				onclick={() => act('DELETE')}
 				disabled={busy}
-				class="shrink-0 text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+				class="btn btn-secondary shrink-0"
 			>
 				Cancel
 			</button>
@@ -125,7 +125,7 @@
 				type="button"
 				onclick={() => act('POST')}
 				disabled={busy || !status?.ready || !status?.unsorted}
-				class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+				class="btn btn-primary shrink-0"
 			>
 				{busy ? 'Starting…' : status?.unsorted ? `Sort ${status.unsorted.toLocaleString()} emails` : 'Sort'}
 			</button>

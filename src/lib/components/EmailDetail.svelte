@@ -809,7 +809,7 @@
 	<div class="ribbon flex items-center justify-between {compact ? 'px-4' : 'px-6 max-md:px-2'} py-2 border-b border-border shrink-0">
 		<div class="flex items-center gap-1">
 			{#if isDraft}
-				<button onclick={handleEditDraft} class="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-3 py-1 transition-colors cursor-pointer">
+				<button onclick={handleEditDraft} class="btn btn-primary">
 					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
 					Edit draft
 				</button>
@@ -1028,7 +1028,7 @@
 						type="button"
 						onclick={copyVerificationCode}
 						disabled={otpBusy}
-						class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium bg-accent hover:bg-accent-hover text-white transition-colors cursor-pointer disabled:opacity-60"
+						class="btn btn-primary btn-sm"
 					>
 						{#if otpCopied}
 							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1069,7 +1069,7 @@
 				<button onclick={() => runAssistant('draft')} disabled={assistantBusy} class="px-3 py-1.5 rounded-lg text-xs border border-border text-text hover:border-accent disabled:opacity-50 cursor-pointer">Draft reply</button>
 				<form class="flex min-w-[240px] flex-1 gap-2" onsubmit={(event) => { event.preventDefault(); runAssistant('answer'); }}>
 					<input bind:value={assistantQuestion} maxlength="500" placeholder="Ask about this email…" class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-text outline-none focus:border-accent" />
-					<button type="submit" disabled={assistantBusy || !assistantQuestion.trim()} class="px-3 py-1.5 rounded-lg bg-accent text-white text-xs disabled:opacity-50 cursor-pointer">Ask</button>
+					<button type="submit" disabled={assistantBusy || !assistantQuestion.trim()} class="btn btn-primary btn-sm">Ask</button>
 				</form>
 			</div>
 
@@ -1081,7 +1081,7 @@
 				<div class="mt-3 max-h-48 overflow-y-auto rounded-lg border border-border bg-surface p-3">
 					<p class="whitespace-pre-wrap text-sm leading-6 text-text">{assistantResult}</p>
 					{#if assistantResultKind === 'draft'}
-						<button onclick={useAssistantDraft} class="mt-3 px-3 py-1.5 rounded-lg bg-accent text-white text-xs cursor-pointer">Use as reply</button>
+						<button onclick={useAssistantDraft} class="btn btn-primary btn-sm mt-3">Use as reply</button>
 					{/if}
 				</div>
 			{/if}

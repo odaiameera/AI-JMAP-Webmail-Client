@@ -202,7 +202,7 @@
 			aria-label="Import contacts"
 			disabled={!canMutate || openingImport}
 			onclick={openImport}
-			class="h-9 px-3 rounded-lg border border-border text-sm text-text-secondary hover:text-text hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+			class="btn btn-secondary btn-lg"
 		>
 			Import
 		</button>
@@ -211,7 +211,7 @@
 			aria-label="New contact"
 			disabled={!canMutate}
 			onclick={() => openCreate()}
-			class="h-9 px-3 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+			class="btn btn-primary btn-lg"
 		>
 			<span aria-hidden="true">+</span> New contact
 		</button>
@@ -229,7 +229,7 @@
 			<div class="max-w-sm text-center">
 				<h2 class="text-base font-semibold text-text mb-1">Contacts could not be loaded</h2>
 				<p class="text-sm text-text-tertiary mb-4">{error}</p>
-				<button type="button" class="px-4 py-2 rounded-lg bg-accent text-white text-sm cursor-pointer" onclick={() => loadContacts()}>
+				<button type="button" class="btn btn-primary btn-lg" onclick={() => loadContacts()}>
 					Try again
 				</button>
 			</div>
@@ -322,11 +322,11 @@
 										aria-label="Compose email"
 										disabled={!contactPrimaryEmail(selected)}
 										onclick={composeToSelected}
-										class="px-3 py-2 rounded-lg bg-accent text-white text-sm disabled:opacity-40 cursor-pointer"
+										class="btn btn-primary btn-lg"
 									>
 										Compose email
 									</button>
-									<button type="button" aria-label="Edit contact" disabled={!canMutateSelected} onclick={openEdit} class="px-3 py-2 rounded-lg border border-border text-sm text-text-secondary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+									<button type="button" aria-label="Edit contact" disabled={!canMutateSelected} onclick={openEdit} class="btn btn-secondary btn-lg">
 										Edit
 									</button>
 									<button type="button" aria-label="Delete contact" disabled={!canMutateSelected} onclick={() => { deleteError = ''; deleteOpen = true; }} class="px-3 py-2 rounded-lg border border-border text-sm text-danger hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
@@ -411,10 +411,10 @@
 				<div class="mt-3 p-3 rounded-lg bg-danger/10 text-danger text-sm" role="alert">{deleteError}</div>
 			{/if}
 			<div class="mt-5 flex justify-end gap-2">
-				<button type="button" disabled={deleting} class="px-4 py-2 rounded-lg text-sm text-text-secondary hover:bg-surface-hover cursor-pointer" onclick={() => { deleteOpen = false; }}>
+				<button type="button" disabled={deleting} class="btn btn-ghost btn-lg" onclick={() => { deleteOpen = false; }}>
 					Cancel
 				</button>
-				<button type="button" disabled={deleting} aria-label="Confirm delete contact" class="px-4 py-2 rounded-lg bg-danger text-white text-sm font-medium disabled:opacity-50 cursor-pointer" onclick={confirmDelete}>
+				<button type="button" disabled={deleting} aria-label="Confirm delete contact" class="btn btn-danger-solid btn-lg" onclick={confirmDelete}>
 					{deleting ? 'Deleting…' : 'Delete contact'}
 				</button>
 			</div>

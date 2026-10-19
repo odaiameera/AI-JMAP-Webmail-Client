@@ -224,7 +224,7 @@
 	<button
 		type="button"
 		onclick={openAdd}
-		class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors cursor-pointer"
+		class="btn btn-primary shrink-0"
 	>
 		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 		Add account
@@ -284,7 +284,7 @@
 								type="button"
 								disabled={avatarBusyId === account.id}
 								onclick={() => fileInputs[account.id]?.click()}
-								class="px-2.5 py-1.5 text-xs font-medium text-text-secondary border border-border hover:text-text hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+								class="btn btn-secondary btn-sm"
 							>
 								{avatarBusyId === account.id ? 'Uploading…' : 'Upload'}
 							</button>
@@ -292,7 +292,7 @@
 								type="button"
 								disabled={avatarBusyId === account.id}
 								onclick={() => removeAvatar(account.id)}
-								class="px-2.5 py-1.5 text-xs text-text-tertiary hover:text-danger hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+								class="btn btn-ghost btn-sm text-text-tertiary hover:text-danger"
 							>
 								Remove
 							</button>
@@ -363,11 +363,11 @@
 				{#if confirmRemoveId === account.id}
 					<span class="text-xs text-text-secondary mr-1">Unlink this account?</span>
 					<button type="button" disabled={rowBusy} onclick={() => removeAccount(account.id)}
-						class="px-2.5 py-1.5 text-xs font-medium text-white bg-danger hover:opacity-90 rounded-lg transition-opacity cursor-pointer">
+						class="btn btn-danger-solid btn-sm transition-opacity">
 						Unlink
 					</button>
 					<button type="button" onclick={() => (confirmRemoveId = null)}
-						class="px-2.5 py-1.5 text-xs text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer">
+						class="btn btn-ghost btn-sm">
 						Cancel
 					</button>
 				{:else}
@@ -384,7 +384,7 @@
 
 			{#if !isActive}
 				<button type="button" onclick={() => makeActive(account.id)}
-					class="shrink-0 px-3 py-1.5 text-xs font-medium text-text-secondary border border-border hover:text-text hover:bg-surface-hover rounded-lg transition-colors cursor-pointer">
+					class="btn btn-secondary btn-sm shrink-0">
 					Switch to
 				</button>
 			{/if}
@@ -495,7 +495,7 @@
 			<div class="flex justify-end gap-2 mt-6 pt-4 border-t border-border">
 				<button
 					type="button"
-					class="px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer disabled:opacity-60"
+					class="btn btn-ghost btn-lg"
 					onclick={closeAdd}
 					disabled={addBusy}
 				>
@@ -503,7 +503,7 @@
 				</button>
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer"
+					class="btn btn-primary btn-lg"
 					onclick={addAccount}
 					disabled={addBusy || !addEmail || !addPassword}
 				>

@@ -397,7 +397,7 @@
 					</button>
 				</div>
 				<div class="flex-1"></div>
-				<button onclick={clearSelection} class="text-text-secondary hover:text-text text-sm px-3 py-1 rounded-md hover:bg-surface-hover transition-colors cursor-pointer">
+				<button onclick={clearSelection} class="btn btn-ghost btn-sm">
 					Cancel
 				</button>
 			{:else}

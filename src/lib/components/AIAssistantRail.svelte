@@ -523,7 +523,7 @@
 									type="button"
 									disabled={message.calendarStatus === 'applying' || message.calendarStatus === 'applied'}
 									onclick={() => confirmCalendar(message.id, message.calendarProposal!)}
-									class="mt-3 w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-default disabled:opacity-60 {message.calendarProposal.action === 'delete' ? 'bg-danger hover:bg-danger/90' : 'bg-accent hover:bg-accent-hover'}"
+									class="btn btn-sm mt-3 w-full {message.calendarProposal.action === 'delete' ? 'btn-danger-solid' : 'btn-primary'}"
 								>
 									{message.calendarStatus === 'applying'
 										? 'Working…'
@@ -567,7 +567,7 @@
 									type="button"
 									disabled={!message.selectedProvider || message.taskStatus === 'creating' || message.taskStatus === 'created'}
 									onclick={() => createTask(message.id, message.proposal!, message.selectedProvider!)}
-									class="mt-3 w-full cursor-pointer rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-default disabled:opacity-60"
+									class="btn btn-primary btn-sm mt-3 w-full"
 								>
 									{!message.selectedProvider
 										? 'No task app connected'

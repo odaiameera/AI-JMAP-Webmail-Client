@@ -274,7 +274,7 @@
 		<div class="flex items-center gap-2 px-4 max-md:px-2 h-12 border-b border-border shrink-0">
 			<button
 				type="button"
-				class="px-3 h-7 rounded-lg border border-border text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer"
+				class="btn btn-secondary btn-sm"
 				onclick={() => navigate(data.view, new Date())}
 			>
 				Today
@@ -294,7 +294,7 @@
 			<div class="relative">
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg border border-border text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer"
+					class="btn btn-secondary btn-sm"
 					aria-haspopup="listbox"
 					aria-expanded={viewMenuOpen}
 					onclick={(e) => {

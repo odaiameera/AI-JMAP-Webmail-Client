@@ -16,6 +16,11 @@
 
 	let switching = $state<string | null>(null);
 	const otherAccounts = $derived(accounts.filter((a) => a.id !== activeAccountId));
+	// Same rule as the header avatar: an account's own colour only means
+	// something once there is another account to tell it apart from.
+	const accountColor = $derived(
+		accounts.length > 1 ? (accounts.find((a) => a.id === activeAccountId)?.color ?? null) : null
+	);
 
 	async function switchAccount(id: string) {
 		if (switching) return;
@@ -240,8 +245,9 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
-			class="relative w-20 h-20 rounded-2xl overflow-hidden group bg-accent touch-none
+			class="relative w-20 h-20 rounded-full overflow-hidden group bg-accent touch-none
 				{pendingUrl ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-pointer'}"
+			style={accountColor ? `background-color: ${accountColor}` : undefined}
 			title={pendingUrl ? 'Drag to reposition, click to change' : 'Click to upload'}
 		>
 			{#if pendingUrl}
@@ -299,7 +305,7 @@
 				<button
 					type="button"
 					onclick={handleCancel}
-					class="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
+					class="btn btn-ghost btn-sm flex-1"
 				>
 					Cancel
 				</button>
@@ -307,7 +313,7 @@
 					type="button"
 					onclick={handleSave}
 					disabled={saving || !hasPendingChanges || !pendingUrl}
-					class="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+					class="btn btn-primary btn-sm flex-1"
 				>
 					{saving ? 'Saving…' : 'Save'}
 				</button>

@@ -37,6 +37,33 @@ export const LABEL_COLORS: LabelColor[] = [
 
 export const DEFAULT_LABEL_COLOR: LabelColor = LABEL_COLORS[5];
 
+/**
+ * The colours handed out when nobody has picked one: the saturated mid-tones
+ * that still read as a dot or a chip on both themes (no pastels, which wash
+ * out on white, and no near-blacks, which vanish on the dark theme). Ordered
+ * so neighbours differ in hue.
+ */
+export const AUTO_LABEL_COLORS: LabelColor[] = [
+	'Blue', 'Orange', 'Violet', 'Emerald', 'Crimson', 'Sky', 'Amber',
+	'Fuchsia', 'Teal', 'Indigo', 'Lime', 'Coral', 'Cyan'
+].map((name) => LABEL_COLORS.find((c) => c.name === name)!);
+
+/**
+ * A stable automatic colour for `seed` (a mailbox id), skipping any hex in
+ * `taken` so labels shown together don't share one. The same seed lands on
+ * the same colour every time unless an earlier label already holds it.
+ */
+export function autoLabelColor(seed: string, taken: ReadonlySet<string> = new Set()): LabelColor {
+	let h = 5381;
+	for (const ch of seed) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0;
+	const n = AUTO_LABEL_COLORS.length;
+	for (let i = 0; i < n; i++) {
+		const c = AUTO_LABEL_COLORS[(h + i) % n];
+		if (!taken.has(c.hex.toLowerCase())) return c;
+	}
+	return AUTO_LABEL_COLORS[h % n];
+}
+
 export function colorByHex(hex: string): LabelColor {
 	const match = LABEL_COLORS.find((c) => c.hex.toLowerCase() === hex.toLowerCase());
 	return match ?? { name: 'Custom', hex };

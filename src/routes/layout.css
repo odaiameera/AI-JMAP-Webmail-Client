@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter/opsz.css';
 @import '@fontsource-variable/cairo';
 
 @theme {
@@ -41,7 +42,15 @@
 	--color-border: #3d444db3;      /* borderColor-muted */
 	--color-text: #f0f6fc;          /* fgColor-default */
 	--color-text-secondary: #9198a1;/* fgColor-muted */
-	--color-text-tertiary: #656c76; /* fgColor-disabled */
+	/*
+	 * One step up from Primer's fgColor-disabled (#656c76), which is what this
+	 * held. Tertiary is not disabled text here: it carries timestamps, counts,
+	 * previews, settings descriptions and placeholders, and #656c76 on the
+	 * #0d1117 tray is 3.6:1 — under WCAG AA for text that small. #7d8590
+	 * (Primer's former fgColor-subtle) is 5.1:1 and still sits clearly below
+	 * secondary.
+	 */
+	--color-text-tertiary: #7d8590;
 	/*
 	 * Accent is deliberately two tokens, because GitHub uses two blues and
 	 * they do not substitute for each other. `accent` is the emphasis blue
@@ -67,7 +76,14 @@
 	--color-success: #3fb950;       /* fgColor-success */
 	--color-warning: #d29922;       /* fgColor-attention */
 	--color-info: #4493f8;          /* fgColor-accent */
-	--font-sans: 'Cairo Variable', 'Cairo', sans-serif;
+	/*
+	 * Inter for Latin, Cairo for Arabic. Inter has no Arabic glyphs, so the
+	 * browser falls through to Cairo for exactly those characters and mixed
+	 * mail (an Arabic subject in an English list) renders each script in a
+	 * face built for it. Cairo alone set Latin text narrow and small-eyed,
+	 * which is what the 107.5% root size below was compensating for.
+	 */
+	--font-sans: 'Inter Variable', 'Cairo Variable', 'Cairo', system-ui, sans-serif;
 	/*
 	 * Corner radius, matched to Primer's shape scale. GitHub's default is
 	 * 6px, which is squarer than this app's previous 8–12px and is a large
@@ -107,12 +123,13 @@ html {
 	 * font-size is the single knob that enlarges all rem-based text across the
 	 * app (lists, sidebar, reading pane, settings, composer chrome) at once,
 	 * and proportionally nudges rem spacing so nothing feels cramped.
-	 * 107.5% ≈ +7.5% (midpoint of the 5–10% target). Tune this one number:
-	 *   105%   → +5%
-	 *   107.5% → +7.5%
-	 *   110%   → +10%
+	 *
+	 * Back to 100% with the move to Inter. The 107.5% this held was there to
+	 * make Cairo's small Latin x-height readable; Inter's is much taller, so
+	 * at the old scale every line ran large and list subjects cut off early.
+	 * Tune this one number if it needs to move: 105% → +5%, 110% → +10%.
 	 */
-	font-size: 107.5%;
+	font-size: 100%;
 	background-color: var(--color-bg);
 	color: var(--color-text);
 	/*
@@ -124,6 +141,18 @@ html {
 	 * which is what its white body expects.
 	 */
 	color-scheme: dark;
+	/*
+	 * Thin, quiet scrollbars. Even dark-scheme native thumbs are a bright
+	 * grey slab beside a mail list; a thin thumb in the muted text colour on
+	 * no track reads as part of the UI. scrollbar-color inherits, so this
+	 * one line covers every scroll area and follows the theme's token.
+	 */
+	scrollbar-color: color-mix(in srgb, var(--color-text-tertiary) 45%, transparent) transparent;
+}
+
+/* scrollbar-width does not inherit, so it goes on every element. */
+:where(*) {
+	scrollbar-width: thin;
 }
 
 html.light {
@@ -149,7 +178,9 @@ html.light {
 	 * read/unread hierarchy holds.
 	 */
 	--color-text-secondary: #434b54;
-	--color-text-tertiary: #818b98; /* fgColor-disabled */
+	/* Same reasoning as the dark value: #818b98 is 3.5:1 on white, #6e7781
+	   is 4.6:1. */
+	--color-text-tertiary: #6e7781;
 	/* One blue does both jobs in light mode: #0969da is 5.2:1 as white-on-blue
 	   for buttons and 5.2:1 as blue-on-white for links, so accent and
 	   accent-fg deliberately hold the same value here. */
@@ -221,6 +252,102 @@ html:not(.light) body {
  */
 :where([contenteditable]):focus-visible {
 	outline: none;
+}
+
+/*
+ * Buttons. One base and a few variants, so every text button in the app has
+ * the same height, radius, weight and disabled look. They had grown five
+ * heights, three radii and three disabled opacities, and a disabled primary
+ * (a dimmed blue) read as a broken button rather than an unavailable one —
+ * so disabled primaries go neutral instead of fading.
+ *
+ *   btn + btn-primary | btn-secondary | btn-danger | btn-danger-solid | btn-ghost
+ *   size: btn-sm (toolbars, cards) · default · btn-lg (modals, Compose)
+ *
+ * In the components layer, so a utility on the element (w-full, mt-3,
+ * shrink-0, px-6…) still wins without !important.
+ */
+@layer components {
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		height: 2rem;
+		padding: 0 0.75rem;
+		border-radius: var(--radius-lg);
+		border: 1px solid transparent;
+		font-size: var(--text-sm);
+		line-height: 1;
+		font-weight: 500;
+		white-space: nowrap;
+		cursor: pointer;
+		user-select: none;
+		transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+	}
+	.btn:disabled {
+		cursor: not-allowed;
+	}
+	.btn-sm {
+		height: 1.75rem;
+		padding: 0 0.625rem;
+		font-size: var(--text-xs);
+	}
+	.btn-lg {
+		height: 2.25rem;
+		padding: 0 1rem;
+	}
+
+	.btn-primary {
+		background-color: var(--color-accent);
+		color: #fff;
+	}
+	.btn-primary:hover:not(:disabled) {
+		background-color: var(--color-accent-hover);
+	}
+	.btn-primary:disabled {
+		background-color: var(--color-surface-hover);
+		border-color: var(--color-border);
+		color: var(--color-text-tertiary);
+	}
+
+	.btn-secondary {
+		border-color: var(--color-border);
+		color: var(--color-text);
+	}
+	.btn-secondary:hover:not(:disabled) {
+		background-color: var(--color-surface-hover);
+	}
+
+	.btn-danger {
+		border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+		color: var(--color-danger);
+	}
+	.btn-danger:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+	}
+	.btn-danger-solid {
+		background-color: var(--color-danger);
+		color: #fff;
+	}
+	.btn-danger-solid:hover:not(:disabled) {
+		background-color: color-mix(in srgb, var(--color-danger) 88%, black);
+	}
+
+	.btn-ghost {
+		color: var(--color-text-secondary);
+	}
+	.btn-ghost:hover:not(:disabled) {
+		background-color: var(--color-surface-hover);
+		color: var(--color-text);
+	}
+
+	.btn-secondary:disabled,
+	.btn-danger:disabled,
+	.btn-danger-solid:disabled,
+	.btn-ghost:disabled {
+		opacity: 0.5;
+	}
 }
 
 /*

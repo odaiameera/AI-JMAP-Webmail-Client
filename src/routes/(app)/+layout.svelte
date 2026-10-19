@@ -54,6 +54,12 @@
 	});
 
 	const avatarLetter = $derived((data.displayName ?? 'O')[0].toUpperCase());
+	// An account's colour (the stripe along the top, the avatar and its ring)
+	// is there to tell linked accounts apart. With only one it is just a
+	// second accent competing with the real one, so it waits for a second.
+	const accountColor = $derived(
+		(data.accounts?.length ?? 0) > 1 ? (data.activeAccountColor ?? null) : null
+	);
 	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
 
 	// Phone layout: the sidebar becomes a drawer opened from the header, and
@@ -209,7 +215,7 @@
 	class="h-dvh overflow-hidden bg-surface grid grid-cols-1 grid-rows-[auto_1fr_auto] md:grid-rows-[auto_1fr] md:[grid-template-columns:var(--shell-cols)]"
 	class:density-compact={data.density === 'compact'}
 	style="--shell-cols: {sidebarWidth} minmax(0, 1fr) 0px 52px; transition: grid-template-columns 0.3s ease;
-		{data.activeAccountColor ? `border-top: 2px solid ${data.activeAccountColor};` : ''}"
+		{accountColor ? `border-top: 2px solid ${accountColor};` : ''}"
 >
 	<!-- Row 1: Full-width header -->
 	<div class="col-span-full flex items-center h-14 pl-2 md:pl-4 pr-0 gap-2 md:gap-4">
@@ -233,8 +239,8 @@
 			<button
 				onclick={(e) => { e.stopPropagation(); profileOpen = !profileOpen; }}
 				class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-semibold select-none shrink-0 cursor-pointer transition-shadow overflow-hidden"
-				style={data.activeAccountColor
-					? `background-color: ${data.activeAccountColor}; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px ${data.activeAccountColor};`
+				style={accountColor
+					? `background-color: ${accountColor}; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px ${accountColor};`
 					: ''}
 				title="Accounts — {data.userEmail}"
 			>

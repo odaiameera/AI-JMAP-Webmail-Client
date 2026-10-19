@@ -7,6 +7,7 @@ import {
 	type Label
 } from '$lib/types/labels';
 import { createLabelMailbox, listLabelMailboxes } from '$lib/jmap/labels';
+import { autoLabelColor } from '$lib/constants/colors';
 import {
 	deleteLabelMeta,
 	getLabelsForUser,
@@ -72,12 +73,28 @@ export async function listLabels(
 ): Promise<Label[]> {
 	const [mailboxes, meta] = [await listLabelMailboxes(client, accountId), getLabelMeta(userEmail)];
 
+	// Labels nobody has coloured used to all fall back to the same blue, so
+	// colour told them apart not at all. Give each its own from the automatic
+	// palette instead — computed, not stored, so the account's data is
+	// untouched until someone picks a colour. Colours already chosen are
+	// taken first; the rest are handed out in id order, which keeps each
+	// label's colour stable as others are added.
+	const taken = new Set(
+		mailboxes.map((m) => meta[m.id]?.color?.toLowerCase()).filter((c): c is string => !!c)
+	);
+	const autoColors = new Map<string, string>();
+	for (const m of mailboxes.filter((m) => !meta[m.id]?.color).sort((a, b) => a.id.localeCompare(b.id))) {
+		const hex = autoLabelColor(m.id, taken).hex;
+		taken.add(hex.toLowerCase());
+		autoColors.set(m.id, hex);
+	}
+
 	const labels = mailboxes.map<Label>((m) => {
 		const entry = meta[m.id];
 		return {
 			id: m.id,
 			name: entry?.displayName?.trim() || m.name,
-			color: entry?.color ?? DEFAULT_LABEL_COLOR,
+			color: entry?.color ?? autoColors.get(m.id) ?? DEFAULT_LABEL_COLOR,
 			createdAt: entry?.createdAt ?? 0
 		};
 	});

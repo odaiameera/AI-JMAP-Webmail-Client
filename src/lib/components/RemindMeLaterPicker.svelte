@@ -148,7 +148,7 @@
 				<button
 					type="button"
 					onclick={pickCustom}
-					class="bg-accent hover:bg-accent-hover text-white text-xs font-medium px-3 py-1 rounded-md cursor-pointer"
+					class="btn btn-primary btn-sm"
 				>
 					Remind me
 				</button>
