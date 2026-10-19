@@ -40,6 +40,7 @@
 	import ContactFormModal from './ContactFormModal.svelte';
 	import ImportContactsModal from './ImportContactsModal.svelte';
 	import { appDrawerCloser, hostAppPanel } from '$lib/app-panel';
+	import { newRequest } from '$lib/stores/create';
 
 	let {
 		initial = undefined
@@ -379,10 +380,20 @@
 		return () => requestController?.abort();
 	});
 
-	// New contact, Import and the contact count live in the shell's left
-	// column, the same place Mail keeps Compose and its folders. Without a
+	// Import and the lists live in the shell's left column, where Mail keeps
+	// its folders; New contact is in the corner's + menu. Without a
 	// shell (tests) they render above the list instead.
 	const hosted = hostAppPanel(contactsPanel);
+
+	// New contact from the corner's + menu, once the address book is here
+	// (the form needs to know which books can take it). Like the button it
+	// replaced, it does nothing when no address book can take a contact.
+	$effect(() => {
+		if ($newRequest !== 'contact' || !data) return;
+		newRequest.set(null);
+		if (untrack(() => canMutate)) untrack(() => openCreate());
+		else showToast({ message: 'None of your address books can take new contacts' });
+	});
 </script>
 
 <svelte:head>
@@ -393,16 +404,6 @@
 
 {#snippet contactsPanel()}
 	<div class="px-3 pt-1.5 pb-1 flex flex-col gap-2 shrink-0">
-		<button
-			type="button"
-			aria-label="New contact"
-			disabled={!canMutate}
-			onclick={() => openCreate()}
-			class="btn btn-primary btn-lg w-full"
-		>
-			<Icon name="add" size={16} />
-			New contact
-		</button>
 		<button
 			type="button"
 			aria-label="Import contacts"
