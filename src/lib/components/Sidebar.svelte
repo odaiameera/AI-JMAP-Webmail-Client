@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import MailboxIcon from '$lib/components/MailboxIcon.svelte';
 	import { mailboxIconName } from '$lib/icons';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
@@ -269,7 +270,7 @@
 							? 'bg-accent/10 text-accent-fg'
 							: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 				>
-					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><Icon name="folder" /></span>
+					<span class="w-4 h-4 shrink-0 flex items-center justify-center text-current"><MailboxIcon node={$userState.folders.get(mailbox.id)?.iconNode} fallback="folder" color={$userState.folders.get(mailbox.id)?.color ?? null} /></span>
 				</a>
 			{/each}
 
@@ -283,7 +284,7 @@
 					class="flex items-center justify-center py-2 rounded-lg transition-colors
 						{isLabelActive(label) ? 'bg-accent/10' : 'hover:bg-surface-hover'}"
 				>
-					<span class="w-3 h-3 rounded-full border border-white/20" style="background-color: {label.color}"></span>
+					<MailboxIcon node={label.iconNode} fallback="dot" color={label.color} />
 				</a>
 			{/each}
 		</nav>
@@ -381,7 +382,7 @@
 											? 'bg-accent/10 text-accent-fg'
 											: 'text-text/85 hover:bg-surface-hover hover:text-text'}"
 							>
-								<span class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20" style="background-color: {label.color}"></span>
+								<MailboxIcon node={label.iconNode} fallback="dot" color={label.color} />
 								<span class="flex-1 truncate">{label.name}</span>
 								{#if getLabelUnread(label.id) > 0}
 									<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full shrink-0">{getLabelUnread(label.id)}</span>
@@ -469,7 +470,7 @@
 					style={$userState.folders.get(node.id)?.color
 						? `color: ${$userState.folders.get(node.id)?.color}`
 						: ''}
-				><Icon name="folder" /></span>
+				><MailboxIcon node={$userState.folders.get(node.id)?.iconNode} fallback="folder" /></span>
 				<span class="flex-1 truncate">{node.name}</span>
 				{#if node.unreadEmails > 0}
 					<span class="text-xs font-medium bg-accent/15 text-accent-fg px-1.5 py-0.5 rounded-full shrink-0">{node.unreadEmails}</span>

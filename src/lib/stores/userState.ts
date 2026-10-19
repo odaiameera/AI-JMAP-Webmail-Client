@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { IconNode } from '$lib/types/icon-node';
 
 /**
  * Single source of truth on the client for everything that lives in the
@@ -14,13 +15,19 @@ export interface LabelMetaValue {
 	mailboxId: string;
 	displayName: string;
 	color: string;
+	/** A Lucide icon name, or null for the colour dot. */
+	icon?: string | null;
+	/** Its drawing, sent by the server with the name. */
+	iconNode?: IconNode | null;
 }
 
 export interface FolderMetaValue {
 	mailboxId: string;
 	displayName: string;
 	color: string;
+	/** A Lucide icon name, or null for the plain folder. */
 	icon: string | null;
+	iconNode?: IconNode | null;
 }
 
 export interface SignatureValue {
@@ -171,15 +178,25 @@ export async function updateSettings(patch: {
 	}));
 }
 
+/** The saved row as the server returns it (with an icon's drawing), or null. */
+async function patchMeta<T>(url: string, patch: object): Promise<T | null> {
+	try {
+		const res = await fetch(url, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(patch)
+		});
+		return res.ok ? ((await res.json()) as T | null) : null;
+	} catch {
+		return null;
+	}
+}
+
 export async function setLabelMeta(
 	mailboxId: string,
-	patch: { displayName?: string; color?: string }
+	patch: { displayName?: string; color?: string; icon?: string | null }
 ): Promise<void> {
-	await fetch(`/api/user-state/labels/${encodeURIComponent(mailboxId)}`, {
-		method: 'PATCH',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify(patch)
-	});
+	const saved = await patchMeta<LabelMetaValue>(`/api/user-state/labels/${encodeURIComponent(mailboxId)}`, patch);
 	userState.update((s) => {
 		const next = new Map(s.labels);
 		const existing = next.get(mailboxId) ?? {
@@ -187,7 +204,7 @@ export async function setLabelMeta(
 			displayName: '',
 			color: '#8B5CF6'
 		};
-		next.set(mailboxId, { ...existing, ...patch });
+		next.set(mailboxId, saved ?? { ...existing, ...patch });
 		return { ...s, labels: next };
 	});
 }
@@ -205,11 +222,7 @@ export async function setFolderMeta(
 	mailboxId: string,
 	patch: { displayName?: string; color?: string; icon?: string | null }
 ): Promise<void> {
-	await fetch(`/api/user-state/folders/${encodeURIComponent(mailboxId)}`, {
-		method: 'PATCH',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify(patch)
-	});
+	const saved = await patchMeta<FolderMetaValue>(`/api/user-state/folders/${encodeURIComponent(mailboxId)}`, patch);
 	userState.update((s) => {
 		const next = new Map(s.folders);
 		const existing = next.get(mailboxId) ?? {
@@ -218,7 +231,7 @@ export async function setFolderMeta(
 			color: '#8B5CF6',
 			icon: null
 		};
-		next.set(mailboxId, { ...existing, ...patch });
+		next.set(mailboxId, saved ?? { ...existing, ...patch });
 		return { ...s, folders: next };
 	});
 }

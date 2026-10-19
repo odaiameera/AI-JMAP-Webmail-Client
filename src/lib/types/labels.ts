@@ -1,3 +1,5 @@
+import type { IconNode } from './icon-node';
+
 export interface Label {
 	/** JMAP Mailbox id (authoritative — this is the mailbox id in JMAP/IMAP) */
 	id: string;
@@ -5,6 +7,10 @@ export interface Label {
 	name: string;
 	/** Hex color — stored in SQLite `label_meta`, keyed by id */
 	color: string;
+	/** A Lucide icon name, or null for the colour dot. */
+	icon?: string | null;
+	/** Its drawing, sent by the server with the name. */
+	iconNode?: IconNode | null;
 	createdAt: number;
 }
 
