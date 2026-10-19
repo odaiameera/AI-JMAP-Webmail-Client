@@ -16,6 +16,9 @@
 	import { apiCreateEvent } from '$lib/calendar/api';
 	import { fromDayKey } from '$lib/calendar/dates';
 	import { showToast } from '$lib/stores/toast';
+	import { cancelScheduled } from '$lib/stores/outbox';
+	import { isScheduledMailbox } from '$lib/jmap/mailbox';
+	import { formatSendTime } from '$lib/utils/send-later';
 	import type { CalendarInfo, EventWritePayload } from '$lib/calendar/types';
 	import { queueSenderForContacts } from '$lib/contacts/navigation';
 	import { AI_ASSISTANT_CONTEXT, type AIAssistantContext } from '$lib/types/assistant';
@@ -54,6 +57,55 @@
 	const toList = $derived(email.to ?? []);
 	const ccList = $derived(email.cc ?? []);
 	const isDraft = $derived('$draft' in email.keywords);
+
+	// A message waiting in Scheduled: when it goes out, or why it didn't.
+	const inScheduled = $derived(
+		mailboxes.some((m) => isScheduledMailbox(m) && email.mailboxIds[m.id])
+	);
+	let scheduledSend = $state<{ sendAt: string; status: string; error: string | null } | null>(null);
+	$effect(() => {
+		const id = email.id;
+		scheduledSend = null;
+		if (!inScheduled) return;
+		let stale = false;
+		void fetch(`/api/scheduled/${encodeURIComponent(id)}`)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((s) => {
+				if (!stale) scheduledSend = s;
+			})
+			.catch(() => {});
+		return () => {
+			stale = true;
+		};
+	});
+
+	let cancellingSend = $state(false);
+	async function handleCancelSend() {
+		cancellingSend = true;
+		const result = await cancelScheduled(email.id);
+		cancellingSend = false;
+		// Not sent either way; it opens in the composer to change and send again.
+		if (result.success || result.code === 'move-failed') {
+			handleEditDraft();
+			void invalidateAll();
+		} else {
+			showToast({ message: result.error ?? 'Couldn’t cancel' });
+		}
+	}
+
+	async function handleRetrySend() {
+		const res = await fetch(`/api/scheduled/${encodeURIComponent(email.id)}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action: 'retry' })
+		}).catch(() => null);
+		if (res?.ok) {
+			showToast({ message: 'Sending…' });
+			scheduledSend = scheduledSend && { ...scheduledSend, status: 'pending', error: null, sendAt: new Date().toISOString() };
+		} else {
+			showToast({ message: 'Couldn’t send' });
+		}
+	}
 	const isRead = $derived('$seen' in email.keywords);
 	const isUnsubscribed = $derived('$unsubscribed' in email.keywords);
 
@@ -728,7 +780,15 @@
 				</a>
 				<span class="w-px h-4 bg-border mr-1" aria-hidden="true"></span>
 			{/if}
-			{#if isDraft}
+			{#if inScheduled}
+				<button onclick={handleCancelSend} disabled={cancellingSend} class="btn btn-secondary">Cancel send</button>
+				{#if scheduledSend?.status === 'failed'}
+					<button onclick={handleRetrySend} class="btn btn-primary">Try again</button>
+					<span class="ml-2 text-xs text-danger truncate" title={scheduledSend.error ?? undefined}>Not sent{scheduledSend.error ? ` · ${scheduledSend.error}` : ''}</span>
+				{:else if scheduledSend}
+					<span class="ml-2 text-xs text-text-secondary truncate">Sends {formatSendTime(new Date(scheduledSend.sendAt))}</span>
+				{/if}
+			{:else if isDraft}
 				<button onclick={handleEditDraft} class="btn btn-primary">
 					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
 					Edit draft

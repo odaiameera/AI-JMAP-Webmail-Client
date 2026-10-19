@@ -33,6 +33,14 @@
 	} from '$lib/utils/signatures';
 	import { compressImageForBody } from '$lib/utils/image-compress';
 	import { showToast } from '$lib/stores/toast';
+	import { afterScheduling, type ScheduledSend } from '$lib/stores/outbox';
+	import {
+		formatSendDate,
+		fromInputValues,
+		sendLaterPresets,
+		toInputValues,
+		type SendLaterPreset
+	} from '$lib/utils/send-later';
 	import { rememberRecipients } from '$lib/utils/recent-recipients';
 	import type { ComposeAttachment } from '$lib/jmap/types';
 	import SignaturePicker from './SignaturePicker.svelte';
@@ -76,8 +84,15 @@
 	// --- Inline link popover (replaces window.prompt) ---
 	// Toolbar menus and popovers: one open at a time, closed by any click
 	// outside a [data-menu-root].
-	type MenuName = 'size' | 'color' | 'align' | 'more' | 'emoji' | 'link' | 'importance';
+	type MenuName = 'size' | 'color' | 'align' | 'more' | 'emoji' | 'link' | 'importance' | 'schedule';
 	let openMenu = $state<MenuName | null>(null);
+
+	// --- Send later ---
+	let presets = $state<SendLaterPreset[]>([]);
+	let pickingTime = $state(false);
+	let pickDate = $state('');
+	let pickTime = $state('');
+	let pickError = $state('');
 	let linkUrl = $state('');
 
 	const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
@@ -202,6 +217,27 @@
 	function toggleMenu(name: MenuName) {
 		if (name === 'link') return openMenu === 'link' ? (openMenu = null) : openLinkPopover();
 		openMenu = openMenu === name ? null : name;
+	}
+
+	function toggleSendLater() {
+		if (openMenu === 'schedule') {
+			openMenu = null;
+			return;
+		}
+		presets = sendLaterPresets(new Date());
+		({ date: pickDate, time: pickTime } = toInputValues(presets[0].at));
+		pickingTime = false;
+		pickError = '';
+		openMenu = 'schedule';
+	}
+
+	function sendAtPicked() {
+		const at = fromInputValues(pickDate, pickTime);
+		if (!at || at.getTime() < Date.now() + 60_000) {
+			pickError = 'Pick a time in the future';
+			return;
+		}
+		void handleSend(at);
 	}
 
 	function closeMenusOnOutsideClick(e: PointerEvent) {
@@ -379,15 +415,15 @@
 
 	async function postApi(
 		endpoint: string,
-		payload = buildPayload()
-	): Promise<{ ok: boolean; error?: string; draftId?: string }> {
+		payload: Record<string, unknown> = buildPayload()
+	): Promise<{ ok: boolean; error?: string; draftId?: string; scheduled?: ScheduledSend }> {
 		const res = await fetch(endpoint, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload)
 		});
 		const result = await res.json();
-		if (result.success) return { ok: true, draftId: result.draftId };
+		if (result.success) return { ok: true, draftId: result.draftId, scheduled: result.scheduled };
 		return { ok: false, error: result.error ?? `Server error (${res.status})`, draftId: result.draftId };
 	}
 
@@ -433,17 +469,20 @@
 		return () => clearInterval(timer);
 	});
 
-	const saveLabel = $derived(
-		saveStatus === 'saving'
-			? 'Saving…'
-			: saveStatus === 'error'
-				? 'Not saved'
-				: saveStatus === 'saved' && savedAt && !isDirty
-					? `Saved ${savedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
-					: ''
+	// The Save draft button doubles as the save status, so the footer has
+	// room for the Send later arrow and the signature menu.
+	const isSaved = $derived(saveStatus === 'saved' && !!savedAt && !isDirty);
+	const saveButtonLabel = $derived(
+		saveStatus === 'saving' ? 'Saving…' : isSaved ? 'Saved' : 'Save draft'
 	);
 
-	async function handleSend() {
+	/**
+	 * Send now, or at `sendAt`. With Undo send on, "now" is a few seconds
+	 * out; either way the server holds the message and sends it, and Undo
+	 * brings it back here as it is now.
+	 */
+	async function handleSend(sendAt?: Date) {
+		openMenu = null;
 		if (!to.trim()) {
 			error = 'Recipient is required';
 			return;
@@ -454,8 +493,23 @@
 		}
 		sending = true;
 		error = '';
+		const restore = {
+			to,
+			cc,
+			bcc,
+			subject,
+			body,
+			inReplyTo,
+			references,
+			attachments: [...attachments],
+			importance,
+			fromIdentityId: $composer.fromIdentityId
+		};
 		try {
-			const result = await postApi('/api/send');
+			const result = await postApi('/api/send', {
+				...buildPayload(),
+				...(sendAt && { sendAt: sendAt.toISOString() })
+			});
 			if (result.ok) {
 				rememberRecipients([
 					...to.split(','),
@@ -463,7 +517,8 @@
 					...bcc.split(',')
 				]);
 				closeCompose();
-				showToast({ message: 'Message sent' });
+				if (result.scheduled) afterScheduling(result.scheduled, restore);
+				else showToast({ message: 'Message sent' });
 			} else {
 				// A failed send is kept as a draft; carry on with that one.
 				if (result.draftId) {
@@ -597,7 +652,7 @@
 		showCc = !!s.cc;
 		showBcc = !!s.bcc;
 		error = '';
-		importance = 'normal';
+		importance = s.importance ?? 'normal';
 		attachments = [...(s.attachments ?? [])];
 		pendingUploads = [];
 		openMenu = null;
@@ -978,23 +1033,81 @@
 			class="flex items-center gap-1 px-3 py-2 border-t border-border shrink-0 bg-surface"
 			class:hidden={$composer.mode === 'minimized'}
 		>
-			<button
-				onclick={handleSend}
-				disabled={sending || savingDraft}
-				title="Send ({shortcutLabel('Enter')})"
-				class="btn btn-primary px-5"
-			>
-				{sending ? 'Sending…' : 'Send'}
-			</button>
+			<div class="relative flex" data-menu-root>
+				<button
+					onclick={() => handleSend()}
+					disabled={sending || savingDraft}
+					title="Send ({shortcutLabel('Enter')})"
+					class="btn btn-primary px-5 rounded-r-none"
+				>
+					{sending ? 'Sending…' : 'Send'}
+				</button>
+				<button
+					type="button"
+					onclick={toggleSendLater}
+					disabled={sending || savingDraft}
+					class="btn btn-primary px-1.5 rounded-l-none border-l border-l-black/25"
+					title="Send later"
+					aria-label="Send later"
+					aria-haspopup="menu"
+					aria-expanded={openMenu === 'schedule'}
+				>
+					{@render ico(['m18 15-6-6-6 6'], 14)}
+				</button>
+				{#if openMenu === 'schedule'}
+					<div class="absolute bottom-full mb-1 left-0 z-50 w-72 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu" aria-label="Send later">
+						{#if !pickingTime}
+							{#each presets as preset (preset.label)}
+								<button type="button" role="menuitem" onclick={() => handleSend(preset.at)} class="w-full flex items-center justify-between gap-3 text-left px-3 py-1.5 hover:bg-surface-hover cursor-pointer">
+									<span class="text-text">{preset.label}</span>
+									<span class="text-xs text-text-tertiary">{formatSendDate(preset.at)}</span>
+								</button>
+							{/each}
+							<div class="my-1 border-t border-border"></div>
+							<button type="button" role="menuitem" onclick={() => (pickingTime = true)} class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">
+								{@render ico(['M8 2v4', 'M16 2v4', 'M3 10h18', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2'], 14)}
+								Pick date & time
+							</button>
+						{:else}
+							<div class="px-2 py-1.5 space-y-2">
+								<div class="flex items-center gap-2">
+									<input
+										type="date"
+										bind:value={pickDate}
+										min={toInputValues(new Date()).date}
+										aria-label="Send date"
+										class="flex-1 min-w-0 bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+									/>
+									<input
+										type="time"
+										bind:value={pickTime}
+										aria-label="Send time"
+										class="w-32 bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+									/>
+								</div>
+								{#if pickError}
+									<p class="text-xs text-danger" aria-live="polite">{pickError}</p>
+								{/if}
+								<div class="flex items-center justify-end gap-1.5">
+									<button type="button" onclick={() => (pickingTime = false)} class="btn btn-ghost btn-sm">Back</button>
+									<button type="button" onclick={sendAtPicked} class="btn btn-primary btn-sm">Schedule send</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
 			<button
 				onclick={handleSaveDraft}
 				disabled={sending || savingDraft || saveStatus === 'saving'}
-				class="btn btn-ghost"
+				title={isSaved && savedAt ? `Saved at ${savedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : undefined}
+				class="btn btn-ghost min-w-[5.75rem] {isSaved ? 'text-text-tertiary' : ''}"
+				aria-live="polite"
 			>
-				Save draft
+				{saveButtonLabel}
 			</button>
-			{#if saveLabel}
-				<span class="ml-1 text-xs truncate {saveStatus === 'error' ? 'text-danger' : 'text-text-tertiary'}" aria-live="polite">{saveLabel}</span>
+			{#if saveStatus === 'error'}
+				<span class="ml-1 text-xs truncate text-danger" aria-live="polite">Not saved</span>
 			{/if}
 			<div class="flex-1"></div>
 

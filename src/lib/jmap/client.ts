@@ -35,7 +35,7 @@ export class JMAPClient {
 		for (const [name, result] of data.methodResponses) {
 			if (name === 'error' || name.endsWith('/error')) {
 				const error = result as { type?: string; description?: string };
-				throw new JMAPError(`JMAP error: ${error.type ?? 'unknown'} - ${error.description ?? ''}`);
+				throw new JMAPMethodError(error.type ?? 'unknown', error.description ?? '');
 			}
 		}
 
@@ -47,6 +47,20 @@ export class JMAPError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'JMAPError';
+	}
+}
+
+/**
+ * The server answered, and refused the call itself (as opposed to the
+ * request failing to arrive). Retrying the same call won't help.
+ */
+export class JMAPMethodError extends JMAPError {
+	constructor(
+		readonly type: string,
+		readonly description: string
+	) {
+		super(`JMAP error: ${type} - ${description}`);
+		this.name = 'JMAPMethodError';
 	}
 }
 

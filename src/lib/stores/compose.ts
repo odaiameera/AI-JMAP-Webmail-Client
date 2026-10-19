@@ -16,6 +16,7 @@ export interface ComposeData {
 	fromIdentityId?: string | null;
 	/** Blobs already on the server: a draft's attachments, or a forward's. */
 	attachments?: ComposeAttachment[];
+	importance?: 'high' | 'normal' | 'low';
 }
 
 export interface ComposerState extends ComposeData {

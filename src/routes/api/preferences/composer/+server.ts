@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { writePreferences } from '$lib/server/preferences';
+import { UNDO_SEND_CHOICES } from '$lib/server/compose-input';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Not signed in');
@@ -8,6 +9,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		font?: string;
 		fontSize?: string;
 		autoSaveInterval?: number;
+		undoSendSeconds?: number;
 	};
 
 	const patch: Record<string, string> = {};
@@ -17,6 +19,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		patch.autosave_interval = String(
 			Math.max(5, Math.min(120, Math.floor(body.autoSaveInterval)))
 		);
+	}
+	if (body.undoSendSeconds !== undefined) {
+		if (!(UNDO_SEND_CHOICES as readonly number[]).includes(body.undoSendSeconds)) {
+			error(400, 'Unknown Undo send choice');
+		}
+		patch.undo_send_seconds = String(body.undoSendSeconds);
 	}
 	writePreferences(locals.user.id, patch);
 	return json({ success: true });
