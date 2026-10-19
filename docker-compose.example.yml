@@ -17,8 +17,11 @@ services:
       # with: openssl rand -base64 32 — and back it up: rotating it means
       # re-entering every linked account's mail password.
       - WEBMAIL_SECRET=<openssl rand -base64 32>
-      # AI mail assistant and event extraction. Works with Ollama Cloud or
-      # any self-hosted Ollama-compatible endpoint; leave unset to hide it.
+      # AI mail assistant (Raven) and event extraction; leave unset to hide it.
+      # OpenAI, when its key is set (OPENAI_MODEL defaults to gpt-5.6-terra):
+      # - OPENAI_API_KEY=sk-...
+      # - OPENAI_MODEL=gpt-5.6-luna
+      # Otherwise Ollama Cloud or any self-hosted Ollama-compatible endpoint:
       # - OLLAMA_URL=https://ollama.com
       # - OLLAMA_API_KEY=<your ollama cloud api key>
       # - OLLAMA_MODEL=deepseek-v3.1:671b

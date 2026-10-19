@@ -139,7 +139,7 @@ export function describeMailSearch(spec: MailSearchSpec): string {
  * tools and asked what to do next until it has enough.
  *
  * The protocol is plain JSON rather than the provider's native function
- * calling, because OLLAMA_MODEL is operator-configured and native tool
+ * calling, because the model is operator-configured and native tool
  * support varies by model. Every model that can already honour the JSON
  * schemas used elsewhere here can drive this loop.
  */
