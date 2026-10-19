@@ -44,6 +44,7 @@ interface FakeEmail {
 	receivedAt: string;
 	preview: string;
 	'header:list-unsubscribe:asText'?: string;
+	'header:x-spam-status:asText'?: string;
 }
 
 /** Just enough JMAP for a sorting pass, over an in-memory mailbox. */
@@ -83,7 +84,8 @@ class FakeJmap {
 						list: [
 							{ id: 'inbox', name: 'Inbox', role: 'inbox', sortOrder: 1, parentId: null },
 							{ id: 'sent', name: 'Sent', role: 'sent', sortOrder: 2, parentId: null },
-							{ id: 'archive', name: 'Archive', role: 'archive', sortOrder: 3, parentId: null }
+							{ id: 'archive', name: 'Archive', role: 'archive', sortOrder: 3, parentId: null },
+							{ id: 'junk', name: 'Junk', role: 'junk', sortOrder: 4, parentId: null }
 						]
 					};
 					break;
@@ -164,7 +166,7 @@ beforeEach(() => {
 	getDb().prepare('DELETE FROM jev_sender_moves').run();
 	// Off and on again, so every test's cursor starts at T0.
 	updateJevSettings(ACCT, { jevEnabled: false });
-	updateJevSettings(ACCT, { inboxTabs: true, jevEnabled: true }, T0);
+	updateJevSettings(ACCT, { inboxTabs: true, jevEnabled: true, spamMode: 'off' }, T0);
 });
 
 afterEach(() => {
@@ -400,5 +402,69 @@ describe('sortNewMail', () => {
 		// Already in a tab: left alone, and nothing asked.
 		expect(fake.emails.get('oldSorted')!.keywords).toEqual({ $cat_updates: true });
 		expect(getDecision(ACCT, 'oldSorted')).toMatchObject({ status: 'done', model: null });
+	});
+
+	describe('spam checks', () => {
+		const flagged = { 'header:x-spam-status:asText': 'Yes, score=8.1' };
+		const lookalike = {
+			from: [{ name: 'PayPal.com', email: 'alerts@secure-pay.example' }],
+			subject: 'Confirm your account'
+		};
+
+		beforeEach(() => {
+			// Someone you've written to: a message to them sits in Sent.
+			fake.add('toFriend', -100, { mailboxIds: { sent: true }, to: [{ name: null, email: 'friend@pal.example' }] });
+		});
+
+		it('records what active mode would do in watch mode, and moves nothing', async () => {
+			updateJevSettings(ACCT, { spamMode: 'watch' });
+			fake.add('spammy', 1, flagged);
+
+			await sortNewMail(ACCT, ME, auth, at(10));
+
+			expect(fake.emails.get('spammy')!.mailboxIds).toEqual({ inbox: true });
+			expect(getDecision(ACCT, 'spammy')).toMatchObject({
+				spam: 0.95,
+				stalwartSpam: true,
+				spamAction: 'would_junk'
+			});
+		});
+
+		it('in active mode, sends strangers’ spam and phishing to Junk, and only warns about people you know', async () => {
+			updateJevSettings(ACCT, { spamMode: 'active' });
+			fake.add('spammy', 1, { ...flagged, subject: 'Cheap watches' });
+			fake.add('phish', 2, lookalike);
+			fake.add('friendPhish', 3, { ...lookalike, from: [{ name: 'PayPal.com', email: 'friend@pal.example' }] });
+
+			await sortNewMail(ACCT, ME, auth, at(10));
+
+			expect(fake.emails.get('spammy')!.mailboxIds).toEqual({ junk: true });
+			expect(fake.emails.get('phish')!.mailboxIds).toEqual({ junk: true });
+			expect(getDecision(ACCT, 'phish')).toMatchObject({ phishing: 0.92, spamAction: 'junked' });
+			// Never Junk for someone you've written to: a warning instead.
+			expect(fake.emails.get('friendPhish')!.mailboxIds).toEqual({ inbox: true });
+			expect(getDecision(ACCT, 'friendPhish')?.spamAction).toBe('flagged');
+			// Junked mail skips tabs and rules; no $junk keyword, so Stalwart isn't trained.
+			expect(fake.emails.get('spammy')!.keywords).toEqual({});
+		});
+
+		it('in active mode, brings clean mail back from Junk and leaves real spam there', async () => {
+			updateJevSettings(ACCT, { spamMode: 'active' });
+			fake.add('wronglyJunked', 1, { mailboxIds: { junk: true }, subject: 'Your receipt' });
+			fake.add('realSpam', 2, { mailboxIds: { junk: true }, ...flagged });
+
+			await sortNewMail(ACCT, ME, auth, at(10));
+
+			expect(fake.emails.get('wronglyJunked')!.mailboxIds).toEqual({ inbox: true });
+			expect(getDecision(ACCT, 'wronglyJunked')).toMatchObject({ stalwartSpam: true, spamAction: 'rescued' });
+			expect(fake.emails.get('realSpam')!.mailboxIds).toEqual({ junk: true });
+			expect(getDecision(ACCT, 'realSpam')?.spamAction).toBeNull();
+		});
+
+		it('leaves Junk alone while spam checks are off', async () => {
+			fake.add('wronglyJunked', 1, { mailboxIds: { junk: true } });
+			await sortNewMail(ACCT, ME, auth, at(10));
+			expect(getDecision(ACCT, 'wronglyJunked')).toBeNull();
+		});
 	});
 });

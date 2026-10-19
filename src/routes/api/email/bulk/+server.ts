@@ -13,7 +13,7 @@ import {
 } from '$lib/jmap/email';
 import { getMailboxes, ensureArchiveMailbox } from '$lib/jmap/mailbox';
 import { isInboxCategory } from '$lib/types/categories';
-import { recordCorrections } from '$lib/server/db/queries/jev-decisions';
+import { recordCorrections, recordSpamCorrections } from '$lib/server/db/queries/jev-decisions';
 import { forgetSenderMoves, getPinCategory, recordSenderMoves } from '$lib/server/db/queries/jev-learning';
 import { getJevSettings } from '$lib/server/db/queries/jev-settings';
 import { normalizeAddress } from '$lib/server/trust-sender';
@@ -85,6 +85,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const junk = mailboxes.find((m) => m.role === 'junk');
 			if (!junk) return json({ error: 'Junk folder not found' }, { status: 500 });
 			await markManyAsSpam(client, accountId, ids, sourceMailboxId ?? '', junk.id);
+			if (locals.activeAccountId) recordSpamCorrections(locals.activeAccountId, ids, 'spam');
 			return json({ success: true });
 		}
 
@@ -94,6 +95,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const inbox = mailboxes.find((m) => m.role === 'inbox');
 			if (!junk || !inbox) return json({ error: 'Inbox or Junk missing' }, { status: 500 });
 			await markManyAsNotSpam(client, accountId, ids, junk.id, inbox.id);
+			if (locals.activeAccountId) recordSpamCorrections(locals.activeAccountId, ids, 'ham');
 			return json({ success: true });
 		}
 

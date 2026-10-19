@@ -36,6 +36,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 				isActive: a.id === activeAccountId,
 				inboxTabs: settings.inboxTabs,
 				jevEnabled: settings.jevEnabled,
+				spamMode: settings.spamMode,
 				pins: listPins(a.id).map((p) => ({ sender: p.sender, category: p.category })),
 				month: {
 					...decisionStats(a.id, monthStart),

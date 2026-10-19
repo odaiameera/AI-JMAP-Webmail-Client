@@ -3,10 +3,10 @@ import { listSchedulableAuths, markNeedsReauth } from '$lib/server/auth/accounts
 import { JMAPAuthError, type JMAPClient } from '$lib/jmap/client';
 import { createClient, fetchSession } from '$lib/jmap/auth';
 import { getMailboxes } from '$lib/jmap/mailbox';
-import type { AuthState, Email, JMAPSession } from '$lib/jmap/types';
+import type { AuthState, Email, JMAPSession, MethodCall } from '$lib/jmap/types';
 import { categoryKeywordPatch, categoryOf, type InboxCategory } from '$lib/types/categories';
 import { hasJevCondition, type Rule } from '$lib/types/rules';
-import { getJevSettings, updateJevSettings } from '$lib/server/db/queries/jev-settings';
+import { getJevSettings, updateJevSettings, type SpamMode } from '$lib/server/db/queries/jev-settings';
 import { getRules } from '$lib/server/db/queries/rules';
 import { listPins, pinFor, senderHistory, type SenderPin } from '$lib/server/db/queries/jev-learning';
 import {
@@ -38,6 +38,7 @@ import {
 import { buildEmailState, type JevFacts } from './email-state';
 import { gatherFacts, senderAddress } from './facts';
 import { conditionAnswers, ruleChecks, ruleQuestions } from './rules';
+import { decideSpam, SPAM_QUESTIONS, spamAnswers, type SpamAction } from './spam';
 import type { JevQuestion, JevResponse } from './types';
 
 /**
@@ -82,7 +83,13 @@ const JEV_EMAIL_PROPERTIES = [
 	'header:list-unsubscribe:asText',
 	'header:list-id:asText',
 	'header:precedence:asText',
-	'header:auto-submitted:asText'
+	'header:auto-submitted:asText',
+	// Spam evidence, used while spam checking is on.
+	'replyTo',
+	'header:authentication-results:asText:all',
+	'header:x-spam-status:asText',
+	'header:x-spam-score:asText',
+	'header:x-spam-result:asText'
 ];
 
 /** Fetch emails with everything the state, facts and rules are built from. */
@@ -139,6 +146,8 @@ export interface JudgeContext {
 	accountEmail: string;
 	sentId: string | null;
 	session: JMAPSession | null;
+	/** Send origin evidence and Stalwart's verdict (spam checking on). */
+	security?: boolean;
 }
 
 /** The judge context for an account, with your sender history attached. */
@@ -209,6 +218,31 @@ interface Plan {
 	/** The pin that chose the tab, if one did. */
 	pin: SenderPin | null;
 	checks: JevRuleCheck[];
+	/** Jev's spam answers and what came of them, when spam checking is on. */
+	spam?: SpamRecord | null;
+}
+
+interface SpamRecord {
+	spam: number;
+	phishing: number;
+	stalwartSpam: boolean;
+	/** 'junked' | 'rescued' | 'flagged', or in watch mode 'would_…'. */
+	action: string | null;
+}
+
+/** Move an email from one mailbox to another, as a full mailboxIds write. */
+function moveUpdate(email: Email, from: string, to: string): Record<string, unknown> {
+	const outcome = emptyOutcome();
+	outcome.removeMailboxIds.add(from);
+	outcome.addMailboxIds.add(to);
+	return outcomeToUpdate(email, outcome);
+}
+
+/** How a spam action reads in the record: what was done, or would have been. */
+function spamActionLabel(action: SpamAction | null, mode: SpamMode): string | null {
+	if (!action) return null;
+	const done = { junk: 'junked', rescue: 'rescued', flag: 'flagged' }[action];
+	return mode === 'active' ? done : `would_${action}`;
 }
 
 /**
@@ -283,7 +317,8 @@ export async function sortNewMail(
 	const wantsTabs = settings.inboxTabs;
 	// Only when a rule needs Jev does this worker take over the rules.
 	const rules = enabledRules.some(hasJevCondition) ? enabledRules : [];
-	if (!wantsTabs && rules.length === 0) {
+	const spamMode = settings.spamMode;
+	if (!wantsTabs && rules.length === 0 && spamMode === 'off') {
 		// Nothing to ask: keep the cursor current, so switching tabs or a Jev
 		// rule on later doesn't reach back into mail from before.
 		updateJevSettings(accountRowId, { sortCursor: now.toISOString() }, now);
@@ -295,38 +330,50 @@ export async function sortNewMail(
 	const mailboxes = await getMailboxes(client, accountId);
 	const inbox = mailboxes.find((m) => m.role === 'inbox');
 	if (!inbox) return;
+	// With spam checking on, Junk is watched too: Stalwart's verdicts there
+	// are what Jev can confirm, or (in active mode) rescue mail from.
+	const junk = spamMode !== 'off' ? (mailboxes.find((m) => m.role === 'junk') ?? null) : null;
 	const ruleCtx: RuleActionCtx = {
 		inboxId: inbox.id,
 		trashId: mailboxes.find((m) => m.role === 'trash')?.id,
 		validMailboxIds: new Set(mailboxes.map((m) => m.id))
 	};
 
-	// 1. Queue what arrived since the cursor.
-	const arrivals = await client.request([
-		[
-			'Email/query',
-			{
-				accountId,
-				filter: { operator: 'AND', conditions: [{ inMailbox: inbox.id }, { after: settings.sortCursor }] },
-				sort: [{ property: 'receivedAt', isAscending: true }],
-				limit: QUEUE_PAGE
-			},
-			'q'
-		],
-		[
-			'Email/get',
-			{
-				accountId,
-				'#ids': { resultOf: 'q', name: 'Email/query', path: '/ids' },
-				properties: ['id', 'receivedAt']
-			},
-			'g'
-		]
-	]);
-	const arrived = (arrivals.methodResponses[1][1] as { list?: { id: string; receivedAt: string }[] }).list ?? [];
-	enqueueEmails(accountRowId, arrived.map((e) => e.id), now.getTime());
-	// A full page may have more behind it: resume from the last one seen.
-	const nextCursor = arrived.length >= QUEUE_PAGE ? arrived[arrived.length - 1].receivedAt : now.toISOString();
+	// 1. Queue what arrived since the cursor — in the Inbox, and in Junk
+	// while spam checking is on.
+	const watched = [inbox.id, ...(junk ? [junk.id] : [])];
+	const arrivals = await client.request(
+		watched.flatMap((mailboxId, i): MethodCall[] => [
+			[
+				'Email/query',
+				{
+					accountId,
+					filter: { operator: 'AND', conditions: [{ inMailbox: mailboxId }, { after: settings.sortCursor }] },
+					sort: [{ property: 'receivedAt', isAscending: true }],
+					limit: QUEUE_PAGE
+				},
+				`q${i}`
+			],
+			[
+				'Email/get',
+				{
+					accountId,
+					'#ids': { resultOf: `q${i}`, name: 'Email/query', path: '/ids' },
+					properties: ['id', 'receivedAt']
+				},
+				`g${i}`
+			]
+		])
+	);
+	// A full page may have more behind it: resume from the earliest last-seen.
+	const resumeAt: string[] = [];
+	for (const [name, result] of arrivals.methodResponses) {
+		if (name !== 'Email/get') continue;
+		const arrived = (result as { list?: { id: string; receivedAt: string }[] }).list ?? [];
+		enqueueEmails(accountRowId, arrived.map((e) => e.id), now.getTime());
+		if (arrived.length >= QUEUE_PAGE) resumeAt.push(arrived[arrived.length - 1].receivedAt);
+	}
+	const nextCursor = resumeAt.length ? resumeAt.sort()[0] : now.toISOString();
 	updateJevSettings(accountRowId, { sortCursor: nextCursor }, now);
 
 	// Fetched only once there is mail to judge (contacts need the session).
@@ -336,12 +383,15 @@ export async function sortNewMail(
 		accountId,
 		accountRowId,
 		inboxId: inbox.id,
+		junkId: junk?.id ?? null,
+		spamMode,
 		judge: async () =>
 			(judgeCtx ??= {
 				accountRowId,
 				accountEmail,
 				sentId: mailboxes.find((m) => m.role === 'sent')?.id ?? null,
-				session: await fetchSession(auth).catch(() => null)
+				session: await fetchSession(auth).catch(() => null),
+				security: spamMode !== 'off'
 			}),
 		ruleCtx,
 		// A pinned sender's tab is already decided: Jev isn't asked for it.
@@ -349,13 +399,13 @@ export async function sortNewMail(
 		now
 	};
 
-	// 2. New arrivals, and earlier failures among them: tab and rules.
-	await judgeAndApply(batch, listPendingEmailIds(accountRowId, JUDGE_BATCH), rules, wantsTabs);
+	// 2. New arrivals, and earlier failures among them: spam, tab and rules.
+	await judgeAndApply(batch, listPendingEmailIds(accountRowId, JUDGE_BATCH), rules, wantsTabs, spamMode !== 'off');
 
 	// 3. Then mail that was already in the Inbox when you asked Jev to sort
-	// it: its tab only — rules apply to new mail, never retroactively.
+	// it: its tab only — rules and spam checks apply to new mail only.
 	if (wantsTabs) {
-		await judgeAndApply(batch, listPendingEmailIds(accountRowId, BACKFILL_BATCH, true), [], true);
+		await judgeAndApply(batch, listPendingEmailIds(accountRowId, BACKFILL_BATCH, true), [], true, false);
 	}
 }
 
@@ -364,6 +414,9 @@ interface Batch {
 	accountId: string;
 	accountRowId: string;
 	inboxId: string;
+	/** Watched while spam checking is on. */
+	junkId: string | null;
+	spamMode: SpamMode;
 	judge: () => Promise<JudgeContext>;
 	ruleCtx: RuleActionCtx;
 	pins: SenderPin[];
@@ -371,36 +424,82 @@ interface Batch {
 }
 
 /** Judge queued emails, apply what follows, and record it. */
-async function judgeAndApply(b: Batch, ids: string[], rules: Rule[], wantsTabs: boolean): Promise<void> {
+async function judgeAndApply(
+	b: Batch,
+	ids: string[],
+	rules: Rule[],
+	wantsTabs: boolean,
+	checkSpam: boolean
+): Promise<void> {
 	if (ids.length === 0) return;
 	const now = b.now.getTime();
 	const fetched = new Map((await fetchEmailsForJev(b.client, b.accountId, ids)).map((e) => [e.id, e]));
-	const inInbox: Email[] = [];
+	const inJunk = (email: Email) => !!b.junkId && !!email.mailboxIds[b.junkId] && !email.mailboxIds[b.inboxId];
+	const judgeable: Email[] = [];
 	for (const id of ids) {
 		const email = fetched.get(id);
-		if (email?.mailboxIds[b.inboxId]) inInbox.push(email);
+		if (email?.mailboxIds[b.inboxId] || (email && checkSpam && inJunk(email))) judgeable.push(email);
 		else markSkipped(b.accountRowId, id, now);
 	}
-	if (inInbox.length === 0) return;
+	if (judgeable.length === 0) return;
 
 	const pinOf = (email: Email) => pinFor(b.pins, senderAddress(email));
-	const judged = await judgeEmails(b.client, b.accountId, inInbox, await b.judge(), (email) => ({
-		// No point asking for a tab the message already has: Jev won't overrule it.
-		...(wantsTabs && !pinOf(email) && categoryOf(email.keywords) === 'important' ? tabQuestion() : {}),
-		...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
-	}));
+	const judged = await judgeEmails(b.client, b.accountId, judgeable, await b.judge(), (email) =>
+		// Junk mail is only checked for spam: no tab, no rules.
+		inJunk(email)
+			? SPAM_QUESTIONS
+			: {
+					...(checkSpam ? SPAM_QUESTIONS : {}),
+					// No point asking for a tab the message already has: Jev won't overrule it.
+					...(wantsTabs && !pinOf(email) && categoryOf(email.keywords) === 'important' ? tabQuestion() : {}),
+					...ruleQuestions(jevConditionsToAsk(email, rules, extractBodyText(email)))
+				}
+	);
 
 	// Plan each email. A failed call is retried next run; once it has failed
-	// for good, the rules still run, with no Jev answers.
+	// for good, the rules still run, with no Jev answers. Spam goes first:
+	// mail that goes to Junk skips rules and tabs.
 	const plans = new Map<string, Plan>();
 	for (const j of judged) {
 		if (j.error) {
 			recordFailure(b.accountRowId, j.email.id, j.error, now);
-			if (getDecision(b.accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
+			if (inJunk(j.email) || getDecision(b.accountRowId, j.email.id)?.status !== 'failed' || rules.length === 0) continue;
 			plans.set(j.email.id, planFor({ ...j, decision: null }, rules, b.ruleCtx, false, null));
 			continue;
 		}
-		plans.set(j.email.id, planFor(j, rules, b.ruleCtx, wantsTabs, pinOf(j.email)));
+		const verdict = checkSpam ? spamAnswers(j.response?.answers) : null;
+		const junked = inJunk(j.email);
+		const action = verdict
+			? decideSpam({
+					...verdict,
+					inJunk: junked,
+					// Contacts and people you've written to are never sent to Junk.
+					trusted: !!(j.facts?.sender_in_contacts || j.facts?.you_have_written_to_sender),
+					dmarcFailed: j.facts?.security?.dmarc === 'fail'
+				})
+			: null;
+		const spam: SpamRecord | null = verdict
+			? {
+					...verdict,
+					stalwartSpam: junked || !!j.facts?.security?.stalwart_flagged,
+					action: spamActionLabel(action, b.spamMode)
+				}
+			: null;
+		const acting = b.spamMode === 'active';
+		if (junked) {
+			const rescue = acting && action === 'rescue';
+			plans.set(j.email.id, {
+				update: rescue && b.junkId ? moveUpdate(j.email, b.junkId, b.inboxId) : {},
+				tab: null,
+				pin: null,
+				checks: [],
+				spam
+			});
+		} else if (acting && action === 'junk' && b.junkId) {
+			plans.set(j.email.id, { update: moveUpdate(j.email, b.inboxId, b.junkId), tab: null, pin: null, checks: [], spam });
+		} else {
+			plans.set(j.email.id, { ...planFor(j, rules, b.ruleCtx, wantsTabs, pinOf(j.email)), spam });
+		}
 	}
 
 	// Apply, worked out before anything changes.
@@ -429,7 +528,8 @@ async function judgeAndApply(b: Batch, ids: string[], rules: Rule[], wantsTabs: 
 				facts: j.facts ?? {},
 				rules: plan.checks,
 				model: j.response?.model ?? null,
-				inputTokens: j.response?.usage.inputTokens ?? 0
+				inputTokens: j.response?.usage.inputTokens ?? 0,
+				spam: plan.spam ?? null
 			},
 			now
 		);

@@ -31,7 +31,7 @@ beforeAll(() => {
 
 describe('jev settings', () => {
 	it('defaults to everything off for an account with no row', () => {
-		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false, jevEnabled: false, sortCursor: null });
+		expect(getJevSettings('acct-1')).toEqual({ inboxTabs: false, jevEnabled: false, sortCursor: null, spamMode: 'off' });
 	});
 
 	it('keeps each account separate', () => {
@@ -49,7 +49,8 @@ describe('jev settings', () => {
 		expect(getJevSettings('acct-3')).toEqual({
 			inboxTabs: true,
 			jevEnabled: true,
-			sortCursor: on.toISOString()
+			sortCursor: on.toISOString(),
+			spamMode: 'off'
 		});
 		expect(sortingEnabled(getJevSettings('acct-3'))).toBe(true);
 
@@ -62,8 +63,15 @@ describe('jev settings', () => {
 	});
 
 	it('only sorts while the tabs are on too', () => {
-		expect(sortingEnabled({ inboxTabs: false, jevEnabled: true, sortCursor: null })).toBe(false);
-		expect(sortingEnabled({ inboxTabs: true, jevEnabled: false, sortCursor: null })).toBe(false);
+		expect(sortingEnabled({ inboxTabs: false, jevEnabled: true, sortCursor: null, spamMode: 'off' })).toBe(false);
+		expect(sortingEnabled({ inboxTabs: true, jevEnabled: false, sortCursor: null, spamMode: 'off' })).toBe(false);
+	});
+
+	it('keeps the spam mode', () => {
+		updateJevSettings('acct-1', { spamMode: 'watch' });
+		expect(getJevSettings('acct-1').spamMode).toBe('watch');
+		updateJevSettings('acct-1', { inboxTabs: true });
+		expect(getJevSettings('acct-1').spamMode).toBe('watch');
 	});
 
 	it('drops the row when the account is unlinked', () => {

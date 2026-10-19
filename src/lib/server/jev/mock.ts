@@ -43,6 +43,21 @@ export function mockStatementProbability(statement: string, state: JevEmailState
 	return words.some((w) => text.includes(w.replace(/(?:es|s)$/, ''))) ? 0.9 : 0.1;
 }
 
+/**
+ * The rules of thumb behind mock spam answers: spam follows Stalwart's own
+ * verdict; phishing follows a sender that hides behind another domain.
+ */
+export function mockSpamProbability(state: JevEmailState): number {
+	const sec = state.facts.security;
+	if (sec?.stalwart_flagged) return 0.95;
+	return state.facts.has_list_unsubscribe ? 0.2 : 0.05;
+}
+
+export function mockPhishingProbability(state: JevEmailState): number {
+	const sec = state.facts.security;
+	return sec && (sec.display_name_mismatch || sec.reply_to_differs) ? 0.92 : 0.02;
+}
+
 /** TypeSafe's planning estimate: ~300 overhead + chars/4 + ~50 per question. */
 export function estimateInputTokens(state: unknown, questionCount: number): number {
 	return Math.round(300 + JSON.stringify(state).length / 4 + 50 * questionCount);
@@ -75,10 +90,14 @@ export function mockJev(state: unknown, questions: Record<string, JevQuestion>):
 			const pick = isCategory && isEmailState(state) ? mockCategory(state) : options[0];
 			answers[id] = choiceAnswer(options, pick);
 		} else if (question.type === 'noul') {
-			answers[id] = {
-				type: 'noul',
-				noul: isEmailState(state) ? mockStatementProbability(question.instructions, state) : 0.5
-			};
+			const noul = !isEmailState(state)
+				? 0.5
+				: id === 'spam'
+					? mockSpamProbability(state)
+					: id === 'phishing'
+						? mockPhishingProbability(state)
+						: mockStatementProbability(question.instructions, state);
+			answers[id] = { type: 'noul', noul };
 		} else {
 			const levels = question.criteria.map((_, i) => String(i));
 			const middle = Math.floor(levels.length / 2);

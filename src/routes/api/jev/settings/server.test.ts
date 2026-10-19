@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$lib/server/auth/accounts', () => ({ listAccounts: mocks.listAccounts }));
-vi.mock('$lib/server/db/queries/jev-settings', () => ({
+vi.mock('$lib/server/db/queries/jev-settings', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/db/queries/jev-settings')>()),
 	updateJevSettings: mocks.updateJevSettings
 }));
 vi.mock('$lib/server/jev/client', () => ({ jevMode: mocks.jevMode }));
@@ -72,6 +73,14 @@ describe('POST /api/jev/settings', () => {
 
 		// Switching it off still works.
 		expect((await call({ accountId: 'acct-1', jevEnabled: false })).status).toBe(200);
+	});
+
+	it('sets the spam mode, and only to a known one', async () => {
+		expect((await call({ accountId: 'acct-1', spamMode: 'watch' })).status).toBe(200);
+		expect(mocks.updateJevSettings).toHaveBeenCalledWith('acct-1', { spamMode: 'watch' });
+		expect((await call({ accountId: 'acct-1', spamMode: 'aggressive' })).status).toBe(400);
+		mocks.jevMode.mockReturnValue('off');
+		expect((await call({ accountId: 'acct-1', spamMode: 'active' })).status).toBe(409);
 	});
 
 	it('requires a signed-in user', async () => {

@@ -6,6 +6,8 @@
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
 	import { categoryIcon } from '$lib/components/category-icons';
 	import JevBackfill from '$lib/components/JevBackfill.svelte';
+	import JevSpamReport from '$lib/components/JevSpamReport.svelte';
+	import Select from '$lib/components/settings/Select.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -66,6 +68,35 @@
 		if (m.sorted > 0) parts[0] += `, ${m.corrected} moved by you`;
 		if (m.inputTokens > 0) parts.push(`${formatTokens(m.inputTokens)} tokens ≈ ${formatCost(m.costUsd)}`);
 		return `${parts.join(' · ')}.`;
+	}
+
+	// --- Spam checks ---
+
+	const spamModes = $state<Record<string, string>>({});
+
+	async function saveSpamMode(accountId: string, mode: string) {
+		const key = `${accountId}:spam`;
+		spamModes[accountId] = mode;
+		delete errors[key];
+		states[key] = 'saving';
+		try {
+			const res = await fetch('/api/jev/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ accountId, spamMode: mode })
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				throw new Error(body?.error ?? 'Couldn’t save. Try again.');
+			}
+			states[key] = 'saved';
+			setTimeout(() => { if (states[key] === 'saved') states[key] = 'idle'; }, 1800);
+			await invalidateAll();
+		} catch (err) {
+			errors[key] = err instanceof Error ? err.message : 'Couldn’t save. Try again.';
+			states[key] = 'error';
+		}
+		delete spamModes[accountId];
 	}
 
 	// --- Pinned senders ---
@@ -216,7 +247,7 @@
 			For each new email in an account you switch on: the sender, recipients and subject, the first
 			{data.jev.excerptChars.toLocaleString()} characters of the body with quoted replies removed, and facts
 			this app works out — whether the sender is in your contacts, whether you’ve written to them or in
-			the conversation, its mailing-list headers, and whether it carries a sign-in code — along with the statements in rules you wrote for Jev. Jev returns
+			the conversation, its mailing-list headers, and whether it carries a sign-in code — along with the statements in rules you wrote for Jev, and, with spam checks on, the email’s authentication results, Reply-To, link domains and Stalwart’s spam score. Jev returns
 			only probabilities; the app keeps those and the facts, never the email text. TypeSafe says it
 			doesn’t train on customer data; its documentation doesn’t say how long requests are kept.
 		</p>
@@ -239,6 +270,48 @@
 			{/snippet}
 		</SettingRow>
 	{/each}
+
+	<div class="mt-8">
+		<h3 class="text-sm font-semibold text-text mb-1">Spam checks</h3>
+		<p class="text-xs text-text-tertiary mb-1">
+			A second opinion beside Stalwart’s filter, which keeps running. Jev is asked two narrow questions about
+			each new email — is it spam, is it phishing — with its authentication results, its Reply-To and links,
+			and Stalwart’s own score. Mail in Junk is checked too.
+		</p>
+		<ul class="text-xs text-text-tertiary mb-3 list-disc pl-5 space-y-0.5">
+			<li><span class="text-text-secondary">Watch only</span> records Jev’s verdict and shows it beside Stalwart’s; nothing moves. Start here.</li>
+			<li>
+				<span class="text-text-secondary">Active</span> moves mail Jev is at least 90% sure is spam or phishing to Junk — never from
+				your contacts or people you’ve written to — warns on anything from 60%, and brings mail back from Junk
+				when Jev is very sure it’s fine and its sender passed DMARC. Jev’s moves don’t train Stalwart.
+			</li>
+		</ul>
+		{#each data.jevAccounts as account (account.id)}
+			<SettingRow
+				title={`Spam checks · ${account.email}`}
+				description={current(account, 'jevEnabled') ? 'Applies to mail that arrives from now on.' : 'Let Jev read this account’s new mail first.'}
+				state={states[`${account.id}:spam`] ?? 'idle'}
+				errorMessage={errors[`${account.id}:spam`]}
+			>
+				{#snippet control()}
+					<Select
+						value={spamModes[account.id] ?? account.spamMode}
+						ariaLabel="Spam checks for {account.email}"
+						disabled={!configured || !current(account, 'jevEnabled')}
+						onchange={(v) => saveSpamMode(account.id, v)}
+						options={[
+							{ value: 'off', label: 'Off' },
+							{ value: 'watch', label: 'Watch only' },
+							{ value: 'active', label: 'Active' }
+						]}
+					/>
+				{/snippet}
+			</SettingRow>
+			{#if account.isActive && account.spamMode !== 'off'}
+				<JevSpamReport />
+			{/if}
+		{/each}
+	</div>
 
 	<div class="mt-8">
 		<h3 class="text-sm font-semibold text-text mb-1">Pinned senders</h3>

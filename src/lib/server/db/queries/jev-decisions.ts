@@ -26,6 +26,15 @@ export interface JevDecisionRow {
 	rules: JevRuleCheck[] | null;
 	/** The sender pin that decided the tab, when one did. */
 	pinnedBy: string | null;
+	/** Jev's spam answers, when spam checking was on. */
+	spam: number | null;
+	phishing: number | null;
+	/** Stalwart had flagged it, or filed it in Junk. */
+	stalwartSpam: boolean | null;
+	/** 'junked' | 'rescued' | 'flagged', or in watch mode 'would_junk' | 'would_rescue' | 'would_flag'. */
+	spamAction: string | null;
+	/** 'spam' or 'ham' when you marked it afterwards. */
+	spamCorrectedTo: string | null;
 	createdAt: number;
 	decidedAt: number | null;
 }
@@ -58,6 +67,11 @@ interface RawRow {
 	corrected_to: string | null;
 	rules_json: string | null;
 	pinned_by: string | null;
+	spam: number | null;
+	phishing: number | null;
+	stalwart_spam: number | null;
+	spam_action: string | null;
+	spam_corrected_to: string | null;
 	created_at: number;
 	decided_at: number | null;
 }
@@ -96,6 +110,11 @@ function toRow(r: RawRow): JevDecisionRow {
 		correctedTo: r.corrected_to as InboxCategory | null,
 		rules: r.rules_json ? (parseJsonArray(r.rules_json) as JevRuleCheck[] | null) : null,
 		pinnedBy: r.pinned_by,
+		spam: r.spam,
+		phishing: r.phishing,
+		stalwartSpam: r.stalwart_spam === null ? null : r.stalwart_spam === 1,
+		spamAction: r.spam_action,
+		spamCorrectedTo: r.spam_corrected_to,
 		createdAt: r.created_at,
 		decidedAt: r.decided_at
 	};
@@ -130,6 +149,7 @@ function prepareStmts() {
 			   status = 'done', last_error = NULL, attempts = attempts + 1,
 			   category = @category, confidence = @confidence, applied = @applied,
 			   answers_json = @answers, facts_json = @facts, rules_json = @rules, pinned_by = @pinnedBy, model = @model,
+			   spam = @spam, phishing = @phishing, stalwart_spam = @stalwartSpam, spam_action = @spamAction,
 			   input_tokens = @inputTokens, decided_at = @now
 			 WHERE account_id = @accountId AND email_id = @emailId`
 		),
@@ -145,6 +165,16 @@ function prepareStmts() {
 			 WHERE account_id = @accountId AND email_id = @emailId`
 		),
 		get: db.prepare(`SELECT * FROM jev_decisions WHERE account_id = ? AND email_id = ?`),
+		correctSpam: db.prepare(
+			`UPDATE jev_decisions SET spam_corrected_to = ?
+			 WHERE account_id = ? AND email_id = ? AND spam IS NOT NULL`
+		),
+		spamRows: db.prepare(
+			`SELECT email_id, spam, phishing, stalwart_spam, spam_action, spam_corrected_to
+			 FROM jev_decisions
+			 WHERE account_id = ? AND status = 'done' AND spam IS NOT NULL AND decided_at >= ?
+			 ORDER BY decided_at DESC`
+		),
 		correct: db.prepare(
 			`UPDATE jev_decisions SET corrected_to = ?
 			 WHERE account_id = ? AND email_id = ? AND status = 'done'`
@@ -254,6 +284,8 @@ export function recordDecision(
 		/** Null when there was nothing to ask, so Jev wasn't called. */
 		model: string | null;
 		inputTokens: number;
+		/** Jev's spam verdict and what came of it, when spam checking was on. */
+		spam?: { spam: number; phishing: number; stalwartSpam: boolean; action: string | null } | null;
 	},
 	now = Date.now()
 ): void {
@@ -267,6 +299,10 @@ export function recordDecision(
 		facts: JSON.stringify(d.facts),
 		rules: d.rules?.length ? JSON.stringify(d.rules) : null,
 		pinnedBy: d.pinnedBy ?? null,
+		spam: d.spam?.spam ?? null,
+		phishing: d.spam?.phishing ?? null,
+		stalwartSpam: d.spam ? (d.spam.stalwartSpam ? 1 : 0) : null,
+		spamAction: d.spam?.action ?? null,
 		model: d.model,
 		inputTokens: d.inputTokens,
 		now
@@ -294,6 +330,44 @@ export function recordCorrections(accountId: string, emailIds: string[], to: Inb
 	getDb().transaction(() => {
 		for (const id of emailIds) s.correct.run(to, accountId, id);
 	})();
+}
+
+/** You marked these Spam or Not spam: note it against Jev's verdict, where there was one. */
+export function recordSpamCorrections(accountId: string, emailIds: string[], to: 'spam' | 'ham'): void {
+	const s = stmts();
+	getDb().transaction(() => {
+		for (const id of emailIds) s.correctSpam.run(to, accountId, id);
+	})();
+}
+
+export interface SpamRow {
+	emailId: string;
+	spam: number;
+	phishing: number;
+	stalwartSpam: boolean;
+	action: string | null;
+	correctedTo: 'spam' | 'ham' | null;
+}
+
+/** Every spam verdict since `sinceMs`, newest first. */
+export function spamRows(accountId: string, sinceMs: number): SpamRow[] {
+	return (
+		stmts().spamRows.all(accountId, sinceMs) as {
+			email_id: string;
+			spam: number;
+			phishing: number;
+			stalwart_spam: number | null;
+			spam_action: string | null;
+			spam_corrected_to: string | null;
+		}[]
+	).map((r) => ({
+		emailId: r.email_id,
+		spam: r.spam,
+		phishing: r.phishing,
+		stalwartSpam: r.stalwart_spam === 1,
+		action: r.spam_action,
+		correctedTo: r.spam_corrected_to === 'spam' || r.spam_corrected_to === 'ham' ? r.spam_corrected_to : null
+	}));
 }
 
 /** Emails Jev picked a tab for since `sinceMs`, and how many of those you moved elsewhere. */

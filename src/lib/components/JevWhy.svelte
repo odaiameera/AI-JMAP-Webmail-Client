@@ -7,7 +7,23 @@
 	 * Jev conditions, and the facts that were sent with the email. Renders
 	 * nothing for mail Jev never answered for.
 	 */
-	let { emailId }: { emailId: string } = $props();
+	export interface JevSpamCheck {
+		spam: number;
+		phishing: number;
+		stalwartSpam: boolean | null;
+		/** 'junked' | 'rescued' | 'flagged', or in watch mode 'would_junk' | 'would_rescue' | 'would_flag'. */
+		action: string | null;
+		correctedTo: 'spam' | 'ham' | null;
+	}
+
+	let {
+		emailId,
+		onSpamCheck
+	}: {
+		emailId: string;
+		/** Tells the message view about the spam verdict, for its banner. */
+		onSpamCheck?: (check: JevSpamCheck | null) => void;
+	} = $props();
 
 	interface RuleCheck {
 		ruleId: string;
@@ -32,6 +48,7 @@
 		rules: RuleCheck[];
 		/** The sender pin that chose the tab, when one did. */
 		pinnedBy: string | null;
+		spamCheck: JevSpamCheck | null;
 		model: string | null;
 		mock: boolean;
 	}
@@ -43,11 +60,14 @@
 		const id = emailId;
 		decision = null;
 		open = false;
+		onSpamCheck?.(null);
 		let cancelled = false;
 		fetch(`/api/jev/decision/${encodeURIComponent(id)}`)
 			.then((res) => (res.ok ? res.json() : null))
 			.then((body) => {
-				if (!cancelled) decision = (body?.decision as Decision | null) ?? null;
+				if (cancelled) return;
+				decision = (body?.decision as Decision | null) ?? null;
+				onSpamCheck?.(decision?.spamCheck ?? null);
 			})
 			.catch(() => {});
 		return () => {
@@ -90,9 +110,17 @@
 		decision ? [...new Map(decision.rules.filter((r) => r.fired).map((r) => [r.ruleId, r.ruleName])).values()] : []
 	);
 
+	// Moved by the spam check: its tab pick never applied, so don't show one.
+	const spamMoved = $derived(
+		decision?.spamCheck?.action === 'junked' || decision?.spamCheck?.action === 'rescued'
+	);
+
 	const chipLabel = $derived.by(() => {
 		if (!decision) return '';
+		if (decision.spamCheck?.action === 'junked') return 'moved to Junk';
+		if (decision.spamCheck?.action === 'rescued') return 'rescued from Junk';
 		if (decision.category) return labelOf(decision.applied ?? decision.category);
+		if (decision.rules.length === 0 && decision.spamCheck) return 'spam check';
 		return firedRules.length === 1 ? `rule “${firedRules[0]}”` : firedRules.length > 1 ? `${firedRules.length} rules` : 'rules checked';
 	});
 
@@ -117,8 +145,31 @@
 		decision.rules = decision.rules.map((r) => (r.ruleId === ruleId ? { ...r, markedWrong: true } : r));
 	}
 
+	const security = $derived(
+		(decision?.facts as Record<string, unknown> | undefined)?.security as
+			| {
+					spf: string | null;
+					dkim: string | null;
+					dmarc: string | null;
+					reply_to_differs: boolean;
+					display_name_mismatch: boolean;
+					link_domains: string[];
+					stalwart_spam_score: number | null;
+				}
+			| undefined
+	);
+
+	const SPAM_ACTIONS: Record<string, string> = {
+		junked: 'Jev moved this to Junk.',
+		rescued: 'Jev brought this back from Junk.',
+		flagged: 'Jev left this here with a warning.',
+		would_junk: 'In active mode, Jev would have moved this to Junk.',
+		would_rescue: 'In active mode, Jev would have brought this back from Junk.',
+		would_flag: 'In active mode, Jev would have shown a warning.'
+	};
+
 	const summary = $derived.by(() => {
-		if (!decision?.category) return '';
+		if (!decision?.category || spamMoved) return '';
 		if (decision.pinnedBy) {
 			return `You pinned ${decision.pinnedBy} to ${labelOf(decision.category)}, so Jev wasn’t asked which tab.`;
 		}
@@ -155,6 +206,31 @@
 					</p>
 				{/if}
 
+				{#if decision.spamCheck}
+					{@const sc = decision.spamCheck}
+					<p class="mt-2.5 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">Spam check</p>
+					<p class="text-text">
+						Spam {percent(sc.spam)} · phishing {percent(sc.phishing)}
+						{#if sc.stalwartSpam !== null}
+							<span class="text-text-tertiary">— Stalwart {sc.stalwartSpam ? 'flagged it' : 'let it through'}{security?.stalwart_spam_score != null ? ` (score ${security.stalwart_spam_score})` : ''}</span>
+						{/if}
+					</p>
+					{#if sc.action && SPAM_ACTIONS[sc.action]}
+						<p class="text-text-secondary">{SPAM_ACTIONS[sc.action]}</p>
+					{/if}
+					{#if sc.correctedTo}
+						<p class="text-text-tertiary italic">You marked it {sc.correctedTo === 'spam' ? 'spam' : 'not spam'}.</p>
+					{/if}
+					{#if security}
+						<p class="text-text-tertiary mt-1">
+							SPF {security.spf ?? '—'} · DKIM {security.dkim ?? '—'} · DMARC {security.dmarc ?? '—'}
+							{#if security.reply_to_differs}<br />Replies go to a different domain.{/if}
+							{#if security.display_name_mismatch}<br />The display name names another domain.{/if}
+							{#if security.link_domains.length > 0}<br />Links to: {security.link_domains.join(', ')}{/if}
+						</p>
+					{/if}
+				{/if}
+
 				{#if decision.rules.length > 0}
 					<p class="mt-2.5 mb-1 text-3xs uppercase tracking-wider text-text-tertiary font-semibold">Your rules</p>
 					<ul class="space-y-1.5">
@@ -188,7 +264,7 @@
 					{/if}
 				{/if}
 
-				{#if decision.category && !decision.pinnedBy}
+				{#if decision.category && !decision.pinnedBy && !spamMoved}
 				<ul class="mt-2.5 space-y-1">
 					{#each INBOX_CATEGORIES as c (c.key)}
 						{@const p = decision.probabilities[c.key] ?? 0}

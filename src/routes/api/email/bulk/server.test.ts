@@ -22,7 +22,10 @@ vi.mock('$lib/jmap/email', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/jmap/email')>()),
 	setEmailCategory: mocks.setEmailCategory
 }));
-vi.mock('$lib/server/db/queries/jev-decisions', () => ({ recordCorrections: mocks.recordCorrections }));
+vi.mock('$lib/server/db/queries/jev-decisions', () => ({
+	recordCorrections: mocks.recordCorrections,
+	recordSpamCorrections: vi.fn()
+}));
 vi.mock('$lib/server/db/queries/jev-learning', () => ({
 	recordSenderMoves: mocks.recordSenderMoves,
 	forgetSenderMoves: mocks.forgetSenderMoves,

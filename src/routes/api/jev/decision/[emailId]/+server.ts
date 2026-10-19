@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		...check,
 		markedWrong: hasRuleFeedback(account, check.ruleId, params.emailId)
 	}));
-	if (!row || row.status !== 'done' || (!row.category && rules.length === 0)) {
+	if (!row || row.status !== 'done' || (!row.category && rules.length === 0 && row.spam === null)) {
 		return json({ decision: null });
 	}
 
@@ -38,6 +38,16 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			facts: row.facts ?? {},
 			rules,
 			pinnedBy: row.pinnedBy,
+			spamCheck:
+				row.spam === null
+					? null
+					: {
+							spam: row.spam,
+							phishing: row.phishing,
+							stalwartSpam: row.stalwartSpam,
+							action: row.spamAction,
+							correctedTo: row.spamCorrectedTo
+						},
 			model: row.model,
 			mock: row.model === 'mock',
 			decidedAt: row.decidedAt

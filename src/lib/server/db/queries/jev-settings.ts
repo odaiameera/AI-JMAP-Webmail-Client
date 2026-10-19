@@ -6,6 +6,18 @@ import { getDb } from '../index';
  * the login.
  */
 
+/**
+ * Jev as the spam layer: off; watch — verdicts recorded and shown beside
+ * Stalwart's, nothing moves; active — confident verdicts move mail.
+ */
+export type SpamMode = 'off' | 'watch' | 'active';
+
+export const SPAM_MODES: SpamMode[] = ['off', 'watch', 'active'];
+
+export function isSpamMode(value: unknown): value is SpamMode {
+	return typeof value === 'string' && (SPAM_MODES as string[]).includes(value);
+}
+
 export interface JevSettings {
 	/** Split the Inbox into Important / Updates / Newsletters / Promotions. */
 	inboxTabs: boolean;
@@ -16,12 +28,15 @@ export interface JevSettings {
 	jevEnabled: boolean;
 	/** ISO receivedAt new mail has been queued up to; null while Jev is off. */
 	sortCursor: string | null;
+	/** Jev as the spam layer; only acted on while `jevEnabled`. */
+	spamMode: SpamMode;
 }
 
 export const DEFAULT_JEV_SETTINGS: JevSettings = {
 	inboxTabs: false,
 	jevEnabled: false,
-	sortCursor: null
+	sortCursor: null,
+	spamMode: 'off'
 };
 
 let _stmts: ReturnType<typeof prepareStmts> | null = null;
@@ -35,15 +50,16 @@ function prepareStmts() {
 	const db = getDb();
 	return {
 		get: db.prepare(
-			'SELECT inbox_tabs, jev_enabled, sort_cursor FROM jev_settings WHERE account_id = ?'
+			'SELECT inbox_tabs, jev_enabled, sort_cursor, spam_mode FROM jev_settings WHERE account_id = ?'
 		),
 		upsert: db.prepare(
-			`INSERT INTO jev_settings (account_id, inbox_tabs, jev_enabled, sort_cursor, updated_at)
-			 VALUES (@accountId, @inboxTabs, @jevEnabled, @sortCursor, @now)
+			`INSERT INTO jev_settings (account_id, inbox_tabs, jev_enabled, sort_cursor, spam_mode, updated_at)
+			 VALUES (@accountId, @inboxTabs, @jevEnabled, @sortCursor, @spamMode, @now)
 			 ON CONFLICT (account_id) DO UPDATE SET
 			   inbox_tabs = excluded.inbox_tabs,
 			   jev_enabled = excluded.jev_enabled,
 			   sort_cursor = excluded.sort_cursor,
+			   spam_mode = excluded.spam_mode,
 			   updated_at = excluded.updated_at`
 		)
 	};
@@ -54,13 +70,14 @@ function stmts() {
 
 export function getJevSettings(accountId: string): JevSettings {
 	const row = stmts().get.get(accountId) as
-		| { inbox_tabs: number; jev_enabled: number; sort_cursor: string | null }
+		| { inbox_tabs: number; jev_enabled: number; sort_cursor: string | null; spam_mode: string }
 		| undefined;
 	if (!row) return { ...DEFAULT_JEV_SETTINGS };
 	return {
 		inboxTabs: row.inbox_tabs === 1,
 		jevEnabled: row.jev_enabled === 1,
-		sortCursor: row.sort_cursor
+		sortCursor: row.sort_cursor,
+		spamMode: isSpamMode(row.spam_mode) ? row.spam_mode : 'off'
 	};
 }
 
@@ -83,6 +100,7 @@ export function updateJevSettings(
 		inboxTabs: next.inboxTabs ? 1 : 0,
 		jevEnabled: next.jevEnabled ? 1 : 0,
 		sortCursor: next.sortCursor,
+		spamMode: next.spamMode,
 		now: now.getTime()
 	});
 	return next;

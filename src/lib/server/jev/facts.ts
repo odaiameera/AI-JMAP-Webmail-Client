@@ -4,6 +4,7 @@ import { CONTACTS_CAPABILITY, resolveContactsAccount } from '$lib/jmap/contacts'
 import { cardHasAddress, normalizeAddress } from '$lib/server/trust-sender';
 import { detectVerificationCode } from '$lib/utils/otp';
 import { bodyExcerpt, type JevFacts } from './email-state';
+import { securityFacts } from './spam';
 
 /**
  * The facts sent to Jev beside each email (see `JevFacts`). Header facts
@@ -169,6 +170,8 @@ export async function gatherFacts(
 		sentId: string | null;
 		session: JMAPSession | null;
 		senderHistory?: (sender: string) => string | null;
+		/** Add origin evidence and Stalwart's verdict (spam checking on). */
+		security?: boolean;
 	}
 ): Promise<Map<string, JevFacts>> {
 	const senders = [...new Set(emails.map(senderAddress).filter(Boolean))];
@@ -188,7 +191,8 @@ export async function gatherFacts(
 			you_have_written_to_sender: wroteTo?.get(sender) ?? null,
 			you_have_written_in_this_thread: threads ? threads.has(email.threadId) : null,
 			...headerFacts(email, ctx.accountEmail),
-			sender_history: sender ? (ctx.senderHistory?.(sender) ?? null) : null
+			sender_history: sender ? (ctx.senderHistory?.(sender) ?? null) : null,
+			...(ctx.security ? { security: securityFacts(email) } : {})
 		});
 	}
 	return facts;

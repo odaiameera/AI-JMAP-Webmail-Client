@@ -1,5 +1,6 @@
 import type { Email, EmailAddress } from '$lib/jmap/types';
 import { htmlToPromptText } from '$lib/server/ai/extract-event';
+import type { JevSecurityFacts } from './spam';
 
 /**
  * What Jev is shown about one email: the email itself, cut down to the
@@ -29,6 +30,8 @@ export interface JevFacts {
 	contains_sign_in_code: boolean;
 	/** Where you have moved this sender's mail before, in a sentence; null if never. */
 	sender_history: string | null;
+	/** Origin and Stalwart's verdict, sent only while spam checking is on. */
+	security?: JevSecurityFacts;
 }
 
 export interface JevEmailState {

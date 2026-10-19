@@ -22,7 +22,9 @@ import {
 	MAX_JEV_ATTEMPTS,
 	recordCorrections,
 	recordDecision,
-	recordFailure
+	recordFailure,
+	recordSpamCorrections,
+	spamRows
 } from './jev-decisions';
 
 const ACCT = 'acct-1';
@@ -126,5 +128,25 @@ describe('jev decisions', () => {
 	it('tells which emails Jev already knows, judged or not', () => {
 		expect([...knownEmailIds(ACCT, ['e1', 'b-old', 'never-seen'])].sort()).toEqual(['b-old', 'e1']);
 		expect(knownEmailIds(ACCT, []).size).toBe(0);
+	});
+
+	it('keeps spam verdicts, and your Spam / Not spam clicks against them', () => {
+		enqueueEmails(ACCT, ['s1', 's2']);
+		const spamAnswer = { ...answer, spam: { spam: 0.95, phishing: 0.1, stalwartSpam: false, action: 'would_junk' } };
+		recordDecision(ACCT, 's1', spamAnswer, 9000);
+		recordDecision(ACCT, 's2', answer, 9000); // no spam check
+		recordSpamCorrections(ACCT, ['s1', 's2'], 'ham');
+
+		expect(getDecision(ACCT, 's1')).toMatchObject({
+			spam: 0.95,
+			phishing: 0.1,
+			stalwartSpam: false,
+			spamAction: 'would_junk',
+			spamCorrectedTo: 'ham'
+		});
+		expect(getDecision(ACCT, 's2')).toMatchObject({ spam: null, spamCorrectedTo: null });
+		expect(spamRows(ACCT, 8000)).toEqual([
+			{ emailId: 's1', spam: 0.95, phishing: 0.1, stalwartSpam: false, action: 'would_junk', correctedTo: 'ham' }
+		]);
 	});
 });

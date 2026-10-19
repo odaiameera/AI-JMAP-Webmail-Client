@@ -147,6 +147,9 @@ export interface Email {
 	'header:x-spam-score:asText'?: string | null;
 	/** Per-rule breakdown behind the score, where the server publishes one. */
 	'header:x-spam-result:asText'?: string | null;
+	replyTo?: EmailAddress[] | null;
+	/** Every Authentication-Results header, topmost (our own server's) first. */
+	'header:authentication-results:asText:all'?: string[] | null;
 	/** Mailing-list headers, read for Jev's facts. */
 	'header:list-id:asText'?: string | null;
 	'header:precedence:asText'?: string | null;

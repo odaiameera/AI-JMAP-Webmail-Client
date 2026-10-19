@@ -279,7 +279,30 @@ Cost doesn't limit anything here. Accuracy and privacy are the real constraints.
 - **Settings → Jev → Pinned senders:** list, change, remove, or add an address or `@domain` per account.
 - **Scope.** Pins apply while Jev reads the account, since the Jev worker is what applies them. Mail sorted only by hand isn't pinned.
 
-### Phase 4: Jev as the spam layer, watch-only first
+### Phase 4: Jev as the spam layer, watch-only first — built
+
+What was built, in [spam.ts](src/lib/server/jev/spam.ts) and the worker:
+
+- **Spam mode per account:** Off, Watch only or Active (`jev_settings.spam_mode`, migration 016). It needs "Let Jev read new mail".
+- **Evidence** (`facts.security`, sent only while spam checks are on):
+  - SPF, DKIM and DMARC from the topmost `Authentication-Results`, the one this server added
+  - a Reply-To on another domain
+  - a display name that names another domain
+  - up to five linked domains
+  - Stalwart's score, rule names and verdict
+- **The same single call.** Inbox arrivals get `spam` and `phishing` in the call that also asks the tab and rule questions. Junk arrivals are queued too, and are asked only about spam.
+- **Watch only:** the verdict is recorded with what Active would have done (`would_junk`, `would_flag`, `would_rescue`), and nothing moves.
+- **Active:** the table below, applied by `decideSpam`. Mail sent to Junk skips rules and tabs, and Jev's moves never set `$junk` or `$notjunk`.
+- **The message view:**
+  - the "Why is this here?" chip gains a Spam check section with both probabilities, Stalwart's verdict, the authentication results and what happened
+  - in Active mode, a banner explains a warning, a move to Junk or a rescue
+- **Measuring Jev:**
+  - your Spam and Not spam clicks are recorded against Jev's verdict
+  - Settings → Jev → Spam checks shows the last 30 days: how often Jev agreed with Stalwart when it was sure, how often you sided with it, and the two disagreement lists, each linking to the email
+
+**Not built:** merging the Stalwart score chip and the "trust sender" button into one spam panel. Both still work as before, beside Jev's verdict.
+
+The plan as written:
 
 - **Facts for spam:**
   - fetch `Authentication-Results` and `Reply-To`
