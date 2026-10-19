@@ -1,4 +1,5 @@
-import type { Rule, RuleCondition, RuleAction, RuleConditionOp } from '$lib/types/rules';
+import { hasJevCondition, type Rule, type RuleCondition, type RuleAction, type RuleConditionOp } from '$lib/types/rules';
+import { CATEGORY_KEYWORDS, categoryKeywordPatch, isInboxCategory } from '$lib/types/categories';
 import type { Mailbox } from '$lib/jmap/types';
 import { findLabelsParentId, isLabelMailbox } from '$lib/types/labels';
 
@@ -97,6 +98,15 @@ export function compileRulesToSieve(
 	}
 
 	for (const rule of activeRules) {
+		// A Jev condition has no Sieve form, and dropping it would widen the
+		// rule ("from @shop AND Jev: receipt → move" would move everything
+		// from @shop). The app's own engine applies these rules instead.
+		if (hasJevCondition(rule)) {
+			lines.push(`# Rule: ${rule.name} — has a Jev condition, applied by the app`);
+			lines.push('');
+			continue;
+		}
+
 		// Drop empty/unusable conditions; skip the rule entirely if none
 		// remain so we never emit a filter that matches every message.
 		const usableConditions = rule.conditions.filter(isUsableCondition);
@@ -193,6 +203,13 @@ function compileAction(a: RuleAction, ctx: SieveContext): string {
 		}
 		case 'markRead':       return `addflag "\\\\Seen";`;
 		case 'markImportant':  return `addflag "\\\\Flagged";`;
+		case 'setCategory': {
+			// Inbox tabs are keywords: clear the other tabs, set this one.
+			if (!isInboxCategory(a.value)) return '';
+			const on = Object.entries(categoryKeywordPatch(a.value)).filter(([, v]) => v).map(([k]) => k);
+			const all = Object.values(CATEGORY_KEYWORDS).map((k) => `"${k}"`).join(', ');
+			return `removeflag [${all}];${on.length ? ` addflag "${on[0]}";` : ''}`;
+		}
 		case 'delete':         return `discard; stop;`;
 		case 'stopProcessing': return `stop;`;
 		default:               return '';

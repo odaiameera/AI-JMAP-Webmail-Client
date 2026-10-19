@@ -4,7 +4,15 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onDestroy } from 'svelte';
 	import type { PageData } from './$types';
-	import type { Rule, RuleAction } from '$lib/types/rules';
+	import {
+		hasJevCondition,
+		JEV_STRICTNESS,
+		ruleHolds,
+		type JevStrictness,
+		type Rule,
+		type RuleAction
+	} from '$lib/types/rules';
+	import { INBOX_CATEGORIES } from '$lib/types/categories';
 	import { findLabelsParentId, isLabelMailbox, isLabelsParent } from '$lib/types/labels';
 
 	let { data }: { data: PageData } = $props();
@@ -106,6 +114,24 @@
 			enabled: true,
 			logic: 'allof',
 			conditions: [{ id: 'c_' + Date.now(), field: 'from', op: 'contains', value: '', negate: false }],
+			actions: [{ type: 'applyLabel' }],
+			createdAt: Date.now()
+		};
+		localRules = [...localRules, rule];
+		selectedId = rule.id;
+		await persistAll();
+	}
+
+	/** A rule Jev judges: one plain-English condition to fill in. */
+	async function createJevRule() {
+		const rule: Rule = {
+			id: newRuleId(),
+			name: 'New Jev rule',
+			enabled: true,
+			logic: 'allof',
+			conditions: [
+				{ id: 'c_' + Date.now(), field: 'jev', op: 'contains', value: '', negate: false, strictness: 'normal' }
+			],
 			actions: [{ type: 'applyLabel' }],
 			createdAt: Date.now()
 		};
@@ -221,10 +247,94 @@
 		if (selectedIdx < 0) return;
 		const ok = await persistAll();
 		if (!ok) return;
-		await streamApply(localRules[selectedIdx]);
+		const rule = localRules[selectedIdx];
+		// A Jev rule applies to the tested emails it matches, not to a search.
+		await streamApply(rule, hasJevCondition(rule) ? jevMatches.map((r) => r.id) : undefined);
 	}
 
-	async function streamApply(rule: Rule) {
+	// --- Testing a rule Jev judges ---
+
+	interface JevTestRow {
+		id: string;
+		from: string;
+		subject: string;
+		values: Record<string, boolean | number | null>;
+		error: string | null;
+	}
+	interface JevTest {
+		ruleId: string;
+		/** Statement per Jev condition when tested — a change makes the test stale. */
+		statements: Record<string, string>;
+		total: number;
+		narrowed: boolean;
+		inputTokens: number;
+		costUsd: number;
+		mock: boolean;
+		rows: JevTestRow[];
+	}
+
+	let jevTest = $state<JevTest | null>(null);
+	let jevTesting = $state(false);
+	let jevTestError = $state('');
+
+	const selectedRule = $derived(selectedIdx >= 0 ? localRules[selectedIdx] : null);
+	const selectedIsJev = $derived(!!selectedRule && hasJevCondition(selectedRule));
+
+	function jevStatements(rule: Rule): Record<string, string> {
+		return Object.fromEntries(rule.conditions.filter((c) => c.field === 'jev').map((c) => [c.id, c.value.trim()]));
+	}
+
+	// The current test, if it was run on this rule as it now reads.
+	const currentJevTest = $derived.by(() => {
+		if (!jevTest || !selectedRule || jevTest.ruleId !== selectedRule.id) return null;
+		const now = jevStatements(selectedRule);
+		const same =
+			Object.keys(now).length === Object.keys(jevTest.statements).length &&
+			Object.entries(now).every(([id, text]) => jevTest!.statements[id] === text);
+		return same ? jevTest : null;
+	});
+
+	// Decided with the same logic as the engine, so changing a condition's
+	// strictness re-sorts the list at once, without asking Jev again.
+	const jevMatches = $derived.by(() => {
+		if (!currentJevTest || !selectedRule) return [];
+		const rule = selectedRule;
+		return currentJevTest.rows.filter(
+			(row) => !row.error && ruleHolds(rule, (c) => row.values[c.id] ?? undefined)
+		);
+	});
+
+	async function runJevTest() {
+		if (!selectedRule) return;
+		const rule = $state.snapshot(selectedRule) as Rule;
+		jevTesting = true;
+		jevTestError = '';
+		try {
+			const res = await fetch('/api/rules/jev-test', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ rule })
+			});
+			const body = await res.json().catch(() => null);
+			if (!res.ok) throw new Error(body?.error ?? 'The test failed. Try again.');
+			jevTest = { ...(body as Omit<JevTest, 'ruleId' | 'statements'>), ruleId: rule.id, statements: jevStatements(rule) };
+		} catch (err) {
+			jevTestError = err instanceof Error ? err.message : 'The test failed. Try again.';
+		} finally {
+			jevTesting = false;
+		}
+	}
+
+	function setStrictness(conditionId: string, value: string) {
+		if (!selectedRule) return;
+		const c = selectedRule.conditions.find((x) => x.id === conditionId);
+		if (c) c.strictness = value as JevStrictness;
+	}
+
+	const percent = (n: number) => `${Math.round(n * 100)}%`;
+	const costLine = (usd: number) => (usd < 0.01 ? 'Cost under $0.01.' : `Cost ≈ $${usd.toFixed(2)}.`);
+
+	async function streamApply(rule: Rule, ids?: string[]) {
 		progress = { status: 'running', scanned: 0, matched: 0, applied: 0, total: 0 };
 		progressVisible = true;
 		abortCtrl = new AbortController();
@@ -233,7 +343,7 @@
 			const res = await fetch('/api/rules/apply', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ rules: [rule] }),
+				body: JSON.stringify(ids ? { rules: [rule], ids } : { rules: [rule] }),
 				signal: abortCtrl.signal
 			});
 			if (!res.ok || !res.body) {
@@ -334,6 +444,10 @@
 			}
 			case 'markRead': return 'Mark as read';
 			case 'markImportant': return 'Mark important';
+			case 'setCategory': {
+				const tab = INBOX_CATEGORIES.find((c) => c.key === a.value);
+				return tab ? `Move to the ${tab.label} tab` : 'Move to an Inbox tab';
+			}
 			case 'delete': return 'Delete';
 			case 'stopProcessing': return 'Stop processing';
 		}
@@ -349,6 +463,15 @@
 		<h1 class="text-lg font-semibold text-text">Rules</h1>
 		<p class="text-xs text-text-tertiary">{localRules.length} {localRules.length === 1 ? 'rule' : 'rules'}</p>
 		<div class="flex-1"></div>
+		{#if data.jev.mode !== 'off'}
+			<button
+				onclick={createJevRule}
+				title="A rule with a condition Jev judges, written in plain English"
+				class="text-sm text-accent-fg border border-accent/40 hover:bg-accent/10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+			>
+				+ New Jev rule
+			</button>
+		{/if}
 		<button
 			onclick={createRule}
 			class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer"
@@ -451,8 +574,29 @@
 									<option value="body">Body</option>
 									<option value="size">Size (KB)</option>
 									<option value="hasAttachment">Has attachment</option>
+									{#if data.jev.mode !== 'off' || condition.field === 'jev'}
+										<option value="jev">Jev judges</option>
+									{/if}
 								</select>
-								{#if condition.field !== 'hasAttachment'}
+								{#if condition.field === 'jev'}
+									<input
+										bind:value={condition.value}
+										placeholder="it’s an invoice or a request for payment"
+										aria-label="Statement for Jev to judge"
+										class="flex-1 min-w-[200px] bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-xs text-text outline-none focus:border-accent"
+									/>
+									<select
+										value={condition.strictness ?? 'normal'}
+										onchange={(e) => setStrictness(condition.id, e.currentTarget.value)}
+										title="How sure Jev must be that the statement is true"
+										aria-label="Strictness"
+										class="bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-xs text-text outline-none focus:border-accent"
+									>
+										{#each Object.entries(JEV_STRICTNESS) as [key, level] (key)}
+											<option value={key}>{level.label} · {percent(level.threshold)}</option>
+										{/each}
+									</select>
+								{:else if condition.field !== 'hasAttachment'}
 									<select bind:value={condition.op} class="bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-xs text-text outline-none focus:border-accent">
 										<option value="contains">contains</option>
 										<option value="not_contains">doesn't contain</option>
@@ -498,9 +642,25 @@
 									<option value="moveToFolder">Move to folder</option>
 									<option value="markRead">Mark as read</option>
 									<option value="markImportant">Mark important</option>
-									<option value="delete">Move to trash</option>
+									<option value="setCategory">Move to Inbox tab</option>
+									{#if !hasJevCondition(rule) || action.type === 'delete'}
+										<option value="delete">Move to trash</option>
+									{/if}
 									<option value="stopProcessing">Stop processing</option>
 								</select>
+								{#if action.type === 'setCategory'}
+									<select bind:value={action.value} class="flex-1 min-w-[140px] bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-xs text-text outline-none focus:border-accent">
+										<option value="">Select a tab…</option>
+										{#each INBOX_CATEGORIES as tab (tab.key)}
+											<option value={tab.key}>{tab.label}</option>
+										{/each}
+									</select>
+								{/if}
+								{#if action.type === 'delete' && hasJevCondition(rule)}
+									<span class="w-full text-2xs text-warning">
+										⚠ A rule Jev judges never deletes — Trash empties itself, so a wrong call would be permanent. This action is skipped.
+									</span>
+								{/if}
 								{#if action.type === 'applyLabel'}
 									<select bind:value={action.value} class="flex-1 min-w-[140px] bg-surface-hover border border-border rounded-lg px-2 py-1.5 text-xs text-text outline-none focus:border-accent">
 										<option value="">Select a label…</option>
@@ -553,6 +713,96 @@
 						{rule.actions.map(actionSummary).join(' · ') || 'No actions'}
 					</p>
 
+					{#if selectedIsJev}
+						<!-- Jev rule: tested on recent mail rather than counted. -->
+						<div class="rounded-xl border border-border bg-surface-hover/40 p-4 flex flex-col gap-3">
+							{#if data.jev.stats[rule.id]}
+								{@const stats = data.jev.stats[rule.id]}
+								<p class="text-xs text-text-secondary">
+									So far it fired on <span class="font-semibold text-text">{stats.hits}</span>
+									{stats.hits === 1 ? 'email' : 'emails'}; you marked
+									<span class="font-semibold text-text">{stats.misses}</span> as shouldn’t have.
+									{#if stats.hits >= 5 && stats.misses / stats.hits >= 0.2 && rule.conditions.some((c) => c.field === 'jev' && (c.strictness ?? 'normal') !== 'strict')}
+										That’s a lot of misses — try a stricter setting, or a narrower statement.
+									{/if}
+								</p>
+							{/if}
+							{#if data.jev.mode === 'off'}
+								<p class="text-xs text-warning">Jev isn’t configured on this server, so this rule never fires.</p>
+							{:else if !data.jev.enabled}
+								<p class="text-xs text-warning">
+									This rule only runs once you let Jev read this account’s new mail
+									(<a href="/settings/jev" class="underline">Settings → Jev</a>). Until then it never fires.
+								</p>
+							{/if}
+							<div class="flex items-start gap-3">
+								<p class="flex-1 text-xs text-text-tertiary">
+									No search can count matches for a rule Jev judges. Test it on your newest Inbox
+									emails{rule.logic === 'allof' ? ' that pass its other conditions' : ''} instead — it
+									changes nothing{data.jev.mode === 'live' ? ', and sends those emails to TypeSafe once' : ''}.
+								</p>
+								<button
+									onclick={runJevTest}
+									disabled={jevTesting || data.jev.mode === 'off'}
+									class="shrink-0 text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								>
+									{jevTesting ? 'Asking Jev…' : currentJevTest ? 'Test again' : 'Test on recent mail'}
+								</button>
+							</div>
+							{#if jevTestError}
+								<p class="text-xs text-danger">{jevTestError}</p>
+							{/if}
+							{#if jevTest && jevTest.ruleId === rule.id && !currentJevTest}
+								<p class="text-xs text-text-tertiary">The statement changed since the last test — test again.</p>
+							{/if}
+							{#if currentJevTest}
+								<p class="text-xs text-text-secondary">
+									<span class="text-sm font-semibold text-text">{jevMatches.length}</span>
+									of {currentJevTest.total} recent emails match at this strictness.
+									{currentJevTest.mock ? 'Mock answers — nothing was sent.' : costLine(currentJevTest.costUsd)}
+								</p>
+								<ul class="max-h-80 overflow-y-auto rounded-lg border border-border divide-y divide-border bg-surface">
+									{#each currentJevTest.rows as row (row.id)}
+										{@const matches = jevMatches.some((m) => m.id === row.id)}
+										<li class="flex items-center gap-3 px-3 py-2 text-xs">
+											<span class="w-3 shrink-0 {matches ? 'text-success' : 'text-text-tertiary'}" aria-label={matches ? 'Matches' : 'Doesn’t match'}>{matches ? '✓' : '–'}</span>
+											<div class="flex-1 min-w-0">
+												<p class="truncate {matches ? 'text-text' : 'text-text-secondary'}">{row.subject}</p>
+												<p class="truncate text-text-tertiary">{row.from}</p>
+											</div>
+											{#if row.error}
+												<span class="shrink-0 text-danger" title={row.error}>No answer</span>
+											{:else}
+												{#each rule.conditions.filter((c) => c.field === 'jev') as c (c.id)}
+													{@const p = row.values[c.id]}
+													{#if typeof p === 'number'}
+														<span class="shrink-0 tabular-nums text-text-tertiary" title={c.value}>{percent(p)}</span>
+													{/if}
+												{/each}
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+							<div class="flex items-center gap-3 justify-end">
+								<button
+									onclick={saveOnly}
+									disabled={saving}
+									class="text-sm text-text-secondary hover:text-text border border-border hover:border-text-tertiary px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								>
+									{saving ? 'Saving…' : 'Save'}
+								</button>
+								<button
+									onclick={saveAndApply}
+									disabled={saving || !currentJevTest || jevMatches.length === 0}
+									title={currentJevTest ? 'Apply this rule’s actions to the matching emails above' : 'Test the rule first'}
+									class="text-sm bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-accent-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								>
+									Save &amp; apply to {jevMatches.length} {jevMatches.length === 1 ? 'match' : 'matches'}
+								</button>
+							</div>
+						</div>
+					{:else}
 					<!-- Match preview + save bar -->
 					<div class="rounded-xl border border-border bg-surface-hover/40 p-4 flex items-center gap-3 flex-wrap">
 						<div class="flex items-center gap-2">
@@ -586,6 +836,7 @@
 							Save &amp; apply now
 						</button>
 					</div>
+					{/if}
 				</div>
 			{/if}
 		</section>

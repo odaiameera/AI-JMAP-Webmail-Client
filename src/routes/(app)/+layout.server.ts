@@ -12,6 +12,7 @@ import { syncIdentities } from '$lib/server/db/queries/identities';
 import { loadRules } from '$lib/server/rules-store';
 import { readPreferences } from '$lib/server/preferences';
 import { getDisplayName } from '$lib/server/db/queries/app-prefs';
+import { getJevSettings } from '$lib/server/db/queries/jev-settings';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	if (!locals.user) {
@@ -137,6 +138,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			notifyCalendarEvents,
 			notifyEventReminders,
 			otpTrashAfterCopy,
+			// Whether Jev reads this account's mail — the message view then
+			// offers its "Why is this here?" chip.
+			jevReads: activeAccount ? getJevSettings(activeAccount.id).jevEnabled : false,
 			// "Create event from email" (LLM extraction) only renders when an
 			// Ollama endpoint is configured server-side.
 			aiEnabled: !!(env.OLLAMA_API_KEY || env.OLLAMA_URL)

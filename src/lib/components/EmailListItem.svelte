@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Email } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
+	import { categoryOf, type InboxTabsState } from '$lib/types/categories';
 	import { getContext, onDestroy } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { formatTimeOfDay } from '$lib/utils/date-buckets';
@@ -12,6 +13,7 @@
 	const listMailboxId = getContext<() => string>('listMailboxId');
 	/** emailId → ISO return time for mail parked in Remind Me Later. */
 	const getReminderAt = getContext<(() => Map<string, string>) | undefined>('reminderAt');
+	const getInboxTabs = getContext<(() => InboxTabsState | null) | undefined>('inboxTabs');
 
 	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
@@ -30,6 +32,8 @@
 	);
 
 	const isRead = $derived('$seen' in email.keywords);
+	// Which tab this row is in, when the list is a tabbed Inbox.
+	const category = $derived(getInboxTabs?.() ? categoryOf(email.keywords) : null);
 	const senderName = $derived(
 		email.from?.[0]?.name || email.from?.[0]?.email || 'Unknown'
 	);
@@ -203,5 +207,5 @@
 		</div>
 	</div>
 
-	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} />
+	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} {category} />
 </a>

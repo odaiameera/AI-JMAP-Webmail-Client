@@ -1,22 +1,41 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import RemindMeLaterPicker from './RemindMeLaterPicker.svelte';
+	import CategoryPicker from './CategoryPicker.svelte';
+	import { moveToCategory } from '$lib/categories/api';
+	import type { InboxCategory } from '$lib/types/categories';
 
 	let {
 		emailId,
 		isUnread,
 		sourceMailboxId,
-		hasReminder = false
+		hasReminder = false,
+		category = null
 	}: {
 		emailId: string;
 		isUnread: boolean;
 		sourceMailboxId: string;
 		/** Email is parked in Remind Me Later — offer Unsnooze instead of the picker. */
 		hasReminder?: boolean;
+		/** The row's Inbox tab; null when the list isn't a tabbed Inbox. */
+		category?: InboxCategory | null;
 	} = $props();
 
 	let loading = $state<string>('');
 	let pickerOpen = $state(false);
+	let categoryPickerOpen = $state(false);
+	let categoryTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
+
+	async function pickCategory(next: InboxCategory) {
+		categoryPickerOpen = false;
+		if (loading || !category) return;
+		loading = 'setCategory';
+		try {
+			await moveToCategory([emailId], next, category);
+		} finally {
+			loading = '';
+		}
+	}
 
 	async function act(action: string) {
 		if (loading) return;
@@ -123,6 +142,32 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
+
+	{#if category}
+		<button
+			bind:this={categoryTriggerEl}
+			type="button"
+			onmousedown={stop}
+			onclick={(e) => { stop(e); categoryPickerOpen = !categoryPickerOpen; }}
+			disabled={!!loading}
+			title="Move to tab"
+			aria-label="Move to tab"
+			aria-haspopup="menu"
+			aria-expanded={categoryPickerOpen}
+			class="p-1.5 rounded-md hover:bg-surface transition-colors cursor-pointer disabled:opacity-50 {categoryPickerOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
+		>
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+		</button>
+		{#if categoryPickerOpen}
+			<!-- Rendered on <body>, so its clicks never reach the row link. -->
+			<CategoryPicker
+				current={category}
+				anchor={categoryTriggerEl ?? null}
+				onPick={pickCategory}
+				onClose={() => (categoryPickerOpen = false)}
+			/>
+		{/if}
 	{/if}
 
 	<button

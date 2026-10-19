@@ -3,6 +3,10 @@
 	import EmailDetail from './EmailDetail.svelte';
 	import FolderPicker from './FolderPicker.svelte';
 	import ListFilterBar from './ListFilterBar.svelte';
+	import InboxTabs from './InboxTabs.svelte';
+	import CategoryPicker from './CategoryPicker.svelte';
+	import { moveToCategory } from '$lib/categories/api';
+	import { INBOX_CATEGORIES, type InboxCategory, type InboxTabsState } from '$lib/types/categories';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getContext, setContext } from 'svelte';
@@ -21,7 +25,8 @@
 		page: currentPage = 1,
 		pageSize = 50,
 		totalPages = 1,
-		showFilters = false
+		showFilters = false,
+		inboxTabs = null
 	}: {
 		emails: Email[];
 		total: number;
@@ -31,6 +36,8 @@
 		pageSize?: number;
 		totalPages?: number;
 		showFilters?: boolean;
+		/** The Inbox's category tabs; null everywhere else, and when tabs are off. */
+		inboxTabs?: InboxTabsState | null;
 	} = $props();
 
 	const rangeStart = $derived(total === 0 ? 0 : (currentPage - 1) * pageSize + 1);
@@ -50,6 +57,8 @@
 	// EmailListItems so they can render per-row hover actions without a
 	// long prop chain.
 	setContext('listMailboxId', () => mailboxId);
+	// Rows offer "Move to tab" only while the list is a tabbed Inbox.
+	setContext('inboxTabs', () => inboxTabs);
 	// Getter so callers always see the current page's marker set even
 	// after invalidateAll() refreshes the load data without remounting.
 	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
@@ -84,6 +93,21 @@
 	let loadingPreview = $state(false);
 	let showMovePicker = $state(false);
 	let moveTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
+	let showCategoryPicker = $state(false);
+	let categoryTriggerEl = $state<HTMLButtonElement | undefined>(undefined);
+
+	async function bulkMoveToCategory(category: InboxCategory) {
+		if (selectedIds.size === 0 || !inboxTabs) return;
+		showCategoryPicker = false;
+		bulkLoading = 'setCategory';
+		try {
+			// Every selected row is in the active tab — the list shows no other.
+			await moveToCategory([...selectedIds], category, inboxTabs.active);
+			selectedIds = new Set();
+		} finally {
+			bulkLoading = '';
+		}
+	}
 
 	/**
 	 * Build the payload for a dragstart on a list row. If the dragged email
@@ -140,6 +164,13 @@
 	}
 
 	const allSelected = $derived(emails.length > 0 && selectedIds.size === emails.length);
+
+	const emptyText = $derived.by(() => {
+		if (!inboxTabs) return 'No messages';
+		const active = inboxTabs.active;
+		const label = INBOX_CATEGORIES.find((c) => c.key === active)?.label;
+		return `Nothing in ${label}`;
+	});
 
 	function toggleSelect(id: string, checked: boolean) {
 		const next = new Set(selectedIds);
@@ -267,7 +298,7 @@
 	<!-- Email list column -->
 	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
 		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
-		<header class="ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
+		<header class="@container ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
 				<div class="w-8 flex justify-center shrink-0">
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -285,7 +316,8 @@
 							{/if}
 						</div>
 				</div>
-				<span class="text-sm text-text-secondary">{selectedIds.size} selected</span>
+				<!-- Just the count when the column is narrow, so the actions fit. -->
+				<span class="text-sm text-text-secondary whitespace-nowrap">{selectedIds.size}<span class="sr-only @md:not-sr-only"> selected</span></span>
 				<div class="flex items-center gap-1 ml-2">
 					<button onclick={() => bulkAction('markRead')} title="Mark Read" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
@@ -318,6 +350,30 @@
 							onPick={bulkMoveTo}
 							onClose={() => { showMovePicker = false; }}
 						/>
+					{/if}
+					{#if inboxTabs}
+						<button
+							bind:this={categoryTriggerEl}
+							onclick={(e) => { e.stopPropagation(); showCategoryPicker = !showCategoryPicker; }}
+							title="Move to tab…"
+							aria-label="Move to tab"
+							aria-haspopup="menu"
+							aria-expanded={showCategoryPicker}
+							disabled={!!bulkLoading}
+							class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
+								{showCategoryPicker ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+						</button>
+						{#if showCategoryPicker}
+							<CategoryPicker
+								current={inboxTabs.active}
+								anchor={categoryTriggerEl ?? null}
+								align="left"
+								onPick={bulkMoveToCategory}
+								onClose={() => { showCategoryPicker = false; }}
+							/>
+						{/if}
 					{/if}
 					<button onclick={() => bulkAction('archive')} title="Archive" disabled={!!bulkLoading} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
@@ -361,9 +417,13 @@
 			{/if}
 		</header>
 
+		{#if inboxTabs}
+			<InboxTabs tabs={inboxTabs} />
+		{/if}
+
 		<div class="flex-1 overflow-y-auto">
 			{#if emails.length === 0}
-				<div class="flex items-center justify-center h-full text-text-tertiary"><p>No messages</p></div>
+				<div class="flex items-center justify-center h-full text-text-tertiary"><p>{emptyText}</p></div>
 			{:else}
 				<!--
 					Date headers use surface-HOVER, not surface. When surface meant

@@ -11,6 +11,7 @@
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
 	import InvitationCard from './InvitationCard.svelte';
+	import JevWhy, { type JevSpamCheck } from './JevWhy.svelte';
 	import EventModal from './calendar/EventModal.svelte';
 	import { apiCreateEvent } from '$lib/calendar/api';
 	import { fromDayKey } from '$lib/calendar/dates';
@@ -118,6 +119,9 @@
 	const sourceMailboxId = $derived(
 		Object.keys(email.mailboxIds).find((id) => !labelIdSet.has(id)) ?? ''
 	);
+
+	// Jev's spam verdict for this email (from the "Why is this here?" chip).
+	let jevSpam = $state<JevSpamCheck | null>(null);
 
 	// --- Spam classifier output (read-only for display + contextual button) ---
 	const spamScore = $derived.by<number | null>(() => {
@@ -755,6 +759,9 @@
 			</div>
 			<div class="flex flex-col items-end gap-1 shrink-0">
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
+				{#if page.data.jevReads}
+					<JevWhy emailId={email.id} onSpamCheck={(check) => (jevSpam = check)} />
+				{/if}
 				{#if spamScore !== null}
 					<!-- The score is a button when there is a breakdown to show: a
 					     number on its own cannot tell you whether to train the
@@ -974,6 +981,34 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if jevSpam && (jevSpam.action === 'flagged' || jevSpam.action === 'junked' || jevSpam.action === 'rescued')}
+		<!-- Jev's spam verdict, when (in active mode) it acted on it. -->
+		<div class="{compact ? 'mx-4' : 'mx-6'} mt-3 shrink-0">
+			<div class="flex items-start gap-3 rounded-xl border border-border bg-surface px-3.5 py-2.5 relative overflow-hidden" role="status">
+				<div class="absolute inset-y-0 left-0 w-1 {jevSpam.action === 'rescued' ? 'bg-success' : 'bg-warning'}"></div>
+				<div class="min-w-0 text-sm">
+					{#if jevSpam.action === 'flagged'}
+						<p class="text-text font-medium">This looks suspicious</p>
+						<p class="text-xs text-text-tertiary mt-0.5">
+							Jev puts it at {Math.round(jevSpam.phishing * 100)}% likely phishing and {Math.round(jevSpam.spam * 100)}% likely spam.
+							Check who really sent it before you click a link, sign in or pay.
+						</p>
+					{:else if jevSpam.action === 'junked'}
+						<p class="text-text font-medium">Jev moved this to Junk</p>
+						<p class="text-xs text-text-tertiary mt-0.5">
+							{Math.round(Math.max(jevSpam.spam, jevSpam.phishing) * 100)}% likely {jevSpam.phishing >= jevSpam.spam ? 'phishing' : 'spam'}. If it’s fine, mark it Not spam.
+						</p>
+					{:else}
+						<p class="text-text font-medium">Jev brought this back from Junk</p>
+						<p class="text-xs text-text-tertiary mt-0.5">
+							Stalwart had flagged it, but Jev is sure it isn’t spam or phishing and the sender passed authentication.
+						</p>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if otp}
 		<div class="{compact ? 'mx-4' : 'mx-6'} mt-3 shrink-0">

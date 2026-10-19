@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { toasts, dismissToast } from '$lib/stores/toast';
+	import { toasts, dismissToast, type Toast, type ToastAction } from '$lib/stores/toast';
 	import { fly } from 'svelte/transition';
+
+	function actionsOf(toast: Toast): ToastAction[] {
+		return [...(toast.action ? [toast.action] : []), ...(toast.extraActions ?? [])];
+	}
 
 	function handleAction(id: string, run: () => void) {
 		run();
@@ -18,14 +22,14 @@
 			out:fly={{ y: 12, duration: 120 }}
 		>
 			<span class="text-sm text-text flex-1 min-w-0">{toast.message}</span>
-			{#if toast.action}
+			{#each actionsOf(toast) as action (action.label)}
 				<button
-					onclick={() => handleAction(toast.id, toast.action!.onClick)}
+					onclick={() => handleAction(toast.id, action.onClick)}
 					class="text-xs font-medium text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer shrink-0"
 				>
-					{toast.action.label}
+					{action.label}
 				</button>
-			{/if}
+			{/each}
 			<button
 				onclick={() => dismissToast(toast.id)}
 				title="Dismiss"

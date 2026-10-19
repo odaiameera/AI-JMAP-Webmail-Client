@@ -5,8 +5,16 @@ import type {
 	Email,
 	EmailAddress,
 	EmailQueryResult,
-	JMAPResponse
+	JMAPResponse,
+	MethodCall
 } from './types';
+import {
+	INBOX_CATEGORIES,
+	categoryCondition,
+	categoryKeywordPatch,
+	isInboxCategory,
+	type InboxCategory
+} from '$lib/types/categories';
 
 const LIST_PROPERTIES = [
 	'id', 'blobId', 'threadId', 'mailboxIds',
@@ -59,6 +67,42 @@ export async function queryAndFetchEmails(
 		emails: getResult.list,
 		total: queryResult.total
 	};
+}
+
+/**
+ * Unread count for each Inbox tab, in one request: four `limit: 0` queries
+ * the server answers with a total and no ids.
+ */
+export async function countUnreadByCategory(
+	client: JMAPClient,
+	accountId: string,
+	inboxId: string
+): Promise<Record<InboxCategory, number>> {
+	const response = await client.request(
+		INBOX_CATEGORIES.map(({ key }): MethodCall => [
+			'Email/query',
+			{
+				accountId,
+				filter: {
+					operator: 'AND',
+					conditions: [
+						{ inMailbox: inboxId },
+						{ notKeyword: '$seen' },
+						categoryCondition(key)
+					]
+				},
+				calculateTotal: true,
+				limit: 0
+			},
+			key
+		])
+	);
+
+	const counts = { important: 0, updates: 0, newsletters: 0, promotions: 0 };
+	for (const [, result, tag] of response.methodResponses) {
+		if (isInboxCategory(tag)) counts[tag] = (result as { total?: number }).total ?? 0;
+	}
+	return counts;
 }
 
 export async function getEmailDetail(
@@ -314,6 +358,31 @@ export async function flagEmail(
 		]
 	]);
 	assertAllUpdated(response, [id]);
+}
+
+/**
+ * Put emails in one Inbox tab: its category keyword on, the others off
+ * (`false`, as for $seen above). Important clears all three.
+ */
+export async function setEmailCategory(
+	client: JMAPClient,
+	accountId: string,
+	ids: string[],
+	category: InboxCategory
+): Promise<void> {
+	if (ids.length === 0) return;
+	const patch: Record<string, boolean> = {};
+	for (const [keyword, on] of Object.entries(categoryKeywordPatch(category))) {
+		patch[`keywords/${keyword}`] = on;
+	}
+	const response = await client.request([
+		[
+			'Email/set',
+			{ accountId, update: Object.fromEntries(ids.map((id) => [id, patch])) },
+			'0'
+		]
+	]);
+	assertAllUpdated(response, ids);
 }
 
 // ---------------------------------------------------------------------------

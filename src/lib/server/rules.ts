@@ -1,4 +1,4 @@
-import type { Rule, RuleCondition } from '$lib/types/rules';
+import { hasJevCondition, type Rule, type RuleCondition } from '$lib/types/rules';
 
 export type JmapFilter = Record<string, unknown>;
 
@@ -39,9 +39,23 @@ function conditionToFilter(c: RuleCondition): JmapFilter | null {
 /**
  * Build a combined JMAP filter for a rule's conditions, respecting its
  * `allof` / `anyof` logic. Returns `null` when the rule has no usable
- * conditions (e.g. empty value on a text field).
+ * conditions (e.g. empty value on a text field) — and for any rule with a
+ * Jev condition, which no query can express: dropping it would widen the
+ * rule to everything its other conditions match. See `exactPartFilter`.
  */
 export function buildJmapFilter(rule: Rule): JmapFilter | null {
+	if (hasJevCondition(rule)) return null;
+	return exactPartFilter(rule);
+}
+
+/**
+ * The part of a rule a query can narrow by: its exact conditions. For an
+ * all-of rule with a Jev condition, every match also matches this, so it is
+ * the candidate set to ask Jev about. An any-of rule can match on its Jev
+ * condition alone, so nothing narrows it: null.
+ */
+export function exactPartFilter(rule: Rule): JmapFilter | null {
+	if (rule.logic === 'anyof' && hasJevCondition(rule)) return null;
 	const filters = rule.conditions
 		.map(conditionToFilter)
 		.filter((f): f is JmapFilter => f !== null);
