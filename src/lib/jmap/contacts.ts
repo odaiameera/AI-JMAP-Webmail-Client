@@ -71,9 +71,21 @@ export async function getContacts(
 export interface ContactQueryResult {
 	contacts: ContactCard[];
 	queryState: string;
+	/** Cards matching the query, lists included: the paging total. */
 	total: number;
+	/** Cards this page consumed, lists included: how far to move `position`. */
+	fetched: number;
 }
 
+const isList = (card: ContactCard) => card.kind === 'group';
+
+/**
+ * A page of people. Contact lists are group cards in the same address books,
+ * so they are dropped from the page here, by each card's own `kind`. Not with
+ * a `kind` filter on the query: Stalwart accepts that filter but matches
+ * nothing with it, which hid every list and let lists through as people.
+ * `total` and `fetched` still count every card, so callers page by those.
+ */
 export async function queryContacts(
 	client: JMAPClient,
 	accountId: string,
@@ -81,7 +93,17 @@ export async function queryContacts(
 	limit = 100,
 	position = 0
 ): Promise<ContactQueryResult> {
-	const text = query.trim();
+	const page = await queryCards(client, accountId, query.trim(), limit, position);
+	return { ...page, contacts: page.contacts.filter((card) => !isList(card)) };
+}
+
+async function queryCards(
+	client: JMAPClient,
+	accountId: string,
+	text: string,
+	limit: number,
+	position: number
+): Promise<ContactQueryResult> {
 	const response = await client.request(
 		[
 			[
@@ -111,32 +133,88 @@ export async function queryContacts(
 		total?: number;
 	};
 	const getResult = response.methodResponses[1][1] as { list?: ContactCard[] };
+	const cards = getResult.list ?? [];
 	return {
-		contacts: getResult.list ?? [],
+		contacts: cards,
 		queryState: queryResult.queryState ?? '',
-		total: queryResult.total ?? 0
+		total: queryResult.total ?? 0,
+		fetched: cards.length
 	};
 }
 
+/** Every card matching `query`, people and lists alike. */
+async function queryAllCards(
+	client: JMAPClient,
+	accountId: string,
+	query: string,
+	pageSize: number
+): Promise<ContactCard[]> {
+	const cards = new Map<string, ContactCard>();
+	let position = 0;
+	let total = 0;
+	do {
+		const page = await queryCards(client, accountId, query.trim(), pageSize, position);
+		for (const card of page.contacts) cards.set(card.id, card);
+		total = page.total;
+		if (page.fetched === 0) break;
+		position += page.fetched;
+	} while (position < total);
+	return [...cards.values()];
+}
+
+/**
+ * A contact list: a JSContact group card (RFC 9553 `kind: "group"`) whose
+ * `members` map holds the uids of the contacts in it. Being an ordinary card
+ * in the address book is what lets lists sync to Apple Contacts and any other
+ * CardDAV client as vCard groups, the way labels sync to mail apps as folders.
+ */
+export interface ContactList {
+	id: string;
+	uid: string;
+	name: string;
+	memberUids: string[];
+	addressBookIds: Record<string, boolean>;
+}
+
+export function listMembers(card: ContactCard): Record<string, true> {
+	const members = (card.members as Record<string, boolean> | undefined) ?? {};
+	return Object.fromEntries(
+		Object.entries(members)
+			.filter(([, included]) => included)
+			.map(([uid]) => [uid, true as const])
+	);
+}
+
+export function toContactList(card: ContactCard): ContactList {
+	return {
+		id: card.id,
+		uid: card.uid,
+		name: card.name?.full?.trim() || 'Untitled list',
+		memberUids: Object.keys(listMembers(card)),
+		addressBookIds: card.addressBookIds
+	};
+}
+
+/** Every list in the account, by name. */
+export async function queryContactLists(
+	client: JMAPClient,
+	accountId: string,
+	pageSize = 100
+): Promise<ContactList[]> {
+	return (await queryAllCards(client, accountId, '', pageSize))
+		.filter(isList)
+		.map(toContactList)
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Every person matching `query` (lists left out), across all pages. */
 export async function queryAllContacts(
 	client: JMAPClient,
 	accountId: string,
 	query = '',
 	pageSize = 100
 ): Promise<ContactCard[]> {
-	const contacts = new Map<string, ContactCard>();
-	let position = 0;
-	let total: number | null = null;
-
-	do {
-		const page = await queryContacts(client, accountId, query, pageSize, position);
-		for (const contact of page.contacts) contacts.set(contact.id, contact);
-		total = page.total;
-		if (page.contacts.length === 0) break;
-		position += page.contacts.length;
-	} while (position < total);
-
-	return [...contacts.values()];
+	return (await queryAllCards(client, accountId, query, pageSize)).filter((card) => !isList(card));
 }
 
 export interface ContactSetFailure {

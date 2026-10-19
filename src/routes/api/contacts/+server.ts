@@ -9,16 +9,23 @@ import {
 	deleteContact,
 	getAddressBooks,
 	getContacts,
+	listMembers,
 	queryAllContacts,
+	queryContactLists,
 	queryContacts,
 	resolveContactsAccount,
+	toContactList,
 	updateContact
 } from '$lib/jmap/contacts';
 import { JMAPAuthError, JMAPError } from '$lib/jmap/client';
 import {
 	ContactValidationError,
+	addressBookForNewList,
 	contactCreateFromInput,
+	contactListCreate,
 	contactPatchFromInput,
+	listNameFromInput,
+	uidsFromInput,
 	validateAddressBookSelection,
 	type ContactFormInput
 } from '$lib/server/contacts';
@@ -62,16 +69,21 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		const query = (url.searchParams.get('q') ?? '').trim().slice(0, 255);
 		const limit = integerParam(url.searchParams.get('limit'), 100, 1, 100);
 		const position = integerParam(url.searchParams.get('position'), 0, 0, 1_000_000);
-		const [addressBooks, result] = await Promise.all([
+		const [addressBooks, result, lists] = await Promise.all([
 			getAddressBooks(client, accountId),
-			queryContacts(client, accountId, query, limit, position)
+			queryContacts(client, accountId, query, limit, position),
+			// Only the first page carries the lists; the client pages through
+			// contacts but needs the lists once.
+			position === 0 ? queryContactLists(client, accountId) : Promise.resolve(null)
 		]);
 
 		return json({
 			supported: true,
 			capabilities,
 			addressBooks,
-			...result
+			...result,
+			listsSupported: true,
+			lists: lists ?? []
 		});
 	} catch (error) {
 		if (error instanceof ContactsUnsupportedError) {
@@ -81,7 +93,9 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 				addressBooks: [],
 				contacts: [],
 				queryState: '',
-				total: 0
+				total: 0,
+				listsSupported: false,
+				lists: []
 			});
 		}
 		if (error instanceof JMAPAuthError) {
@@ -101,6 +115,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		id?: unknown;
 		contact?: ContactFormInput;
 		contacts?: unknown;
+		name?: unknown;
+		add?: unknown;
+		remove?: unknown;
 	} | null;
 	if (!body) return json({ error: 'Invalid JSON body' }, { status: 400 });
 
@@ -222,6 +239,44 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			const id = typeof body.id === 'string' ? body.id.trim() : '';
 			if (!id || id.length > 255) return json({ error: 'Invalid contact id' }, { status: 400 });
 			await deleteContact(client, accountId, id);
+			return json({ success: true });
+		}
+
+		if (body.action === 'createList') {
+			const name = listNameFromInput(body.name);
+			const book = addressBookForNewList(await getAddressBooks(client, accountId));
+			if (!book) return json({ error: 'No writable address book for the list' }, { status: 403 });
+			const card = await createContact(client, accountId, contactListCreate(name, book.id));
+			return json({ success: true, list: toContactList(card) }, { status: 201 });
+		}
+
+		if (body.action === 'renameList' || body.action === 'deleteList' || body.action === 'setListMembers') {
+			const id = typeof body.id === 'string' ? body.id.trim() : '';
+			if (!id || id.length > 255) return json({ error: 'Invalid list id' }, { status: 400 });
+			// Every list action checks the card really is a list first, so none
+			// of them can be pointed at a person's card.
+			const [existing] = await getContacts(client, accountId, [id]);
+			if (!existing || existing.kind !== 'group') return json({ error: 'List not found' }, { status: 404 });
+
+			if (body.action === 'renameList') {
+				await updateContact(client, accountId, id, { name: { full: listNameFromInput(body.name) } });
+			} else if (body.action === 'deleteList') {
+				// Deletes the list card only; its members stay in the address book.
+				await deleteContact(client, accountId, id);
+			} else {
+				const add = uidsFromInput(body.add, 'Members to add');
+				const remove = uidsFromInput(body.remove, 'Members to remove');
+				if (add.length === 0 && remove.length === 0) return json({ success: true });
+				// The whole map, not a `members/<uid>` patch: a list starts with no
+				// `members` property, and JMAP rejects a patch path into a property
+				// that doesn't exist yet (RFC 8620 §5.3).
+				const members = listMembers(existing);
+				for (const uid of add) members[uid] = true;
+				for (const uid of remove) delete members[uid];
+				await updateContact(client, accountId, id, {
+					members: Object.keys(members).length > 0 ? members : null
+				});
+			}
 			return json({ success: true });
 		}
 
