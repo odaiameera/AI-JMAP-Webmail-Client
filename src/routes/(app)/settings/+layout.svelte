@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { page } from '$app/state';
 	import { pageTitle } from '$lib/utils/title';
 	import {
@@ -43,10 +44,7 @@
 			href="/inbox"
 			class="flex items-center gap-2 h-9 px-3 rounded-lg text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
 		>
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<line x1="19" y1="12" x2="5" y2="12"/>
-				<polyline points="12 19 5 12 12 5"/>
-			</svg>
+			<Icon name="back" size={14} />
 			<span>Back to Inbox</span>
 		</a>
 		{#each grouped as [group, list] (group)}

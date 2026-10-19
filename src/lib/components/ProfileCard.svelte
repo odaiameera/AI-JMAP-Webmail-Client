@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
@@ -264,10 +265,7 @@
 				</div>
 			{/if}
 			<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75">
-					<path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-					<circle cx="12" cy="13" r="4"/>
-				</svg>
+				<Icon name="photo" size={20} />
 			</div>
 		</button>
 		<input bind:this={fileInput} type="file" accept="image/*" class="hidden" onchange={handleFileChange} />
@@ -275,9 +273,7 @@
 		<!-- Zoom slider (visible while editing OR when a photo is committed) -->
 		{#if pendingUrl}
 			<div class="w-full flex items-center gap-2 px-1">
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="text-text-tertiary shrink-0">
-					<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/>
-				</svg>
+				<Icon name="zoom-out" size={14} class="text-text-tertiary" />
 				<input
 					type="range"
 					min={MIN_ZOOM}
@@ -288,9 +284,7 @@
 					class="flex-1 accent-accent cursor-pointer"
 					title="Zoom"
 				/>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="text-text-tertiary shrink-0">
-					<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/>
-				</svg>
+				<Icon name="zoom-in" size={16} class="text-text-tertiary" />
 			</div>
 		{/if}
 
@@ -373,12 +367,7 @@
 			onclick={manageAccounts}
 			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer text-left"
 		>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-				<circle cx="9" cy="7" r="4"/>
-				<path d="M2 21v-2a4 4 0 014-4h6"/>
-				<line x1="19" y1="8" x2="19" y2="14"/>
-				<line x1="16" y1="11" x2="22" y2="11"/>
-			</svg>
+			<Icon name="sign-in" size={16} />
 			Add or manage accounts
 		</button>
 		<form method="POST" action="/logout">
@@ -386,11 +375,7 @@
 				type="submit"
 				class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer text-left"
 			>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-					<polyline points="16 17 21 12 16 7"/>
-					<line x1="21" y1="12" x2="9" y2="12"/>
-				</svg>
+				<Icon name="sign-out" size={16} />
 				Sign out
 			</button>
 		</form>

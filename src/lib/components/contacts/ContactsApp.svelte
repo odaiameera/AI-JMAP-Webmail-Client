@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { isPhone } from '$lib/stores/viewport';
@@ -358,7 +359,7 @@
 			onclick={() => openCreate()}
 			class="btn btn-primary btn-lg w-full"
 		>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+			<Icon name="add" size={16} />
 			New contact
 		</button>
 		<button
@@ -379,7 +380,7 @@
 			class="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer
 				{activeListId === null ? 'bg-accent/10 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 		>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+			<Icon name="contacts" size={16} />
 			<span class="flex-1 text-left">All contacts</span>
 			{#if data?.supported && everyoneCount !== null}
 				<span class="text-xs tabular-nums">{everyoneCount}</span>
@@ -397,7 +398,7 @@
 						title="New list"
 						onclick={() => { creatingList = true; newListName = ''; }}
 					>
-						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+						<Icon name="add" size={14} />
 					</button>
 				{/if}
 			</div>
@@ -425,7 +426,7 @@
 							class="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer
 								{activeListId === list.id ? 'bg-accent/10 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 						>
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+							<Icon name="group" size={16} />
 							<span class="flex-1 text-left truncate">{list.name}</span>
 							<span class="text-xs tabular-nums {canMutate ? 'group-hover:invisible' : ''}">{list.memberUids.length}</span>
 						</button>
@@ -436,7 +437,7 @@
 								aria-label="List options for {list.name}"
 								onclick={(e) => { e.stopPropagation(); listMenuFor = listMenuFor === list.id ? null : list.id; }}
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+								<Icon name="more" size={14} />
 							</button>
 							{#if listMenuFor === list.id}
 								<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -496,9 +497,7 @@
 		<div class="flex-1 grid place-items-center px-6">
 			<div class="max-w-md text-center">
 				<div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-surface border border-border grid place-items-center text-text-tertiary">
-					<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-						<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-					</svg>
+					<Icon name="contacts" size={20} />
 				</div>
 				<h2 class="text-lg font-semibold text-text mb-1">Contacts are not available</h2>
 				<p class="text-sm text-text-tertiary">This mail account does not advertise JMAP Contacts support.</p>
@@ -511,9 +510,7 @@
 				<form class="h-12 shrink-0 px-3 flex items-center border-b border-border" onsubmit={submitSearch}>
 					<label class="relative block w-full">
 						<span class="sr-only">Search contacts</span>
-						<svg class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-							<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-						</svg>
+						<Icon name="search" size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
 						<input
 							type="search"
 							bind:value={query}
@@ -537,7 +534,7 @@
 							onclick={emailActiveList}
 							title={activeListEmails.length === 0 ? 'No one in this list has an email address' : `Email all ${activeListEmails.length}`}
 						>
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+							<Icon name="mail" size={14} />
 							Email list
 						</button>
 					</div>
@@ -589,7 +586,7 @@
 					     with the mail list header. -->
 					<div class="h-12 shrink-0 px-3 flex items-center gap-2 border-b border-border">
 						<button type="button" class="md:hidden btn btn-ghost btn-sm -ml-1" onclick={() => selectedId = null}>
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+							<Icon name="back" size={14} />
 							All contacts
 						</button>
 						<div class="flex-1"></div>
@@ -662,7 +659,7 @@
 															aria-label="Remove from {list.name}"
 															onclick={() => setMembership(list, selected.uid, false)}
 														>
-															<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+															<Icon name="close" size={12} />
 														</button>
 													{/if}
 												</span>
@@ -676,7 +673,7 @@
 														aria-expanded={addToListOpen}
 														onclick={(e) => { e.stopPropagation(); addToListOpen = !addToListOpen; }}
 													>
-														<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+														<Icon name="add" size={14} />
 														Add to list
 													</button>
 													{#if addToListOpen}
@@ -702,7 +699,7 @@
 					<div class="h-full grid place-items-center text-center px-6">
 						<div>
 							<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
-								<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+								<Icon name="contacts" size={20} />
 							</div>
 							<h2 class="text-sm font-medium text-text">No contact selected</h2>
 						</div>

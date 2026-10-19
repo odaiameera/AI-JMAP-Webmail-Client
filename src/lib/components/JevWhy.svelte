@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
 
 	/**
@@ -192,7 +193,7 @@
 			class="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full cursor-pointer bg-accent/10 text-accent-fg hover:bg-accent/15"
 		>
 			Jev · {chipLabel}{decision.mock ? ' (mock)' : ''}
-			<span aria-hidden="true">{open ? '▴' : '▾'}</span>
+			<Icon name="dropdown" size={12} class="transition-transform {open ? 'rotate-180' : ''}" />
 		</button>
 
 		{#if open}
@@ -237,7 +238,7 @@
 						{#each decision.rules as check, i (i)}
 							<li>
 								<p class="text-text">
-									<span class={check.fired ? 'text-success' : 'text-text-tertiary'} aria-hidden="true">{check.fired ? '✓' : '–'}</span>
+									<Icon name={check.fired ? 'check' : 'rule-miss'} size={12} class="inline align-[-1px] {check.fired ? 'text-success' : 'text-text-tertiary'}" />
 									{check.ruleName}{check.fired ? ' fired' : ' didn’t fire'}
 								</p>
 								<p class="text-text-tertiary">
@@ -293,7 +294,7 @@
 					{/if}
 					{#each factRows as f (f.label)}
 						<li class="flex items-center gap-1.5 {f.state === 'yes' ? 'text-text-secondary' : 'text-text-tertiary'}">
-							<span class="w-3 text-center" aria-hidden="true">{f.state === 'yes' ? '✓' : f.state === 'no' ? '–' : '?'}</span>
+							<Icon name={f.state === 'yes' ? 'check' : f.state === 'no' ? 'rule-miss' : 'help'} size={12} />
 							<span>{f.label}{f.state === 'no' ? ': no' : f.state === 'unknown' ? ': couldn’t check' : ''}</span>
 						</li>
 					{/each}

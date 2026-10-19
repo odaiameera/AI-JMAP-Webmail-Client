@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { ViewerAttachment } from '$lib/attachments/types';
 	let { attachment, onDownload }: {
 		attachment: ViewerAttachment;
@@ -9,10 +10,7 @@
 <div class="w-full h-full flex items-center justify-center p-8">
 	<div class="text-center max-w-md">
 		<div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-text-tertiary/10 flex items-center justify-center">
-			<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" class="text-text-tertiary">
-				<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-				<polyline points="14 2 14 8 20 8"/>
-			</svg>
+			<Icon name="file" size={20} class="text-text-tertiary" />
 		</div>
 		<h3 class="text-base font-semibold text-text mb-2">Can't preview this file</h3>
 		<p class="text-sm text-text-tertiary mb-6">

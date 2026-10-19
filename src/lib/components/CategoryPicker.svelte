@@ -1,7 +1,8 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { INBOX_CATEGORIES, type InboxCategory } from '$lib/types/categories';
-	import { categoryIcon } from './category-icons';
+	import { CATEGORY_ICON } from './category-icons';
 
 	let {
 		current = null,
@@ -98,13 +99,13 @@
 			class="w-full text-left px-3 py-2 text-xs hover:bg-surface-hover cursor-pointer flex items-start gap-2.5
 				{current === c.key ? 'text-accent-fg' : 'text-text'}"
 		>
-			<span class="mt-px shrink-0 {current === c.key ? '' : 'text-text-secondary'}">{@html categoryIcon(c.key, 14)}</span>
+			<span class="mt-px shrink-0 {current === c.key ? '' : 'text-text-secondary'}"><Icon name={CATEGORY_ICON[c.key]} size={14} /></span>
 			<span class="flex-1 min-w-0">
 				<span class="block font-medium">{c.label}</span>
 				<span class="block text-text-tertiary mt-0.5">{c.description}</span>
 			</span>
 			{#if current === c.key}
-				<svg class="mt-px shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+				<Icon name="check" size={14} class="mt-px" />
 			{/if}
 		</button>
 	{/each}

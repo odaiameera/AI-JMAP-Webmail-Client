@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { CalendarInfo, EventInstance } from '$lib/calendar/types';
 	import { describeRRule } from '$lib/calendar/types';
 	import { formatEventRange, instanceDate } from '$lib/calendar/dates';
@@ -81,13 +82,13 @@
 			</div>
 			<div class="flex items-center gap-0.5 shrink-0">
 				<button type="button" class="fc-btn" title="Edit" aria-label="Edit event" onclick={onEdit}>
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+					<Icon name="edit" size={16} />
 				</button>
 				<button type="button" class="fc-btn" title="Delete" aria-label="Delete event" onclick={onDelete}>
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+					<Icon name="delete" size={16} />
 				</button>
 				<button type="button" class="fc-btn" title="Close" aria-label="Close" onclick={onClose}>
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
+					<Icon name="close" size={16} />
 				</button>
 			</div>
 		</div>
@@ -95,25 +96,25 @@
 		<div class="space-y-1.5 text-sm">
 			{#if event.location}
 				<div class="flex items-start gap-2 text-text-secondary">
-					<svg class="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+					<Icon name="location" size={14} class="mt-0.5" />
 					<span class="break-words">{event.location}</span>
 				</div>
 			{/if}
 			{#if event.description}
 				<div class="flex items-start gap-2 text-text-secondary">
-					<svg class="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+					<Icon name="notes" size={14} class="mt-0.5" />
 					<span class="break-words whitespace-pre-line line-clamp-5">{event.description}</span>
 				</div>
 			{/if}
 			{#if event.alarms.length > 0}
 				<div class="flex items-start gap-2 text-text-secondary">
-					<svg class="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+					<Icon name="reminder" size={14} class="mt-0.5" />
 					<span>{event.alarms.map(alarmText).join(', ')}</span>
 				</div>
 			{/if}
 			{#if event.attendees.length > 0}
 				<div class="flex items-start gap-2 text-text-secondary">
-					<svg class="mt-0.5 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/><path d="M16 3.1a4 4 0 010 7.8M22 21c0-3.1-2-5.8-4.8-6.7"/></svg>
+					<Icon name="guests" size={14} class="mt-0.5" />
 					<span class="break-words">
 						{event.attendees.length} guest{event.attendees.length === 1 ? '' : 's'}:
 						{event.attendees.map((a) => a.name || a.email).join(', ')}

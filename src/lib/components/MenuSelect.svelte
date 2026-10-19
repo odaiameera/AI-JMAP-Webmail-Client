@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string | number | null">
+	import Icon from '$lib/components/Icon.svelte';
 	import { tick, type Snippet } from 'svelte';
 
 	/**
@@ -140,7 +141,7 @@
 		{#if icon}{@render icon()}{/if}
 		<span class="truncate">{current?.label}</span>
 		{#if current?.detail}<span class="truncate text-text-tertiary">{current.detail}</span>{/if}
-		<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-text-tertiary" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+		<Icon name="dropdown" size={14} class="text-text-tertiary" />
 	</button>
 
 	{#if open}
@@ -167,7 +168,7 @@
 				>
 					<span class="w-3.5 shrink-0 text-accent-fg" aria-hidden="true">
 						{#if option.value === value}
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+							<Icon name="check" size={14} />
 						{/if}
 					</span>
 					<span class="truncate text-text">{option.label}</span>

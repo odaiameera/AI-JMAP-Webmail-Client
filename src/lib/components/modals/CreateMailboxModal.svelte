@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Label } from '$lib/types/labels';
@@ -237,15 +238,7 @@
 					onclick={handleCancel}
 					aria-label="Close"
 				>
-					<svg
-						class="w-5 h-5"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path d="M6 18L18 6M6 6l12 12" />
-					</svg>
+					<Icon name="close" size={20} />
 				</button>
 			</div>
 

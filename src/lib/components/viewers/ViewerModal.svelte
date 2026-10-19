@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { ViewerAttachment } from '$lib/attachments/types';
 	import ImageViewer from './ImageViewer.svelte';
 	import PdfViewer from './PdfViewer.svelte';
@@ -55,11 +56,7 @@
 				title="Download"
 				class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-text-secondary hover:text-text hover:bg-surface-hover rounded-lg transition-colors cursor-pointer"
 			>
-				<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-					<polyline points="7 10 12 15 17 10"/>
-					<line x1="12" y1="15" x2="12" y2="3"/>
-				</svg>
+				<Icon name="download" size={16} />
 				Download
 			</button>
 			<button
@@ -67,9 +64,7 @@
 				title="Close (Esc)"
 				class="p-1.5 rounded-lg text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
 			>
-				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75">
-					<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-				</svg>
+				<Icon name="close" size={20} />
 			</button>
 		</div>
 	</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Email, Mailbox } from '$lib/jmap/types';
 	import type { Label } from '$lib/types/labels';
 	import { openCompose } from '$lib/stores/compose';
@@ -775,7 +776,7 @@
 		<div class="flex items-center gap-1">
 			{#if !compact}
 				<a href={backHref} class="btn btn-ghost btn-sm -ml-2 mr-1" title="Back to {backLabel}">
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+					<Icon name="back" size={14} />
 					{backLabel}
 				</a>
 				<span class="w-px h-4 bg-border mr-1" aria-hidden="true"></span>
@@ -790,18 +791,18 @@
 				{/if}
 			{:else if isDraft}
 				<button onclick={handleEditDraft} class="btn btn-primary">
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+					<Icon name="edit" size={14} />
 					Edit draft
 				</button>
 			{:else}
 				<button onclick={handleReply} title="Reply" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+					<Icon name="reply" size={16} />
 				</button>
 				<button onclick={handleReplyAll} title="Reply All" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>
+					<Icon name="reply-all" size={16} />
 				</button>
 				<button onclick={handleForward} title="Forward" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+					<Icon name="forward" size={16} />
 				</button>
 			{/if}
 		</div>
@@ -814,10 +815,7 @@
 					class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer
 						{assistantOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-accent-fg'}"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/>
-						<path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/>
-					</svg>
+					<Icon name="assistant" size={16} />
 				</button>
 			{/if}
 			<button
@@ -828,15 +826,13 @@
 				class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer
 					{isFlagged ? 'text-warning' : 'text-text-secondary hover:text-warning'}"
 			>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill={isFlagged ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-				</svg>
+				<Icon name="star" size={16} fill={isFlagged ? 'currentColor' : 'none'} />
 			</button>
 			<button onclick={() => doAction(isRead ? 'markUnread' : 'markRead')} title={isRead ? 'Mark Unread' : 'Mark Read'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
 				{#if isRead}
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
+					<Icon name="mark-unread" size={16} />
 				{:else}
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+					<Icon name="mark-read" size={16} />
 				{/if}
 			</button>
 			<button
@@ -847,12 +843,7 @@
 				class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50
 					{showMovePicker ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M2 9V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2"/>
-					<path d="M2 13h10"/>
-					<path d="m9 16 3-3-3-3"/>
-					<path d="M14 13v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4"/>
-				</svg>
+				<Icon name="move-to-folder" size={16} />
 			</button>
 			{#if showMovePicker}
 				<FolderPicker
@@ -866,7 +857,7 @@
 				/>
 			{/if}
 			<button onclick={() => doAction('archive')} title="Archive" disabled={actionLoading === 'archive'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+				<Icon name="archive" size={16} />
 			</button>
 			{#if isInJunk}
 				<!--
@@ -883,9 +874,7 @@
 					disabled={actionLoading === 'trustSender' || !from?.email}
 					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-accent-fg transition-colors cursor-pointer disabled:opacity-50"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
-					</svg>
+					<Icon name="add-contact" size={16} />
 				</button>
 				<button
 					onclick={() => doAction('notSpam')}
@@ -893,10 +882,7 @@
 					disabled={actionLoading === 'notSpam'}
 					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-success transition-colors cursor-pointer disabled:opacity-50"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-						<path d="m9 12 2 2 4-4"/>
-					</svg>
+					<Icon name="not-spam" size={16} />
 				</button>
 			{:else}
 				<button
@@ -905,15 +891,15 @@
 					disabled={actionLoading === 'spam'}
 					class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4.9 4.9 14.2 14.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
+					<Icon name="spam" size={16} />
 				</button>
 			{/if}
 			<button onclick={() => doAction('trash')} title="Trash" disabled={actionLoading === 'trash'} class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+				<Icon name="delete" size={16} />
 			</button>
 			<div class="w-px h-4 bg-border mx-0.5"></div>
 			<button onclick={() => window.print()} title="Print" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+				<Icon name="print" size={16} />
 			</button>
 			{#if aiEnabled && !isDraft}
 				<button
@@ -926,11 +912,7 @@
 						<span class="block w-4 h-4 rounded-full border-2 border-accent/40 border-t-accent animate-spin"></span>
 					{:else}
 						<!-- calendar with sparkle -->
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 11V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
-							<path d="M16 2v4M8 2v4M3 10h18"/>
-							<path d="M18.5 15.5 19.3 17.7 21.5 18.5 19.3 19.3 18.5 21.5 17.7 19.3 15.5 18.5 17.7 17.7z"/>
-						</svg>
+						<Icon name="create-event" size={16} />
 					{/if}
 				</button>
 			{/if}
@@ -938,7 +920,7 @@
 				<div class="w-px h-4 bg-border mx-0.5"></div>
 				{#if isUnsubscribed}
 					<span class="inline-flex items-center gap-1 px-2 py-1 text-xs text-success" title="Unsubscribed">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+						<Icon name="check" size={14} />
 						Unsubscribed
 					</span>
 				{:else}
@@ -991,7 +973,7 @@
 							<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {label.color}"></span>
 							<span class="flex-1 text-left text-text">{label.name}</span>
 							{#if appliedLabels.find(l => l.id === label.id)}
-								<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+								<Icon name="check" size={14} />
 							{/if}
 						</button>
 					{/each}
@@ -1023,7 +1005,7 @@
 							title="Add to Contacts"
 							class="self-center -my-1 p-1 rounded-md text-text-tertiary hover:text-accent-fg hover:bg-accent/10 cursor-pointer"
 						>
-							<svg class="block" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
+							<Icon name="add-contact" size={14} class="block" />
 						</button>
 					{/if}
 				</div>
@@ -1063,7 +1045,7 @@
 					>
 						Spam score: {spamScore.toFixed(1)}
 						{#if spamRules.length > 0}
-							<span aria-hidden="true">{showSpamRules ? '▴' : '▾'}</span>
+							<Icon name="dropdown" size={12} class="transition-transform {showSpamRules ? 'rotate-180' : ''}" />
 						{/if}
 					</svelte:element>
 					{#if showSpamRules && spamRules.length > 0}
@@ -1113,9 +1095,7 @@
 		<div class="{compact ? 'mx-4' : 'mx-6'} mt-3 shrink-0">
 			<div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-2.5 relative overflow-hidden">
 				<div class="absolute inset-y-0 left-0 w-1 bg-accent"></div>
-				<svg class="shrink-0 text-accent-fg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>
-				</svg>
+				<Icon name="code" size={20} class="text-accent-fg" />
 				<div class="min-w-0">
 					<div class="text-2xs font-medium uppercase tracking-wide text-accent-fg">Verification code</div>
 					<div class="font-mono text-lg font-semibold tracking-[0.2em] text-text select-all leading-7">{otp.display}</div>
@@ -1128,10 +1108,10 @@
 						class="btn btn-primary btn-sm"
 					>
 						{#if otpCopied}
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+							<Icon name="check" size={14} />
 							Copied
 						{:else}
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+							<Icon name="copy" size={14} />
 							Copy code
 						{/if}
 					</button>
@@ -1226,15 +1206,9 @@
 				{unsubToast.kind === 'success' ? 'border-border text-text' : 'border-danger/40 text-danger'}"
 		>
 			{#if unsubToast.kind === 'success'}
-				<svg class="text-accent-fg shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="20 6 9 17 4 12"/>
-				</svg>
+				<Icon name="check" size={14} class="text-accent-fg" />
 			{:else}
-				<svg class="shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<circle cx="12" cy="12" r="10"/>
-					<line x1="12" y1="8" x2="12" y2="12"/>
-					<line x1="12" y1="16" x2="12.01" y2="16"/>
-				</svg>
+				<Icon name="error" size={14} />
 			{/if}
 			<span>{unsubToast.message}</span>
 		</div>

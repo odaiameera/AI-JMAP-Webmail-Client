@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import EmailList from '$lib/components/EmailList.svelte';
 	import { pageTitle } from '$lib/utils/title';
 	import { goto } from '$app/navigation';
@@ -56,7 +57,7 @@
 				>
 					<span>{label}</span>
 					<span class="opacity-50 group-hover:opacity-100 transition-opacity">
-						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+						<Icon name="close" size={12} />
 					</span>
 				</button>
 			{/each}
@@ -74,7 +75,7 @@
 		<!-- No query yet -->
 		<div class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
 			<div class="w-12 h-12 rounded-2xl bg-surface flex items-center justify-center text-text-tertiary">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+				<Icon name="search" size={20} />
 			</div>
 			<p class="text-text font-medium">Search your mail</p>
 			<p class="text-sm text-text-tertiary max-w-md leading-relaxed">
@@ -89,7 +90,7 @@
 		<!-- Query with no matches -->
 		<div class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
 			<div class="w-12 h-12 rounded-2xl bg-surface flex items-center justify-center text-text-tertiary">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
+				<Icon name="no-results" size={20} />
 			</div>
 			<p class="text-text font-medium">No results</p>
 			<p class="text-sm text-text-tertiary max-w-md leading-relaxed">

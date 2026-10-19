@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { pageTitle } from '$lib/utils/title';
 	import type { EditScope, EventInstance, EventWritePayload } from '$lib/calendar/types';
@@ -284,10 +285,10 @@
 			</button>
 			<div class="flex items-center">
 				<button type="button" class="fc-btn" aria-label="Previous" onclick={() => step(-1)}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+					<Icon name="previous" size={16} />
 				</button>
 				<button type="button" class="fc-btn" aria-label="Next" onclick={() => step(1)}>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+					<Icon name="next" size={16} />
 				</button>
 			</div>
 			<h1 class="text-base font-semibold text-text truncate">{headerLabel}</h1>
@@ -306,7 +307,7 @@
 					}}
 				>
 					{currentViewLabel}
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-text-tertiary"><path d="M6 9l6 6 6-6"/></svg>
+					<Icon name="dropdown" size={14} class="text-text-tertiary" />
 				</button>
 				{#if viewMenuOpen}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -341,7 +342,7 @@
 				aria-label="New event"
 				onclick={() => openCreate()}
 			>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+				<Icon name="add" size={16} />
 			</button>
 		</div>
 

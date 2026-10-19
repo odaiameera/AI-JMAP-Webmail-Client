@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { enhance } from '$app/forms';
 	import { pageTitle } from '$lib/utils/title';
 	import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
@@ -123,12 +124,7 @@
 				onclick={passkeyLogin}
 				class="btn btn-secondary btn-lg w-full"
 			>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-					<circle cx="7.5" cy="8.5" r="3.5"/>
-					<path d="M2 21v-2a5.5 5.5 0 0 1 5.5-5.5h.5"/>
-					<circle cx="17" cy="11" r="3"/>
-					<path d="M17 14v5l1.5 1.5L20 19l-1.2-1.2L20 16.5z"/>
-				</svg>
+				<Icon name="passkey" size={16} />
 				Sign in with a passkey
 			</button>
 		{/if}

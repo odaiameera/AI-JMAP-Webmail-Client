@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import type { CalendarInfo, EventAttendee, RecurrenceRule } from '$lib/calendar/types';
@@ -166,7 +167,7 @@
 					</span>
 					{#if onCalendar && !isCancellation}
 						<span class="inline-flex items-center gap-1 text-2xs text-success">
-							<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+							<Icon name="check" size={12} />
 							On your calendar
 						</span>
 					{/if}

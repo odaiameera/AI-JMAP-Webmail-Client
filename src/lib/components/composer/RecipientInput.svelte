@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { getRecentRecipients, isValidEmail } from '$lib/utils/recent-recipients';
 	import { addressBook, loadAddressBook } from '$lib/stores/addressBook';
@@ -151,7 +152,7 @@
 						class="shrink-0 w-4 h-4 grid place-items-center rounded-full text-text-tertiary hover:text-text hover:bg-border cursor-pointer"
 						aria-label={`Remove ${chip}`}
 					>
-						<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+						<Icon name="close" size={12} />
 					</button>
 				</span>
 			{/each}
@@ -187,7 +188,7 @@
 					>
 						{#if s.kind === 'list'}
 							<span class="w-6 h-6 shrink-0 rounded-full bg-accent/15 text-accent-fg grid place-items-center" aria-hidden="true">
-								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+								<Icon name="group" size={14} />
 							</span>
 							<span class="truncate text-text">{s.name}</span>
 							<span class="shrink-0 text-xs text-text-tertiary">{s.emails.length} {s.emails.length === 1 ? 'person' : 'people'}</span>

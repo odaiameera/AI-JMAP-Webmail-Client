@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onDestroy } from 'svelte';
 	import { Editor, Extension } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
@@ -271,10 +272,7 @@
 			class="w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
 				{activeMarks.link ? 'bg-accent/15 text-accent-fg' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}"
 		>
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-				<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-			</svg>
+			<Icon name="link" size={14} />
 		</button>
 		<div class="flex-1"></div>
 		<span class="text-2xs {counterClass}" aria-live="polite">{charCount} / {MAX_CHARS}</span>

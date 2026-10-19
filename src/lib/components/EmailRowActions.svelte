@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import RemindMeLaterPicker from './RemindMeLaterPicker.svelte';
 	import CategoryPicker from './CategoryPicker.svelte';
@@ -110,7 +111,7 @@
 		aria-label="Archive"
 		class="p-1 rounded-md hover:bg-surface text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 	>
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+		<Icon name="archive" size={16} />
 	</button>
 
 	{#if hasReminder}
@@ -123,7 +124,7 @@
 			aria-label="Unsnooze"
 			class="p-1 rounded-md hover:bg-surface text-accent-fg hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 		>
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+			<Icon name="unsnooze" size={16} />
 		</button>
 	{:else}
 		<div class="relative">
@@ -136,7 +137,7 @@
 				aria-label="Remind me later"
 				class="p-1 rounded-md hover:bg-surface transition-colors cursor-pointer disabled:opacity-50 {pickerOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 			>
-				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+				<Icon name="remind-later" size={16} />
 			</button>
 			{#if pickerOpen}
 				<div onclick={stop} onmousedown={stop} onkeydown={(e) => e.stopPropagation()} role="presentation">
@@ -162,7 +163,7 @@
 			aria-expanded={categoryPickerOpen}
 			class="p-1 rounded-md hover:bg-surface transition-colors cursor-pointer disabled:opacity-50 {categoryPickerOpen ? 'text-accent-fg bg-accent/10' : 'text-text-secondary hover:text-text'}"
 		>
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+			<Icon name="move-to-tab" size={16} />
 		</button>
 		{#if categoryPickerOpen}
 			<!-- Rendered on <body>, so its clicks never reach the row link. -->
@@ -185,9 +186,9 @@
 		class="p-1 rounded-md hover:bg-surface text-text-secondary hover:text-text transition-colors cursor-pointer disabled:opacity-50"
 	>
 		{#if isUnread}
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
+			<Icon name="mark-read" size={16} />
 		{:else}
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><polyline points="22 6 12 13 2 6"/><circle cx="19" cy="19" r="3" fill="currentColor"/></svg>
+			<Icon name="mark-unread" size={16} />
 		{/if}
 	</button>
 
@@ -200,7 +201,7 @@
 		aria-label="Delete"
 		class="p-1 rounded-md hover:bg-surface text-text-secondary hover:text-danger transition-colors cursor-pointer disabled:opacity-50"
 	>
-		<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+		<Icon name="delete" size={16} />
 	</button>
 </div>
 

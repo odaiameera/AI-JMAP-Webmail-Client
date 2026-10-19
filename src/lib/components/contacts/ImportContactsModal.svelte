@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import type { AddressBook, ContactCard } from '$lib/jmap/types';
 	import { apiImportContacts } from '$lib/contacts/api';
 	import {
@@ -162,7 +163,7 @@
 					<h2 id="import-contacts-title" class="text-lg font-semibold text-text">Import contacts</h2>
 					<p class="text-2xs text-text-tertiary">Apple or Google vCard, or Google Contacts CSV</p>
 				</div>
-				<button type="button" aria-label="Close import" class="p-2 rounded-lg text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" onclick={cancel}>×</button>
+				<button type="button" aria-label="Close import" class="p-2 rounded-lg text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" onclick={cancel}><Icon name="close" /></button>
 			</header>
 
 			<div class="flex-1 overflow-y-auto p-5 space-y-5">
