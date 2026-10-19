@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MenuSelect from '$lib/components/MenuSelect.svelte';
 	import type {
 		CalendarInfo,
 		EventInstance,
@@ -320,6 +321,12 @@
 	}
 </script>
 
+{#snippet ico(paths: string[], size = 16)}
+	<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+		{#each paths as d}<path {d} />{/each}
+	</svg>
+{/snippet}
+
 {#if open}
 	<div
 		class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
@@ -351,219 +358,260 @@
 			</div>
 
 			<div class="px-6 pb-2 overflow-y-auto space-y-4">
+				<!-- Its own underline marks focus, so no outline (which the
+				     scrolling body clipped at the top). -->
 				<input
 					type="text"
 					bind:value={title}
 					bind:this={titleEl}
 					maxlength={500}
-					placeholder="Add title"
-					class="w-full bg-transparent border-0 border-b-2 border-border focus:border-accent text-xl text-text placeholder-text-tertiary outline-none pb-1.5 transition-colors"
+					aria-label="Title"
+					class="w-full bg-transparent border-0 border-b-2 border-border focus:border-accent text-xl text-text outline-none focus-visible:outline-none! pb-1.5 transition-colors"
 				/>
 
-				<!-- Date / time row -->
-				<div class="space-y-2.5">
-					<div class="flex items-center gap-2 flex-wrap">
-						<input
-							type="date"
-							bind:value={startDate}
-							class="cal-input"
-							aria-label="Start date"
-						/>
-						{#if !allDay}
-							<input type="time" bind:value={startTime} step="900" class="cal-input" aria-label="Start time" />
-						{/if}
-						<span class="text-text-tertiary text-sm">–</span>
-						{#if !allDay}
-							<input type="time" bind:value={endTime} step="900" class="cal-input" aria-label="End time" />
-						{/if}
-						<input type="date" bind:value={endDate} class="cal-input" aria-label="End date" />
+				<!-- One row per kind of detail, each led by an icon, so the dialog
+				     reads top to bottom without labels or placeholder text. -->
+				<div class="space-y-3">
+					<!-- When -->
+					<div class="flex gap-3">
+						<span class="ev-icon" title="When">{@render ico(['M12 6v6l4 2', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'])}</span>
+						<div class="flex-1 min-w-0 space-y-2">
+							<div class="grid grid-cols-[3.25rem_1fr] items-center gap-x-2 gap-y-2">
+								<span class="text-xs text-text-tertiary">Starts</span>
+								<div class="flex items-center gap-2">
+									<input type="date" bind:value={startDate} class="cal-input" aria-label="Start date" />
+									{#if !allDay}
+										<input type="time" bind:value={startTime} step="900" class="cal-input" aria-label="Start time" />
+									{/if}
+								</div>
+								<span class="text-xs text-text-tertiary">Ends</span>
+								<div class="flex items-center gap-2">
+									<input type="date" bind:value={endDate} class="cal-input" aria-label="End date" />
+									{#if !allDay}
+										<input type="time" bind:value={endTime} step="900" class="cal-input" aria-label="End time" />
+									{/if}
+								</div>
+							</div>
+							<label class="inline-flex items-center gap-2 cursor-pointer text-sm text-text-secondary">
+								<input type="checkbox" bind:checked={allDay} class="w-3.5 h-3.5 accent-accent cursor-pointer" />
+								All day
+							</label>
+						</div>
 					</div>
-					<label class="inline-flex items-center gap-2 cursor-pointer text-sm text-text-secondary">
-						<input type="checkbox" bind:checked={allDay} class="w-3.5 h-3.5 accent-accent cursor-pointer" />
-						All day
-					</label>
-				</div>
 
-				<!-- Recurrence -->
-				<div class="space-y-2">
-					<select bind:value={recurrence} class="cal-input cursor-pointer" aria-label="Repeats">
-						<option value="none">Does not repeat</option>
-						<option value="daily">Daily</option>
-						<option value="weekly">Weekly on {startWeekdayName}</option>
-						<option value="weekdays">Every weekday (Mon–Fri)</option>
-						<option value="monthly">Monthly on day {startDayOfMonth}</option>
-						<option value="yearly">Annually</option>
-						<option value="custom">Custom…</option>
-					</select>
-
-					{#if recurrence === 'custom'}
-						<div class="rounded-lg border border-border bg-surface-hover/40 p-3 space-y-3">
-							<div class="flex items-center gap-2 text-sm text-text">
-								<span>Repeat every</span>
-								<input
-									type="number"
-									min="1"
-									max="99"
-									bind:value={customInterval}
-									class="cal-input w-16 text-center"
-									aria-label="Interval"
+					<!-- Repeats -->
+					<div class="flex gap-3">
+						<span class="ev-icon" title="Repeats">{@render ico(['m17 2 4 4-4 4', 'M3 11v-1a4 4 0 0 1 4-4h14', 'm7 22-4-4 4-4', 'M21 13v1a4 4 0 0 1-4 4H3'])}</span>
+						<div class="flex-1 min-w-0 space-y-2">
+							<div class="-ml-2">
+								<MenuSelect
+									value={recurrence}
+									options={[
+										{ value: 'none', label: 'Does not repeat' },
+										{ value: 'daily', label: 'Daily' },
+										{ value: 'weekly', label: `Weekly on ${startWeekdayName}` },
+										{ value: 'weekdays', label: 'Every weekday (Mon–Fri)' },
+										{ value: 'monthly', label: `Monthly on day ${startDayOfMonth}` },
+										{ value: 'yearly', label: 'Annually' },
+										{ value: 'custom', label: 'Custom…' }
+									]}
+									onChange={(v) => (recurrence = v)}
+									ariaLabel="Repeats"
 								/>
-								<select bind:value={customFreq} class="cal-input cursor-pointer" aria-label="Frequency">
-									<option value="DAILY">day{customInterval > 1 ? 's' : ''}</option>
-									<option value="WEEKLY">week{customInterval > 1 ? 's' : ''}</option>
-									<option value="MONTHLY">month{customInterval > 1 ? 's' : ''}</option>
-									<option value="YEARLY">year{customInterval > 1 ? 's' : ''}</option>
-								</select>
 							</div>
 
-							{#if customFreq === 'WEEKLY'}
-								<div class="flex items-center gap-1.5">
-									{#each WEEKDAYS as wd (wd.code)}
-										<button
-											type="button"
-											class="w-7 h-7 rounded-full text-xs font-medium transition-colors cursor-pointer
-												{customByDay.includes(wd.code)
-													? 'bg-accent text-white'
-													: 'bg-surface-hover text-text-secondary hover:text-text'}"
-											aria-pressed={customByDay.includes(wd.code)}
-											onclick={() => {
-												customByDay = customByDay.includes(wd.code)
-													? customByDay.filter((c) => c !== wd.code)
-													: [...customByDay, wd.code];
-											}}
-										>
-											{wd.label}
-										</button>
+							{#if recurrence === 'custom'}
+								<div class="rounded-lg border border-border bg-surface-hover/40 p-3 space-y-3">
+									<div class="flex items-center gap-2 text-sm text-text">
+										<span>Every</span>
+										<input
+											type="number"
+											min="1"
+											max="99"
+											bind:value={customInterval}
+											class="cal-input w-16 text-center"
+											aria-label="Interval"
+										/>
+										<MenuSelect
+											value={customFreq}
+											options={[
+												{ value: 'DAILY', label: customInterval > 1 ? 'days' : 'day' },
+												{ value: 'WEEKLY', label: customInterval > 1 ? 'weeks' : 'week' },
+												{ value: 'MONTHLY', label: customInterval > 1 ? 'months' : 'month' },
+												{ value: 'YEARLY', label: customInterval > 1 ? 'years' : 'year' }
+											]}
+											onChange={(v) => (customFreq = v as typeof customFreq)}
+											ariaLabel="Frequency"
+										/>
+									</div>
+
+									{#if customFreq === 'WEEKLY'}
+										<div class="flex items-center gap-1.5">
+											{#each WEEKDAYS as wd (wd.code)}
+												<button
+													type="button"
+													class="w-7 h-7 rounded-full text-xs font-medium transition-colors cursor-pointer
+														{customByDay.includes(wd.code)
+															? 'bg-accent text-white'
+															: 'bg-surface-hover text-text-secondary hover:text-text'}"
+													aria-pressed={customByDay.includes(wd.code)}
+													onclick={() => {
+														customByDay = customByDay.includes(wd.code)
+															? customByDay.filter((c) => c !== wd.code)
+															: [...customByDay, wd.code];
+													}}
+												>
+													{wd.label}
+												</button>
+											{/each}
+										</div>
+									{/if}
+
+									<div class="flex items-center gap-2 text-sm text-text flex-wrap">
+										<span>Ends</span>
+										<MenuSelect
+											value={customEnds}
+											options={[
+												{ value: 'never', label: 'never' },
+												{ value: 'until', label: 'on date' },
+												{ value: 'count', label: 'after' }
+											]}
+											onChange={(v) => (customEnds = v as typeof customEnds)}
+											ariaLabel="Ends"
+										/>
+										{#if customEnds === 'until'}
+											<input type="date" bind:value={customUntil} class="cal-input" aria-label="End by date" />
+										{:else if customEnds === 'count'}
+											<input
+												type="number"
+												min="1"
+												max="999"
+												bind:value={customCount}
+												class="cal-input w-16 text-center"
+												aria-label="Occurrence count"
+											/>
+											<span>{customCount > 1 ? 'times' : 'time'}</span>
+										{/if}
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					<!-- Calendar -->
+					<div class="flex gap-3 items-center">
+						<span class="ev-icon" title="Calendar">
+							<span class="w-3 h-3 rounded-full" style="background: {calendars.find((c) => c.id === calendarId)?.color ?? 'var(--color-accent)'};"></span>
+						</span>
+						<div class="-ml-2">
+							<MenuSelect
+								value={calendarId}
+								options={calendars.map((cal) => ({ value: cal.id, label: cal.name }))}
+								onChange={(v) => (calendarId = v)}
+								ariaLabel="Calendar"
+							/>
+						</div>
+					</div>
+
+					<!-- Reminders -->
+					<div class="flex gap-3">
+						<span class="ev-icon" title="Reminders">{@render ico(['M10.268 21a2 2 0 0 0 3.464 0', 'M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326'])}</span>
+						<div class="flex-1 min-w-0 space-y-1">
+							{#each alarms as alarm, i (i)}
+								<div class="flex items-center gap-1 -ml-2">
+									<MenuSelect
+										value={alarm}
+										options={ALARM_OPTIONS}
+										onChange={(v) => {
+											const next = [...alarms];
+											next[i] = v;
+											alarms = next;
+										}}
+										ariaLabel="Reminder {i + 1}"
+									/>
+									<button
+										type="button"
+										class="fc-btn"
+										aria-label="Remove reminder"
+										title="Remove reminder"
+										onclick={() => (alarms = alarms.filter((_, idx) => idx !== i))}
+									>
+										{@render ico(['M18 6 6 18', 'm6 6 12 12'], 14)}
+									</button>
+								</div>
+							{/each}
+							{#if alarms.length < 5}
+								<button
+									type="button"
+									class="text-sm text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer h-7"
+									onclick={() => (alarms = [...alarms, 30])}
+								>
+									Add reminder
+								</button>
+							{/if}
+						</div>
+					</div>
+
+					<!-- Location -->
+					<div class="flex gap-3 items-center">
+						<span class="ev-icon" title="Location">{@render ico(['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0'])}</span>
+						<input
+							type="text"
+							bind:value={location}
+							maxlength={500}
+							aria-label="Location"
+							class="ev-field"
+						/>
+					</div>
+
+					<!-- Notes -->
+					<div class="flex gap-3">
+						<span class="ev-icon pt-2" title="Notes">{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'])}</span>
+						<textarea
+							bind:value={description}
+							maxlength={10000}
+							aria-label="Notes"
+							rows={3}
+							class="ev-field resize-y py-2"
+						></textarea>
+					</div>
+
+					<!-- Guests -->
+					<div class="flex gap-3">
+						<span class="ev-icon pt-2" title="Guests">{@render ico(['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M22 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'])}</span>
+						<div class="flex-1 min-w-0">
+							{#if attendees.length > 0}
+								<div class="flex flex-wrap gap-1.5 mb-1.5">
+									{#each attendees as a (a)}
+										<span class="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full bg-surface-hover border border-border text-xs text-text">
+											{a}
+											<button
+												type="button"
+												class="w-4 h-4 rounded-full flex items-center justify-center text-text-tertiary hover:text-text cursor-pointer"
+												aria-label="Remove {a}"
+												onclick={() => (attendees = attendees.filter((x) => x !== a))}
+											>
+												{@render ico(['M18 6 6 18', 'm6 6 12 12'], 10)}
+											</button>
+										</span>
 									{/each}
 								</div>
 							{/if}
-
-							<div class="flex items-center gap-2 text-sm text-text flex-wrap">
-								<span>Ends</span>
-								<select bind:value={customEnds} class="cal-input cursor-pointer" aria-label="Ends">
-									<option value="never">never</option>
-									<option value="until">on date</option>
-									<option value="count">after</option>
-								</select>
-								{#if customEnds === 'until'}
-									<input type="date" bind:value={customUntil} class="cal-input" aria-label="End by date" />
-								{:else if customEnds === 'count'}
-									<input
-										type="number"
-										min="1"
-										max="999"
-										bind:value={customCount}
-										class="cal-input w-16 text-center"
-										aria-label="Occurrence count"
-									/>
-									<span>occurrence{customCount > 1 ? 's' : ''}</span>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Calendar + reminders -->
-				<div class="flex items-center gap-2 flex-wrap">
-					<select bind:value={calendarId} class="cal-input cursor-pointer" aria-label="Calendar">
-						{#each calendars as cal (cal.id)}
-							<option value={cal.id}>{cal.name}</option>
-						{/each}
-					</select>
-					<span
-						class="w-3 h-3 rounded-full shrink-0"
-						style="background: {calendars.find((c) => c.id === calendarId)?.color ?? '#0969da'};"
-					></span>
-				</div>
-
-				<div class="space-y-1.5">
-					{#each alarms as alarm, i (i)}
-						<div class="flex items-center gap-2">
-							<svg class="text-text-tertiary shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-							<select
-								value={alarm}
-								onchange={(e) => {
-									const next = [...alarms];
-									next[i] = Number((e.currentTarget as HTMLSelectElement).value);
-									alarms = next;
+							<input
+								type="text"
+								bind:value={attendeeInput}
+								aria-label="Add guests"
+								class="ev-field"
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ',') {
+										e.preventDefault();
+										addAttendee();
+									}
 								}}
-								class="cal-input cursor-pointer"
-								aria-label="Reminder"
-							>
-								{#each ALARM_OPTIONS as opt (opt.value)}
-									<option value={opt.value}>{opt.label}</option>
-								{/each}
-							</select>
-							<button
-								type="button"
-								class="fc-btn"
-								aria-label="Remove reminder"
-								onclick={() => (alarms = alarms.filter((_, idx) => idx !== i))}
-							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
-							</button>
+								onblur={addAttendee}
+							/>
 						</div>
-					{/each}
-					{#if alarms.length < 5}
-						<button
-							type="button"
-							class="text-sm text-accent-fg hover:text-accent-fg-hover transition-colors cursor-pointer"
-							onclick={() => (alarms = [...alarms, 30])}
-						>
-							+ Add reminder
-						</button>
-					{/if}
-				</div>
-
-				<!-- Location / description -->
-				<input
-					type="text"
-					bind:value={location}
-					maxlength={500}
-					placeholder="Add location"
-					class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text placeholder-text-tertiary outline-none transition-colors"
-				/>
-				<textarea
-					bind:value={description}
-					maxlength={10000}
-					placeholder="Add description"
-					rows={3}
-					class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text placeholder-text-tertiary outline-none transition-colors resize-y"
-				></textarea>
-
-				<!-- Guests -->
-				<div>
-					<div class="flex flex-wrap gap-1.5 mb-1.5">
-						{#each attendees as a (a)}
-							<span class="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full bg-surface-hover border border-border text-xs text-text">
-								{a}
-								<button
-									type="button"
-									class="w-4 h-4 rounded-full flex items-center justify-center text-text-tertiary hover:text-text cursor-pointer"
-									aria-label="Remove {a}"
-									onclick={() => (attendees = attendees.filter((x) => x !== a))}
-								>
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
-								</button>
-							</span>
-						{/each}
 					</div>
-					<input
-						type="text"
-						bind:value={attendeeInput}
-						placeholder="Add guests (email, press Enter)"
-						class="w-full bg-surface-hover border border-border focus:border-accent rounded-lg px-3 py-2 text-sm text-text placeholder-text-tertiary outline-none transition-colors"
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ',') {
-								e.preventDefault();
-								addAttendee();
-							}
-						}}
-						onblur={addAttendee}
-					/>
-					{#if attendees.length > 0}
-						<p class="text-xs text-text-tertiary mt-1">Guests receive an email invitation from the mail server.</p>
-					{/if}
 				</div>
 
 				{#if error}
@@ -608,6 +656,33 @@
 	}
 	.cal-input:focus {
 		outline: none;
+		border-color: var(--color-accent);
+	}
+	/* The leading icon column of each detail row. */
+	.ev-icon {
+		width: 1.25rem;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		align-self: flex-start;
+		min-height: 2rem;
+		color: var(--color-text-tertiary);
+	}
+	.ev-field {
+		flex: 1;
+		min-width: 0;
+		width: 100%;
+		min-height: 2rem;
+		padding: 0 0.625rem;
+		font-size: var(--text-sm);
+		background: var(--color-surface-hover);
+		border: 1px solid var(--color-border);
+		border-radius: 8px;
+		color: var(--color-text);
+		outline: none;
+	}
+	.ev-field:focus {
 		border-color: var(--color-accent);
 	}
 	input[type='date'].cal-input::-webkit-calendar-picker-indicator,
