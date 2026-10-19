@@ -57,7 +57,6 @@
 	let discarding = $state(false);
 	let error = $state('');
 	let importance = $state<'high' | 'normal' | 'low'>('normal');
-	let showEmojiPicker = $state(false);
 	let confirmingDiscard = $state(false);
 
 	// --- Draft saving ---
@@ -75,7 +74,10 @@
 	let fileInputEl = $state<HTMLInputElement | undefined>();
 
 	// --- Inline link popover (replaces window.prompt) ---
-	let showLinkPopover = $state(false);
+	// Toolbar menus and popovers: one open at a time, closed by any click
+	// outside a [data-menu-root].
+	type MenuName = 'size' | 'color' | 'align' | 'more' | 'emoji' | 'link' | 'importance';
+	let openMenu = $state<MenuName | null>(null);
 	let linkUrl = $state('');
 
 	const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
@@ -91,10 +93,13 @@
 	let lastMode: 'popup' | 'fullscreen' | 'minimized' | 'closed' = 'closed';
 	let lastAppliedSignatureId: number | null | 'unset' = 'unset';
 
-	const EMOJIS = ['😀','😂','🙂','😊','🙏','👍','👎','❤️','🔥','✅','❌','⚠️','📎','📅','💡','🚀','💬','📧','🔒','⭐'];
+	const EMOJIS = ['😀','😂','🙂','😊','😉','😍','🤔','😅','🙏','👍','👎','👏','🙌','💪','❤️','🎉','🔥','✨','✅','❌','⚠️','💡','🚀','⭐'];
 
 	// Subject shown in minimized title bar / header
-	let displayTitle = $derived(subject || (inReplyTo ? 'Reply' : isForward ? 'Forward' : draftId ? 'Draft' : 'New message'));
+	// "Draft" only for a draft you opened, not once auto-save has given a
+	// new message a draft id.
+	let openedDraft = $state(false);
+	let displayTitle = $derived(subject || (inReplyTo ? 'Reply' : isForward ? 'Forward' : openedDraft ? 'Draft' : 'New message'));
 
 	onDestroy(() => editor?.destroy());
 
@@ -138,6 +143,11 @@
 		// Tiptap's default paste handler ignores image files. Intercept on the
 		// editor's DOM and re-route image pastes through our compressor.
 		editor.view.dom.addEventListener('paste', handlePaste);
+		editor.on('selectionUpdate', updateBubble);
+		editor.on('focus', updateBubble);
+		// After the click that blurred it has landed, so a click inside the
+		// menu (which keeps focus) doesn't close it.
+		editor.on('blur', () => setTimeout(updateBubble, 0));
 	}
 
 	async function handlePaste(e: ClipboardEvent) {
@@ -170,8 +180,7 @@
 
 	function openLinkPopover() {
 		linkUrl = (editor?.getAttributes('link').href as string) ?? '';
-		showEmojiPicker = false;
-		showLinkPopover = true;
+		openMenu = 'link';
 	}
 
 	function applyLink() {
@@ -182,12 +191,78 @@
 			const href = /^[a-z]+:|^\//i.test(url) ? url : `https://${url}`;
 			editor?.chain().focus().extendMarkRange('link').setLink({ href }).run();
 		}
-		showLinkPopover = false;
+		openMenu = null;
 	}
 
 	function insertEmoji(emoji: string) {
 		editor?.chain().focus().insertContent(emoji).run();
-		showEmojiPicker = false;
+		openMenu = null;
+	}
+
+	function toggleMenu(name: MenuName) {
+		if (name === 'link') return openMenu === 'link' ? (openMenu = null) : openLinkPopover();
+		openMenu = openMenu === name ? null : name;
+	}
+
+	function closeMenusOnOutsideClick(e: PointerEvent) {
+		if (openMenu && !(e.target as Element | null)?.closest('[data-menu-root]')) openMenu = null;
+	}
+
+	// Text size: four steps, like Gmail, instead of an 8-72pt list.
+	const TEXT_SIZES = [
+		{ label: 'Small', size: '10pt' },
+		{ label: 'Normal', size: null },
+		{ label: 'Large', size: '14pt' },
+		{ label: 'Huge', size: '18pt' }
+	] as const;
+
+	function setTextSize(size: string | null) {
+		const chain = editor?.chain().focus();
+		if (size) chain?.setFontSize(size).run();
+		else chain?.unsetFontSize().run();
+		openMenu = null;
+	}
+
+	const TEXT_COLORS = ['#d1242f', '#bc4c00', '#9a6700', '#1a7f37', '#0969da', '#8250df', '#bf3989', '#6e7781'];
+
+	function setTextColor(color: string | null) {
+		const chain = editor?.chain().focus();
+		if (color) chain?.setColor(color).run();
+		else chain?.unsetColor().run();
+		openMenu = null;
+	}
+
+	function setAlign(align: 'left' | 'center' | 'right') {
+		editor?.chain().focus().setTextAlign(align).run();
+		openMenu = null;
+	}
+
+	function run(command: (c: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>) {
+		if (editor) command(editor.chain().focus()).run();
+		openMenu = null;
+	}
+
+	// --- Selection menu ---
+	// Bold, italic, link and the like float over selected text, so the
+	// common formatting is where you're looking rather than in the toolbar.
+	let bodyEl = $state<HTMLDivElement | undefined>();
+	let bubble = $state<{ x: number; y: number; below: boolean } | null>(null);
+
+	function updateBubble() {
+		if (!editor || !bodyEl) return (bubble = null);
+		const { from, to, empty } = editor.state.selection;
+		if (empty || !editor.view.hasFocus() || editor.isActive('image')) return (bubble = null);
+		const a = editor.view.coordsAtPos(from);
+		const b = editor.view.coordsAtPos(to);
+		const box = bodyEl.getBoundingClientRect();
+		const half = 110;
+		const x = Math.min(Math.max((a.left + b.right) / 2 - box.left, half), box.width - half);
+		// Above the selection, unless that would put it outside the scrolling
+		// body (the first lines), where it would be clipped; then below.
+		const top = Math.min(a.top, b.top) - box.top;
+		const below = top < 48;
+		const y = below ? Math.max(a.bottom, b.bottom) - box.top + 6 : top - 6;
+		bubble = { x, y: y + bodyEl.scrollTop, below };
 	}
 
 	// --- Attachment upload ---
@@ -482,8 +557,8 @@
 			confirmingDiscard = false;
 			return;
 		}
-		if (e.key === 'Escape' && showLinkPopover) {
-			showLinkPopover = false;
+		if (e.key === 'Escape' && openMenu) {
+			openMenu = null;
 			return;
 		}
 		if (e.key === 'Escape' && $composer.mode === 'fullscreen') {
@@ -517,6 +592,7 @@
 		inReplyTo = s.inReplyTo ?? '';
 		references = s.references ?? '';
 		draftId = s.draftId;
+		openedDraft = !!s.draftId;
 		isForward = !!s.isForward;
 		showCc = !!s.cc;
 		showBcc = !!s.bcc;
@@ -524,7 +600,8 @@
 		importance = 'normal';
 		attachments = [...(s.attachments ?? [])];
 		pendingUploads = [];
-		showLinkPopover = false;
+		openMenu = null;
+		bubble = null;
 		confirmingDiscard = false;
 		saveStatus = 'idle';
 		savedAt = null;
@@ -621,37 +698,20 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpointerdown={closeMenusOnOutsideClick} />
 
-{#snippet attachButton()}
-	<button type="button" onclick={triggerFilePick} class="fc-btn" title="Attach file">
-		<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-	</button>
+<!-- Lucide-style stroke icon from path data (24×24 viewBox). -->
+{#snippet ico(paths: string[], size = 16)}
+	<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+		{#each paths as d}<path {d} />{/each}
+	</svg>
 {/snippet}
 
-{#snippet linkButton()}
-	<div class="relative">
-		<button type="button" onclick={openLinkPopover} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Insert link">
-			<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-		</button>
-		{#if showLinkPopover}
-			<div class="absolute top-full left-0 mt-1 z-50 w-72 bg-surface border border-border rounded-lg shadow-xl p-2">
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					bind:value={linkUrl}
-					type="text"
-					aria-label="Link address"
-					autofocus
-					onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } }}
-					class="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent placeholder-text-tertiary"
-				/>
-				<div class="flex items-center justify-end gap-1.5 mt-2">
-					<button type="button" onclick={() => (showLinkPopover = false)} class="text-xs text-text-tertiary hover:text-text px-2 py-1 rounded-md cursor-pointer">Cancel</button>
-					<button type="button" onclick={applyLink} class="btn btn-primary btn-sm">Apply</button>
-				</div>
-			</div>
-		{/if}
-	</div>
+{#snippet markButtons()}
+	<button type="button" onclick={() => run((c) => c.toggleBold())} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold" aria-label="Bold" aria-pressed={isActive('bold')}><strong>B</strong></button>
+	<button type="button" onclick={() => run((c) => c.toggleItalic())} class="fc-btn {isActive('italic') ? 'fc-active' : ''}" title="Italic" aria-label="Italic" aria-pressed={isActive('italic')}><em class="font-serif">I</em></button>
+	<button type="button" onclick={() => run((c) => c.toggleUnderline())} class="fc-btn {isActive('underline') ? 'fc-active' : ''}" title="Underline" aria-label="Underline" aria-pressed={isActive('underline')}><u>U</u></button>
+	<button type="button" onclick={() => run((c) => c.toggleStrike())} class="fc-btn {isActive('strike') ? 'fc-active' : ''}" title="Strikethrough" aria-label="Strikethrough" aria-pressed={isActive('strike')}><s>S</s></button>
 {/snippet}
 
 {#if $composer.mode === 'fullscreen'}
@@ -677,56 +737,37 @@
 		aria-label="Compose email"
 		aria-modal={$composer.mode === 'fullscreen'}
 	>
-		<!-- Minimized title bar overlay (always rendered, only visible when minimized) -->
-		{#if $composer.mode === 'minimized'}
-			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-			<div
-				class="flex items-center justify-between px-3 h-10 bg-surface border-b border-border cursor-pointer"
-				onclick={restoreFromMinimized}
-			>
-				<span class="text-xs font-medium text-text truncate flex-1">{displayTitle}</span>
-				<div class="flex items-center gap-1 shrink-0 ml-2">
-					<button
-						onclick={(e) => { e.stopPropagation(); restoreFromMinimized(); }}
-						aria-label="Restore"
-						class="text-text-tertiary hover:text-text w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-hover"
-					>
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
-					</button>
-					<button
-						onclick={(e) => { e.stopPropagation(); void closeComposer(); }}
-						aria-label="Save draft and close"
-						class="text-text-tertiary hover:text-danger w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-hover"
-					>
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-					</button>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Header (popup + fullscreen) -->
+		<!-- Title bar. Minimized, it is the whole composer and restores on click. -->
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div
-			class="flex items-center justify-between px-3 h-10 bg-surface border-b border-border shrink-0"
-			class:hidden={$composer.mode === 'minimized'}
+			class="flex items-center justify-between pl-4 pr-2 h-10 bg-surface border-b border-border shrink-0 {$composer.mode === 'minimized' ? 'cursor-pointer' : ''}"
+			onclick={() => { if ($composer.mode === 'minimized') restoreFromMinimized(); }}
 		>
-			<span class="text-xs font-semibold text-text truncate flex-1">{displayTitle}</span>
+			<span class="text-sm font-medium text-text truncate flex-1">{displayTitle}</span>
 			<div class="flex items-center gap-0.5 shrink-0 ml-2">
-				<button onclick={minimize} aria-label="Minimize" class="header-btn">
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="19"/></svg>
-				</button>
-				<button
-					onclick={toggleFullscreen}
-					aria-label={$composer.mode === 'fullscreen' ? 'Exit fullscreen' : 'Fullscreen'}
-					class="header-btn"
-				>
-					{#if $composer.mode === 'fullscreen'}
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-					{:else}
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-					{/if}
-				</button>
-				<button onclick={() => void closeComposer()} aria-label="Save draft and close" title="Save draft and close" class="header-btn">
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+				{#if $composer.mode === 'minimized'}
+					<button onclick={(e) => { e.stopPropagation(); restoreFromMinimized(); }} aria-label="Restore" title="Restore" class="header-btn">
+						{@render ico(['m18 15-6-6-6 6'], 14)}
+					</button>
+				{:else}
+					<button onclick={minimize} aria-label="Minimize" title="Minimize" class="header-btn">
+						{@render ico(['M5 12h14'], 14)}
+					</button>
+					<button
+						onclick={toggleFullscreen}
+						aria-label={$composer.mode === 'fullscreen' ? 'Exit full screen' : 'Full screen'}
+						title={$composer.mode === 'fullscreen' ? 'Exit full screen' : 'Full screen'}
+						class="header-btn"
+					>
+						{#if $composer.mode === 'fullscreen'}
+							{@render ico(['m14 10 7-7', 'M20 10h-6V4', 'm3 21 7-7', 'M4 14h6v6'], 14)}
+						{:else}
+							{@render ico(['M15 3h6v6', 'm21 3-7 7', 'm3 21 7-7', 'M9 21H3v-6'], 14)}
+						{/if}
+					</button>
+				{/if}
+				<button onclick={(e) => { e.stopPropagation(); void closeComposer(); }} aria-label="Save draft and close" title="Save draft and close" class="header-btn">
+					{@render ico(['M18 6 6 18', 'm6 6 12 12'], 14)}
 				</button>
 			</div>
 		</div>
@@ -749,169 +790,22 @@
 			{#if showBcc}
 				<RecipientInput bind:value={bcc} label="Bcc" />
 			{/if}
-			<div class="flex items-center px-3 py-1.5">
+			<div class="flex items-center pl-3 pr-3 py-2">
 				<span class="text-xs text-text-tertiary w-12 shrink-0">Subject</span>
-				<input bind:value={subject} type="text" aria-label="Subject" class="flex-1 bg-transparent text-sm text-text outline-none" />
+				<input bind:value={subject} type="text" aria-label="Subject" class="flex-1 bg-transparent text-sm font-medium text-text outline-none focus-visible:outline-none!" />
 			</div>
 		</div>
-
-		<!-- Ribbon — popup gets a minimal single row, fullscreen gets the full Outlook-style two-row ribbon. -->
-		{#if $composer.mode === 'popup'}
-			<div class="shrink-0 border-b border-border bg-surface px-3 py-1.5 flex items-center gap-1 flex-wrap">
-				<button type="button" onclick={() => editor?.chain().focus().toggleBold().run()} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold"><strong>B</strong></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleItalic().run()} class="fc-btn {isActive('italic') ? 'fc-active' : ''}" title="Italic"><em>I</em></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleUnderline().run()} class="fc-btn {isActive('underline') ? 'fc-active' : ''}" title="Underline"><u>U</u></button>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().toggleBulletList().run()} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bullet list">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleOrderedList().run()} class="fc-btn {isActive('orderedList') ? 'fc-active' : ''}" title="Numbered list">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/></svg>
-				</button>
-				<div class="fc-sep"></div>
-				{@render linkButton()}
-				<div class="relative">
-					<button type="button" onclick={() => (showEmojiPicker = !showEmojiPicker)} class="fc-btn {showEmojiPicker ? 'fc-active' : ''}" title="Insert emoji">
-						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-					</button>
-					{#if showEmojiPicker}
-						<div class="absolute bottom-8 left-0 z-50 bg-surface border border-border rounded-lg p-2 grid grid-cols-5 gap-1 shadow-lg">
-							{#each EMOJIS as emoji}
-								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				{@render attachButton()}
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => (importance = importance === 'high' ? 'normal' : 'high')} class="fc-btn {importance === 'high' ? 'fc-active-red' : ''}" title="High importance">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-				</button>
-				<div class="flex-1"></div>
-				<SignaturePicker />
-			</div>
-		{:else if $composer.mode === 'fullscreen'}
-		<div class="shrink-0 border-b border-border bg-surface px-3 py-2 flex flex-col gap-2">
-			<!-- Row 1: Text formatting -->
-			<div class="flex items-center gap-1 flex-wrap">
-				<select onchange={(e) => editor?.chain().focus().setFontFamily((e.target as HTMLSelectElement).value).run()} class="fc-select w-[110px]">
-					<option value="Calibri, 'Segoe UI', Arial, sans-serif">Calibri</option>
-					<option value="Arial, sans-serif">Arial</option>
-					<option value="'Times New Roman', serif">Times New Roman</option>
-					<option value="'Courier New', monospace">Courier New</option>
-					<option value="Georgia, serif">Georgia</option>
-					<option value="Verdana, sans-serif">Verdana</option>
-				</select>
-				<select onchange={(e) => editor?.chain().focus().setFontSize((e.target as HTMLSelectElement).value + 'pt').run()} class="fc-select w-14" aria-label="Font size">
-					{#each [8,9,10,11,12,14,16,18,20,24,28,36,48,72] as size}<option value={size} selected={size === (Number(page.data.composerFontSize) || 12)}>{size}</option>{/each}
-				</select>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().toggleBold().run()} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold"><strong>B</strong></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleItalic().run()} class="fc-btn {isActive('italic') ? 'fc-active' : ''}" title="Italic"><em>I</em></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleUnderline().run()} class="fc-btn {isActive('underline') ? 'fc-active' : ''}" title="Underline"><u>U</u></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleStrike().run()} class="fc-btn {isActive('strike') ? 'fc-active' : ''}" title="Strikethrough"><s>S</s></button>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().toggleHighlight().run()} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
-				</button>
-				<label class="fc-btn cursor-pointer" title="Font color">
-					<input type="color" class="sr-only" oninput={(e) => editor?.chain().focus().setColor((e.target as HTMLInputElement).value).run()} />
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 20h16M8 16L12 4l4 12M9.5 12h5"/></svg>
-				</label>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().toggleSubscript().run()} class="fc-btn {isActive('subscript') ? 'fc-active' : ''}" title="Subscript">x<sub>2</sub></button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleSuperscript().run()} class="fc-btn {isActive('superscript') ? 'fc-active' : ''}" title="Superscript">x<sup>2</sup></button>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => (importance = importance === 'high' ? 'normal' : 'high')} class="fc-btn {importance === 'high' ? 'fc-active-red' : ''}" title="High importance">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-				</button>
-				<button type="button" onclick={() => (importance = importance === 'low' ? 'normal' : 'low')} class="fc-btn {importance === 'low' ? 'fc-active-blue' : ''}" title="Low importance">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-				</button>
-			</div>
-
-			<!-- Row 2: Paragraph + Insert + Signature -->
-			<div class="flex items-center gap-1 flex-wrap">
-				<button type="button" onclick={() => editor?.chain().focus().toggleBulletList().run()} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bullet list">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().toggleOrderedList().run()} class="fc-btn {isActive('orderedList') ? 'fc-active' : ''}" title="Numbered list">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().sinkListItem('listItem').run()} class="fc-btn" title="Indent">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="3 9 7 12 3 15"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().liftListItem('listItem').run()} class="fc-btn" title="Outdent">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><polyline points="7 9 3 12 7 15"/></svg>
-				</button>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().setTextAlign('left').run()} class="fc-btn {isActive('', { textAlign: 'left' }) ? 'fc-active' : ''}" title="Align left">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().setTextAlign('center').run()} class="fc-btn {isActive('', { textAlign: 'center' }) ? 'fc-active' : ''}" title="Align center">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
-				</button>
-				<button type="button" onclick={() => editor?.chain().focus().setTextAlign('right').run()} class="fc-btn {isActive('', { textAlign: 'right' }) ? 'fc-active' : ''}" title="Align right">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
-				</button>
-				<select
-					onchange={(e) => {
-						const v = (e.target as HTMLSelectElement).value;
-						if (v === 'p') editor?.chain().focus().setParagraph().run();
-						else editor?.chain().focus().setHeading({ level: parseInt(v) as 1 | 2 | 3 }).run();
-					}}
-					class="fc-select w-[100px] ml-1"
-				>
-					<option value="p">Normal</option>
-					<option value="1">Heading 1</option>
-					<option value="2">Heading 2</option>
-					<option value="3">Heading 3</option>
-				</select>
-				<div class="fc-sep"></div>
-				{@render linkButton()}
-				<div class="relative">
-					<button type="button" onclick={() => (showEmojiPicker = !showEmojiPicker)} class="fc-btn {showEmojiPicker ? 'fc-active' : ''}" title="Insert emoji">
-						<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-					</button>
-					{#if showEmojiPicker}
-						<div class="absolute bottom-8 left-0 z-50 bg-surface border border-border rounded-lg p-2 grid grid-cols-5 gap-1 shadow-lg">
-							{#each EMOJIS as emoji}
-								<button type="button" onclick={() => insertEmoji(emoji)} class="w-7 h-7 flex items-center justify-center text-base rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				{@render attachButton()}
-				<button type="button" onclick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} class="fc-btn" title="Insert 3x3 table">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-				</button>
-				<div class="fc-sep"></div>
-				<button type="button" onclick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()} class="fc-btn" title="Clear formatting">
-					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 5H9l-7 7 7 7h11a2 2 0 002-2V7a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
-				</button>
-				{#if isActive('table')}
-					<div class="fc-sep"></div>
-					<button type="button" onclick={() => editor?.chain().focus().addRowAfter().run()} class="fc-btn" title="Add row">+Row</button>
-					<button type="button" onclick={() => editor?.chain().focus().deleteRow().run()} class="fc-btn" title="Delete row">−Row</button>
-					<button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()} class="fc-btn" title="Add column">+Col</button>
-					<button type="button" onclick={() => editor?.chain().focus().deleteColumn().run()} class="fc-btn" title="Delete column">−Col</button>
-					<button type="button" onclick={() => editor?.chain().focus().deleteTable().run()} class="fc-btn text-danger" title="Delete table">×Table</button>
-				{/if}
-				<div class="fc-sep"></div>
-				<SignaturePicker />
-			</div>
-		</div>
-		{/if}
 
 		{#if error}
-			<div class="px-3 py-1.5 bg-danger/10 border-b border-danger/20 shrink-0" class:hidden={$composer.mode === 'minimized'}>
+			<div class="px-4 py-1.5 bg-danger/10 border-b border-danger/20 shrink-0" class:hidden={$composer.mode === 'minimized'}>
 				<p class="text-xs text-danger">{error}</p>
 			</div>
 		{/if}
 
-		<!-- Editor body — always rendered, height clipped when minimized -->
+		<!-- Editor body — always rendered, hidden when minimized -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
+			bind:this={bodyEl}
 			class="relative flex-1 overflow-y-auto px-4 py-3 min-h-0"
 			class:hidden={$composer.mode === 'minimized'}
 			ondragover={handleDragOver}
@@ -923,6 +817,30 @@
 				class="min-h-full full-composer-editor"
 				style="--composer-font: {composerFont}; --composer-size: {composerFontSize};"
 			></div>
+
+			{#if bubble}
+				<div
+					class="absolute z-30 flex items-center gap-0.5 p-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] -translate-x-1/2 {bubble.below ? '' : '-translate-y-full'}"
+					style="left: {bubble.x}px; top: {bubble.y}px;"
+					onmousedown={(e) => e.preventDefault()}
+					role="toolbar"
+					tabindex="-1"
+					aria-label="Format selection"
+				>
+					{@render markButtons()}
+					<div class="fc-sep"></div>
+					<button type="button" onclick={openLinkPopover} class="fc-btn {isActive('link') ? 'fc-active' : ''}" title="Link" aria-label="Link">
+						{@render ico(['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'], 15)}
+					</button>
+					<button type="button" onclick={() => run((c) => c.toggleHighlight())} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight" aria-label="Highlight">
+						{@render ico(['m9 11-6 6v3h9l3-3', 'm22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'], 15)}
+					</button>
+					<button type="button" onclick={() => run((c) => c.clearNodes().unsetAllMarks())} class="fc-btn" title="Clear formatting" aria-label="Clear formatting">
+						{@render ico(['M4 7V4h16v3', 'M5 20h6', 'M13 4 8 20', 'm15 15 5 5', 'm20 15-5 5'], 15)}
+					</button>
+				</div>
+			{/if}
+
 			{#if dragOver}
 				<div class="absolute inset-2 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
 					<span class="text-sm font-medium text-accent-fg">Drop files to attach</span>
@@ -932,74 +850,235 @@
 
 		<!-- Attachment tray -->
 		{#if attachments.length > 0 || pendingUploads.length > 0}
-			<div class="shrink-0 border-t border-border bg-surface px-3 py-2" class:hidden={$composer.mode === 'minimized'}>
-				<div class="flex items-center justify-between mb-1.5">
-					<span class="text-2xs font-medium text-text-tertiary uppercase tracking-wider">
-						{attachments.length} attachment{attachments.length === 1 ? '' : 's'}
-						{#if totalAttachmentBytes > 0}<span class="normal-case tracking-normal">· {formatBytes(totalAttachmentBytes)}</span>{/if}
+			<div class="shrink-0 px-4 py-2 flex flex-wrap gap-1.5" class:hidden={$composer.mode === 'minimized'}>
+				{#each attachments as a (a.blobId)}
+					<span class="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-1 rounded-lg bg-surface border border-border text-xs text-text max-w-[240px]">
+						<span class="shrink-0 text-text-tertiary">{@render ico(['M13.234 20.252 21 12.3', 'm16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486'], 14)}</span>
+						<span class="truncate" title={a.name}>{a.name}</span>
+						<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
+						<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 w-5 h-5 grid place-items-center rounded-md text-text-tertiary hover:text-text hover:bg-surface-hover cursor-pointer" aria-label={`Remove ${a.name}`}>
+							{@render ico(['M18 6 6 18', 'm6 6 12 12'], 12)}
+						</button>
 					</span>
-				</div>
-				<div class="flex flex-wrap gap-1.5">
-					{#each attachments as a (a.blobId)}
-						<span class="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-md bg-bg border border-border text-xs text-text-secondary max-w-[220px]">
-							<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" class="shrink-0 text-text-tertiary"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-							<span class="truncate" title={a.name}>{a.name}</span>
-							<span class="shrink-0 text-text-tertiary tabular-nums">{formatBytes(a.size)}</span>
-							<button type="button" onclick={() => removeAttachment(a.blobId)} class="shrink-0 p-0.5 rounded-md hover:bg-surface-hover hover:text-danger cursor-pointer" aria-label={`Remove ${a.name}`}>
-								<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-							</button>
-						</span>
-					{/each}
-					{#each pendingUploads as p (p.id)}
-						<span class="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-bg border border-border text-xs text-text-tertiary max-w-[220px]">
-							<svg viewBox="0 0 24 24" width="13" height="13" class="shrink-0 animate-spin" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-							<span class="truncate">{p.name}</span>
-						</span>
-					{/each}
-				</div>
+				{/each}
+				{#each pendingUploads as u (u.id)}
+					<span class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-surface border border-border text-xs text-text-tertiary max-w-[240px]">
+						<svg viewBox="0 0 24 24" width="13" height="13" class="shrink-0 animate-spin" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+						<span class="truncate">{u.name}</span>
+					</span>
+				{/each}
+				{#if attachments.length > 1}
+					<span class="self-center text-xs text-text-tertiary tabular-nums">{formatBytes(totalAttachmentBytes)}</span>
+				{/if}
 			</div>
 		{/if}
 
-		<!-- Footer -->
+		<!-- Formatting bar: the same in the popup and full screen. -->
 		<div
-			class="flex items-center justify-between px-3 py-2 border-t border-border shrink-0 bg-surface"
+			class="shrink-0 flex items-center gap-0.5 flex-wrap px-2 py-1 border-t border-border"
 			class:hidden={$composer.mode === 'minimized'}
+			role="toolbar"
+			aria-label="Formatting"
 		>
-			<div class="flex items-center gap-2">
-				<button
-					onclick={handleSend}
-					disabled={sending || savingDraft}
-					title="Send ({shortcutLabel('Enter')})"
-					class="btn btn-primary"
-				>
-					{sending ? 'Sending…' : 'Send'}
+			<div class="relative" data-menu-root>
+				<button type="button" onclick={() => toggleMenu('size')} class="fc-btn {openMenu === 'size' ? 'fc-active' : ''}" title="Text size" aria-label="Text size" aria-haspopup="menu" aria-expanded={openMenu === 'size'}>
+					{@render ico(['M21 14h-5', 'M16 16v-3.5a2.5 2.5 0 0 1 5 0V16', 'M4.5 13h6', 'm3 16 4.5-9 4.5 9'], 16)}
 				</button>
-				<button
-					onclick={handleSaveDraft}
-					disabled={sending || savingDraft || saveStatus === 'saving'}
-					class="btn btn-ghost"
-				>
-					Save draft
-				</button>
-				{#if saveLabel}
-					<span class="text-xs {saveStatus === 'error' ? 'text-danger' : 'text-text-tertiary'}" aria-live="polite">{saveLabel}</span>
+				{#if openMenu === 'size'}
+					<div class="absolute bottom-full mb-1 left-0 z-50 w-36 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]" role="menu">
+						{#each TEXT_SIZES as t (t.label)}
+							<button type="button" role="menuitem" onclick={() => setTextSize(t.size)} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer" style={t.size ? `font-size: ${t.size}` : ''}>{t.label}</button>
+						{/each}
+					</div>
 				{/if}
 			</div>
+			<div class="fc-sep"></div>
+			{@render markButtons()}
+			<div class="relative" data-menu-root>
+				<button type="button" onclick={() => toggleMenu('color')} class="fc-btn {openMenu === 'color' ? 'fc-active' : ''}" title="Text color" aria-label="Text color" aria-haspopup="menu" aria-expanded={openMenu === 'color'}>
+					<span class="flex flex-col items-center leading-none">
+						{@render ico(['m6 16 6-12 6 12', 'M8 12h8'], 14)}
+						<span class="mt-0.5 h-0.5 w-3.5 rounded-full" style="background: {(editor?.getAttributes('textStyle').color as string) ?? 'currentColor'}"></span>
+					</span>
+				</button>
+				{#if openMenu === 'color'}
+					<div class="absolute bottom-full mb-1 left-0 z-50 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]" role="menu" aria-label="Text color">
+						<div class="grid grid-cols-4 gap-1.5">
+							{#each TEXT_COLORS as color}
+								<button type="button" role="menuitem" onclick={() => setTextColor(color)} class="w-6 h-6 rounded-full cursor-pointer ring-offset-2 ring-offset-surface hover:ring-2 hover:ring-border" style="background: {color}" aria-label="Color {color}"></button>
+							{/each}
+						</div>
+						<button type="button" role="menuitem" onclick={() => setTextColor(null)} class="mt-2 w-full text-left px-1 py-1 text-xs text-text-secondary hover:text-text cursor-pointer">Default color</button>
+					</div>
+				{/if}
+			</div>
+			<button type="button" onclick={() => run((c) => c.toggleHighlight())} class="fc-btn {isActive('highlight') ? 'fc-active' : ''}" title="Highlight" aria-label="Highlight" aria-pressed={isActive('highlight')}>
+				{@render ico(['m9 11-6 6v3h9l3-3', 'm22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'], 16)}
+			</button>
+			<div class="fc-sep"></div>
+			<button type="button" onclick={() => run((c) => c.toggleBulletList())} class="fc-btn {isActive('bulletList') ? 'fc-active' : ''}" title="Bulleted list" aria-label="Bulleted list" aria-pressed={isActive('bulletList')}>
+				{@render ico(['M3 12h.01', 'M3 18h.01', 'M3 6h.01', 'M8 12h13', 'M8 18h13', 'M8 6h13'], 16)}
+			</button>
+			<button type="button" onclick={() => run((c) => c.toggleOrderedList())} class="fc-btn {isActive('orderedList') ? 'fc-active' : ''}" title="Numbered list" aria-label="Numbered list" aria-pressed={isActive('orderedList')}>
+				{@render ico(['M10 12h11', 'M10 18h11', 'M10 6h11', 'M4 10h2', 'M4 6h1v4', 'M6 18H4c0-1 2-2 2-3s-1-1.5-2-1'], 16)}
+			</button>
+			<button type="button" onclick={() => run((c) => c.toggleBlockquote())} class="fc-btn {isActive('blockquote') ? 'fc-active' : ''}" title="Quote" aria-label="Quote" aria-pressed={isActive('blockquote')}>
+				{@render ico(['M17 6H3', 'M21 12H8', 'M21 18H8', 'M3 12v6'], 16)}
+			</button>
+			<div class="relative" data-menu-root>
+				<button type="button" onclick={() => toggleMenu('align')} class="fc-btn {openMenu === 'align' ? 'fc-active' : ''}" title="Align" aria-label="Align" aria-haspopup="menu" aria-expanded={openMenu === 'align'}>
+					{#if isActive('', { textAlign: 'center' })}
+						{@render ico(['M17 12H7', 'M19 18H5', 'M21 6H3'], 16)}
+					{:else if isActive('', { textAlign: 'right' })}
+						{@render ico(['M21 12H9', 'M21 18H7', 'M21 6H3'], 16)}
+					{:else}
+						{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'], 16)}
+					{/if}
+				</button>
+				{#if openMenu === 'align'}
+					<div class="absolute bottom-full mb-1 left-0 z-50 flex gap-0.5 p-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]" role="menu" aria-label="Align">
+						<button type="button" role="menuitem" onclick={() => setAlign('left')} class="fc-btn" title="Align left" aria-label="Align left">{@render ico(['M15 12H3', 'M17 18H3', 'M21 6H3'], 16)}</button>
+						<button type="button" role="menuitem" onclick={() => setAlign('center')} class="fc-btn" title="Center" aria-label="Center">{@render ico(['M17 12H7', 'M19 18H5', 'M21 6H3'], 16)}</button>
+						<button type="button" role="menuitem" onclick={() => setAlign('right')} class="fc-btn" title="Align right" aria-label="Align right">{@render ico(['M21 12H9', 'M21 18H7', 'M21 6H3'], 16)}</button>
+					</div>
+				{/if}
+			</div>
+			<div class="fc-sep"></div>
+			<button type="button" onclick={() => run((c) => c.clearNodes().unsetAllMarks())} class="fc-btn" title="Clear formatting" aria-label="Clear formatting">
+				{@render ico(['M4 7V4h16v3', 'M5 20h6', 'M13 4 8 20', 'm15 15 5 5', 'm20 15-5 5'], 16)}
+			</button>
+			<div class="relative" data-menu-root>
+				<button type="button" onclick={() => toggleMenu('more')} class="fc-btn {openMenu === 'more' ? 'fc-active' : ''}" title="More formatting" aria-label="More formatting" aria-haspopup="menu" aria-expanded={openMenu === 'more'}>
+					{@render ico(['M12 12h.01', 'M19 12h.01', 'M5 12h.01'], 16)}
+				</button>
+				{#if openMenu === 'more'}
+					<div class="absolute bottom-full mb-1 left-0 z-50 w-48 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu">
+						{#if isActive('table')}
+							<button type="button" role="menuitem" onclick={() => run((c) => c.addRowAfter())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Add row</button>
+							<button type="button" role="menuitem" onclick={() => run((c) => c.addColumnAfter())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Add column</button>
+							<button type="button" role="menuitem" onclick={() => run((c) => c.deleteRow())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Delete row</button>
+							<button type="button" role="menuitem" onclick={() => run((c) => c.deleteColumn())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Delete column</button>
+							<button type="button" role="menuitem" onclick={() => run((c) => c.deleteTable())} class="w-full text-left px-3 py-1.5 text-danger hover:bg-danger/10 cursor-pointer">Delete table</button>
+							<div class="my-1 h-px bg-border"></div>
+						{:else}
+							<button type="button" role="menuitem" onclick={() => run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Insert table</button>
+						{/if}
+						<button type="button" role="menuitem" onclick={() => run((c) => c.setHorizontalRule())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Divider</button>
+						<button type="button" role="menuitem" onclick={() => run((c) => c.sinkListItem('listItem'))} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Indent</button>
+						<button type="button" role="menuitem" onclick={() => run((c) => c.liftListItem('listItem'))} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Outdent</button>
+						<button type="button" role="menuitem" onclick={() => run((c) => c.toggleSubscript())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Subscript</button>
+						<button type="button" role="menuitem" onclick={() => run((c) => c.toggleSuperscript())} class="w-full text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">Superscript</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Footer -->
+		<div
+			class="flex items-center gap-1 px-3 py-2 border-t border-border shrink-0 bg-surface"
+			class:hidden={$composer.mode === 'minimized'}
+		>
+			<button
+				onclick={handleSend}
+				disabled={sending || savingDraft}
+				title="Send ({shortcutLabel('Enter')})"
+				class="btn btn-primary px-5"
+			>
+				{sending ? 'Sending…' : 'Send'}
+			</button>
+			<button
+				onclick={handleSaveDraft}
+				disabled={sending || savingDraft || saveStatus === 'saving'}
+				class="btn btn-ghost"
+			>
+				Save draft
+			</button>
+			{#if saveLabel}
+				<span class="ml-1 text-xs truncate {saveStatus === 'error' ? 'text-danger' : 'text-text-tertiary'}" aria-live="polite">{saveLabel}</span>
+			{/if}
+			<div class="flex-1"></div>
+
 			{#if confirmingDiscard}
-				<div class="flex items-center gap-2">
-					<span class="text-xs text-text-secondary">Discard this draft?</span>
-					<button onclick={() => (confirmingDiscard = false)} class="btn btn-ghost btn-sm">Keep</button>
-					<button onclick={handleDiscard} disabled={discarding} class="btn btn-danger-solid btn-sm">
-						{discarding ? 'Discarding…' : 'Discard'}
-					</button>
-				</div>
+				<span class="text-xs text-text-secondary mr-1">Discard this draft?</span>
+				<button onclick={() => (confirmingDiscard = false)} class="btn btn-ghost btn-sm">Keep</button>
+				<button onclick={handleDiscard} disabled={discarding} class="btn btn-danger-solid btn-sm">
+					{discarding ? 'Discarding…' : 'Discard'}
+				</button>
 			{:else}
+				<button type="button" onclick={triggerFilePick} class="fc-btn" title="Attach files" aria-label="Attach files">
+					{@render ico(['M13.234 20.252 21 12.3', 'm16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486'], 16)}
+				</button>
+				<div class="relative" data-menu-root>
+					<button type="button" onclick={() => toggleMenu('link')} class="fc-btn {openMenu === 'link' || isActive('link') ? 'fc-active' : ''}" title="Link" aria-label="Link" aria-haspopup="dialog" aria-expanded={openMenu === 'link'}>
+						{@render ico(['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'], 16)}
+					</button>
+					{#if openMenu === 'link'}
+						<div class="absolute bottom-full mb-1 right-0 z-50 w-72 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+							<!-- svelte-ignore a11y_autofocus -->
+							<input
+								bind:value={linkUrl}
+								type="text"
+								aria-label="Link address"
+								autofocus
+								onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } }}
+								class="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+							/>
+							<div class="flex items-center justify-end gap-1.5 mt-2">
+								<button type="button" onclick={() => (openMenu = null)} class="btn btn-ghost btn-sm">Cancel</button>
+								<button type="button" onclick={applyLink} class="btn btn-primary btn-sm">Apply</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+				<div class="relative" data-menu-root>
+					<button type="button" onclick={() => toggleMenu('emoji')} class="fc-btn {openMenu === 'emoji' ? 'fc-active' : ''}" title="Emoji" aria-label="Emoji" aria-haspopup="menu" aria-expanded={openMenu === 'emoji'}>
+						{@render ico(['M8 14s1.5 2 4 2 4-2 4-2', 'M9 9h.01', 'M15 9h.01', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'], 16)}
+					</button>
+					{#if openMenu === 'emoji'}
+						<div class="absolute bottom-full mb-1 right-0 z-50 p-2 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-6 gap-1" role="menu" aria-label="Emoji">
+							{#each EMOJIS as emoji}
+								<button type="button" role="menuitem" onclick={() => insertEmoji(emoji)} class="w-8 h-8 flex items-center justify-center text-lg rounded-md hover:bg-surface-hover cursor-pointer">{emoji}</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<div class="relative" data-menu-root>
+					<button
+						type="button"
+						onclick={() => toggleMenu('importance')}
+						class="fc-btn {importance === 'high' ? 'fc-active-red' : importance === 'low' ? 'fc-active-blue' : openMenu === 'importance' ? 'fc-active' : ''}"
+						title="Importance: {importance}"
+						aria-label="Importance"
+						aria-haspopup="menu"
+						aria-expanded={openMenu === 'importance'}
+					>
+						{#if importance === 'low'}
+							{@render ico(['M12 5v14', 'm19 12-7 7-7-7'], 16)}
+						{:else}
+							{@render ico(['M12 8v4', 'M12 16h.01', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'], 16)}
+						{/if}
+					</button>
+					{#if openMenu === 'importance'}
+						<div class="absolute bottom-full mb-1 right-0 z-50 w-40 py-1 rounded-lg border border-border bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-sm" role="menu" aria-label="Importance">
+							{#each [['high', 'High importance'], ['normal', 'Normal'], ['low', 'Low importance']] as [value, label] (value)}
+								<button type="button" role="menuitemradio" aria-checked={importance === value} onclick={() => { importance = value as typeof importance; openMenu = null; }} class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-text hover:bg-surface-hover cursor-pointer">
+									<span class="w-3.5 text-accent-fg">{#if importance === value}{@render ico(['M20 6 9 17l-5-5'], 14)}{/if}</span>
+									{label}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<SignaturePicker />
+				<div class="fc-sep"></div>
 				<button
 					onclick={requestDiscard}
 					disabled={sending || savingDraft || discarding}
-					class="btn btn-ghost text-text-tertiary hover:text-danger"
+					class="fc-btn hover:text-danger"
+					title="Discard draft"
+					aria-label="Discard draft"
 				>
-					Discard
+					{@render ico(['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'], 16)}
 				</button>
 			{/if}
 		</div>
