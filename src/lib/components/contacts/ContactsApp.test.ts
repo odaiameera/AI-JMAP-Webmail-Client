@@ -141,7 +141,7 @@ describe('ContactsApp', () => {
 		newRequest.set('contact');
 		await waitFor(() => expect(screen.getByRole('dialog', { name: 'New contact' })).toBeTruthy());
 
-		expect((screen.getByRole('checkbox', { name: 'Personal (default)' }) as HTMLInputElement).disabled).toBe(false);
+		expect((screen.getByRole('checkbox', { name: 'Personal' }) as HTMLInputElement).disabled).toBe(false);
 		expect((screen.getByRole('checkbox', { name: 'Directory' }) as HTMLInputElement).disabled).toBe(true);
 	});
 

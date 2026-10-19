@@ -153,7 +153,6 @@
 									aria-label={`Email address ${index + 1}`}
 									bind:value={email.address}
 									maxlength="320"
-									placeholder="name@example.com"
 									class="h-10 min-w-0 px-3 rounded-lg bg-surface-hover border border-border focus:border-accent text-sm text-text outline-none"
 								/>
 								<select aria-label={`Email type ${index + 1}`} bind:value={email.type} class="h-10 px-2 rounded-lg bg-surface-hover border border-border text-sm text-text outline-none">
@@ -170,9 +169,7 @@
 						<legend class="text-sm font-medium text-text">Phone numbers</legend>
 						<button type="button" class="text-xs text-accent-fg hover:underline cursor-pointer" onclick={addPhone}>+ Add phone</button>
 					</div>
-					{#if form.phones.length === 0}
-						<p class="text-xs text-text-tertiary">No phone numbers.</p>
-					{:else}
+					{#if form.phones.length > 0}
 						<div class="space-y-2">
 							{#each form.phones as phone, index}
 								<div class="grid grid-cols-[minmax(0,1fr)_100px_36px] gap-2">
@@ -187,7 +184,8 @@
 					{/if}
 				</fieldset>
 
-				{#if addressBooks.length > 0}
+				<!-- Only when there's a choice: with one address book, it's that one. -->
+				{#if addressBooks.length > 1}
 					<fieldset>
 						<legend class="text-sm font-medium text-text mb-2">Address books</legend>
 						<div class="grid sm:grid-cols-2 gap-2">
@@ -200,7 +198,7 @@
 										onchange={(event) => toggleAddressBook(book.id, event.currentTarget.checked)}
 										class="accent-accent"
 									/>
-									{book.name}{book.isDefault ? ' (default)' : ''}
+									{book.name}
 								</label>
 							{/each}
 						</div>

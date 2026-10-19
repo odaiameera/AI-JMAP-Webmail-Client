@@ -182,7 +182,7 @@
 						<span class="block text-sm font-medium text-text mb-1.5">Import into</span>
 						<select value={selectedAddressBookId} disabled={importing || writableAddressBooks.length === 0} onchange={changeAddressBook} class="w-full h-10 px-3 rounded-lg bg-surface-hover border border-border text-sm text-text outline-none">
 							{#each addressBooks as book (book.id)}
-								<option value={book.id} disabled={!book.myRights.mayWrite}>{book.name}{book.isDefault ? ' (default)' : ''}</option>
+								<option value={book.id} disabled={!book.myRights.mayWrite}>{book.name}</option>
 							{/each}
 						</select>
 					</label>
