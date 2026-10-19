@@ -417,10 +417,11 @@ html:not(.light) body {
 	outline: none;
 	min-height: 300px;
 	height: auto;
-	font-family: Calibri, 'Segoe UI', Arial, sans-serif;
-	/* px, not the app scale: this is the message body at the size it will
-	   be sent — see .prose-editor in RichTextEditor.svelte. */
-	font-size: 14px; line-height: 1.5; color: var(--color-text);
+	/* The account's default composer font and size (Settings > Composer),
+	   set on the editor element; the same font wraps the sent body, so what
+	   you see is what they get. */
+	font-family: var(--composer-font, Calibri, 'Segoe UI', Arial, sans-serif);
+	font-size: var(--composer-size, 12pt); line-height: 1.5; color: var(--color-text);
 }
 .full-composer-editor :global(.ProseMirror p) { margin: 0; }
 .full-composer-editor :global(.ProseMirror p:last-child) { margin-bottom: 0; }

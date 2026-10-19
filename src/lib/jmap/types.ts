@@ -129,6 +129,8 @@ export interface Email {
 	from: EmailAddress[] | null;
 	to: EmailAddress[] | null;
 	cc: EmailAddress[] | null;
+	/** Only present on drafts and sent copies, and only in the detail fetch. */
+	bcc?: EmailAddress[] | null;
 	subject: string | null;
 	receivedAt: string;
 	size: number;
@@ -148,6 +150,10 @@ export interface Email {
 	/** Per-rule breakdown behind the score, where the server publishes one. */
 	'header:x-spam-result:asText'?: string | null;
 	replyTo?: EmailAddress[] | null;
+	/** Message-ID header value(s), without angle brackets. */
+	messageId?: string[] | null;
+	inReplyTo?: string[] | null;
+	references?: string[] | null;
 	/** Every Authentication-Results header, topmost (our own server's) first. */
 	'header:authentication-results:asText:all'?: string[] | null;
 	/** Mailing-list headers, read for Jev's facts. */
@@ -176,9 +182,12 @@ export interface ComposeEmail {
 	bcc?: EmailAddress[];
 	subject: string;
 	body: string;
+	/** The original's Message-ID (bare, no angle brackets). */
 	inReplyTo?: string;
+	/** Space-separated Message-IDs. */
 	references?: string;
 	attachments?: ComposeAttachment[];
+	importance?: 'high' | 'normal' | 'low';
 }
 
 export interface AuthState {

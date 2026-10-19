@@ -404,7 +404,7 @@
 			<div class="min-w-0 flex-1">
 				<h2 class="truncate text-sm font-semibold text-text">AI Mail Agent</h2>
 				<p class="truncate text-2xs text-text-tertiary">
-					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'AI service not configured'}
+					{aiEnabled ? (currentEmailId ? 'Current email in context' : 'Mailbox assistant') : 'Not set up yet'}
 				</p>
 			</div>
 			<!--
@@ -637,7 +637,8 @@
 				<p class="mb-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>
 			{/if}
 			{#if !aiEnabled}
-				<p class="mb-2 text-xs text-text-tertiary">Set OLLAMA_URL or OLLAMA_API_KEY to enable the agent.</p>
+				<!-- For whoever reads it: an end user can't set server variables. -->
+				<p class="mb-2 text-xs text-text-tertiary">The AI assistant isn't set up on this server yet. Ask whoever runs your mail server to turn it on.</p>
 			{/if}
 			<form class="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
 				<textarea bind:value={input} rows="1" maxlength="1500" placeholder="Ask about your mail…" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>

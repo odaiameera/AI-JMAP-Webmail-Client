@@ -19,6 +19,14 @@
 	import type { CalendarInfo, EventWritePayload } from '$lib/calendar/types';
 	import { queueSenderForContacts } from '$lib/contacts/navigation';
 	import { AI_ASSISTANT_CONTEXT, type AIAssistantContext } from '$lib/types/assistant';
+	import { userState } from '$lib/stores/userState';
+	import {
+		addressList,
+		escapeHtml,
+		prefixedSubject,
+		replyRecipients,
+		threadHeaders
+	} from '$lib/utils/reply';
 
 	const allLabels = getContext<Label[]>('labels') ?? [];
 	const aiAssistant = getContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT);
@@ -244,13 +252,30 @@
 	</head><body>${getDisplayHtml()}</body></html>`);
 
 
+	// The message's own attachments, as the composer's blob references.
+	function attachmentRefs() {
+		return (email.attachments ?? []).map((a) => ({
+			blobId: a.blobId,
+			name: a.name ?? 'attachment',
+			type: a.type,
+			size: a.size
+		}));
+	}
+
 	function handleEditDraft() {
+		// Everything the draft carries: Bcc, attachments and its threading
+		// headers used to be dropped here, so editing and sending a draft
+		// lost them.
 		openCompose({
-			to: email.to?.map((a) => a.email).join(', ') ?? '',
-			cc: email.cc?.map((a) => a.email).join(', ') ?? '',
+			to: addressList(email.to ?? []),
+			cc: addressList(email.cc ?? []),
+			bcc: addressList(email.bcc ?? []),
 			subject: email.subject ?? '',
 			body: getBodyHtml(),
-			draftId: email.id
+			draftId: email.id,
+			inReplyTo: email.inReplyTo?.[0] ?? '',
+			references: email.references?.join(' ') ?? '',
+			attachments: attachmentRefs()
 		});
 	}
 
@@ -299,9 +324,9 @@
 		const sender = email.from?.[0];
 		if (!sender) return '';
 		const dateStr = formatDate(email.receivedAt);
-		const fromStr = sender.name ? `${sender.name} &lt;${sender.email}&gt;` : sender.email;
+		const fromStr = sender.name ? `${escapeHtml(sender.name)} &lt;${escapeHtml(sender.email)}&gt;` : escapeHtml(sender.email);
 		const originalBody = getBodyHtml();
-		return `<br><br><blockquote style="margin: 0 0 0 0.8ex; border-left: 3px solid #0969da; padding-left: 1ex; color: #59636e;"><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${email.subject ?? ''}</div><br>${originalBody}</blockquote>`;
+		return `<br><br><blockquote style="margin: 0 0 0 0.8ex; border-left: 3px solid #0969da; padding-left: 1ex; color: #59636e;"><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${escapeHtml(email.subject ?? '')}</div><br>${originalBody}</blockquote>`;
 	}
 
 	function handleAddSenderToContacts() {
@@ -309,44 +334,45 @@
 		goto(queueSenderForContacts(from));
 	}
 
-	function handleReply() {
-		const sender = email.from?.[0];
-		if (!sender) return;
-		const originalSubject = email.subject ?? '';
-		const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
+	// Your addresses, so Reply all never copies you in on your own reply.
+	const myAddresses = $derived([
+		...$userState.identities.map((i) => i.email),
+		...(page.data.userEmail ? [page.data.userEmail as string] : [])
+	]);
+
+	function reply(all: boolean) {
+		if (!email.from?.[0]) return;
+		const { to, cc } = replyRecipients(email, myAddresses, all);
 		openCompose({
-			to: sender.email, cc: '', subject: replySubject,
-			body: getHtmlQuotedBlock(), inReplyTo: email.id, references: email.id
+			to: addressList(to),
+			cc: addressList(cc),
+			subject: prefixedSubject(email.subject, 'reply'),
+			body: getHtmlQuotedBlock(),
+			...threadHeaders(email)
 		});
 	}
 
+	function handleReply() {
+		reply(false);
+	}
+
 	function handleReplyAll() {
-		const sender = email.from?.[0];
-		if (!sender) return;
-		const originalSubject = email.subject ?? '';
-		const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`;
-		const allTo = [...(email.to ?? []), ...(email.cc ?? [])];
-		const ccAddresses = allTo
-			.filter((a) => a.email !== sender.email)
-			.map((a) => a.email)
-			.filter((v, i, arr) => arr.indexOf(v) === i)
-			.join(', ');
-		openCompose({
-			to: sender.email, cc: ccAddresses, subject: replySubject,
-			body: getHtmlQuotedBlock(), inReplyTo: email.id, references: email.id
-		});
+		reply(true);
 	}
 
 	function handleForward() {
 		const sender = email.from?.[0];
 		const originalSubject = email.subject ?? '';
-		const fwdSubject = originalSubject.startsWith('Fwd:') ? originalSubject : `Fwd: ${originalSubject}`;
 		const dateStr = formatDate(email.receivedAt);
-		const fromStr = sender?.name ? `${sender.name} &lt;${sender.email}&gt;` : (sender?.email ?? 'Unknown');
-		const toStr = toList.map((a) => a.name || a.email).join(', ');
+		const fromStr = sender?.name
+			? `${escapeHtml(sender.name)} &lt;${escapeHtml(sender.email)}&gt;`
+			: escapeHtml(sender?.email ?? 'Unknown');
+		const toStr = escapeHtml(toList.map((a) => a.name || a.email).join(', '));
+		// A forward carries the original's attachments, as mail clients do.
 		openCompose({
-			to: '', cc: '', subject: fwdSubject, isForward: true,
-			body: `<br><br><div style="border-top: 1px solid #d1d9e0; padding-top: 1em; color: #59636e;"><div><strong>---------- Forwarded message ----------</strong></div><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${originalSubject}</div><div><strong>To:</strong> ${toStr}</div><br>${getBodyHtml()}</div>`
+			to: '', cc: '', subject: prefixedSubject(originalSubject, 'forward'), isForward: true,
+			body: `<br><br><div style="border-top: 1px solid #d1d9e0; padding-top: 1em; color: #59636e;"><div><strong>---------- Forwarded message ----------</strong></div><div><strong>From:</strong> ${fromStr}</div><div><strong>Date:</strong> ${dateStr}</div><div><strong>Subject:</strong> ${escapeHtml(originalSubject)}</div><div><strong>To:</strong> ${toStr}</div><br>${getBodyHtml()}</div>`,
+			attachments: attachmentRefs()
 		});
 	}
 

@@ -178,29 +178,24 @@
 
 	const allSelected = $derived(emails.length > 0 && selectedIds.size === emails.length);
 
-	// What an empty list says, per place. A bare "No messages" told you
-	// nothing about whether that was good news or something to fix.
-	const emptyState = $derived.by<{ title: string; hint: string }>(() => {
+	// What an empty list says, per place: a title, no explaining.
+	const emptyTitle = $derived.by<string>(() => {
 		if (inboxTabs) {
 			const label = INBOX_CATEGORIES.find((c) => c.key === inboxTabs.active)?.label;
-			return inboxTabs.active === 'important'
-				? { title: "You're all caught up", hint: 'New mail that needs you will show up here.' }
-				: { title: `Nothing in ${label}`, hint: 'Mail Jev sorts into this tab will show up here.' };
+			return inboxTabs.active === 'important' ? "You're all caught up" : `Nothing in ${label}`;
 		}
-		if (title === 'Starred') return { title: 'No starred messages', hint: 'Star a message to keep it here.' };
-		if (title === 'Search results') return { title: 'No matches', hint: 'Try fewer words or a different filter.' };
+		if (title === 'Starred') return 'No starred messages';
+		if (title === 'Search results') return 'No matches';
 		switch (listRole) {
-			case 'drafts': return { title: 'No drafts', hint: 'Messages you start and save will wait here.' };
-			case 'sent': return { title: 'Nothing sent yet', hint: 'Mail you send will show up here.' };
-			case 'junk': return { title: 'No junk mail', hint: 'Anything that looks like spam lands here.' };
-			case 'trash': return { title: 'Trash is empty', hint: 'Deleted messages stay here until the trash is emptied.' };
-			case 'archive': return { title: 'Nothing archived', hint: 'Archive a message to clear it from the Inbox without deleting it.' };
+			case 'drafts': return 'No drafts';
+			case 'sent': return 'Nothing sent yet';
+			case 'junk': return 'No junk mail';
+			case 'trash': return 'Trash is empty';
+			case 'archive': return 'Nothing archived';
 		}
 		const listMailbox = mailboxes.find((m) => m.id === mailboxId);
-		if (listMailbox?.name === REMIND_ME_LATER_NAME && listMailbox.parentId === null) {
-			return { title: 'Nothing snoozed', hint: 'Remind me later brings a message back when you choose.' };
-		}
-		return { title: 'This folder is empty', hint: `Messages you move to ${title} will show up here.` };
+		if (listMailbox?.name === REMIND_ME_LATER_NAME && listMailbox.parentId === null) return 'Nothing snoozed';
+		return 'This folder is empty';
 	});
 
 	function toggleSelect(id: string, checked: boolean) {
@@ -461,8 +456,7 @@
 						<div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-surface-hover grid place-items-center text-text-tertiary">
 							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
 						</div>
-						<p class="text-sm font-medium text-text">{emptyState.title}</p>
-						<p class="text-xs text-text-tertiary mt-1">{emptyState.hint}</p>
+						<p class="text-sm font-medium text-text">{emptyTitle}</p>
 					</div>
 				</div>
 			{:else}
@@ -575,7 +569,6 @@
 							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>
 						</div>
 						<p class="text-sm font-medium text-text">No message selected</p>
-						<p class="text-xs text-text-tertiary mt-1">Pick one from the list to read it here.</p>
 					</div>
 				</div>
 			{/if}

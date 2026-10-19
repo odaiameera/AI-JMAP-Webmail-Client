@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { ComposeAttachment } from '$lib/jmap/types';
 
 export type ComposerMode = 'popup' | 'fullscreen' | 'minimized' | 'closed';
 
@@ -13,10 +14,15 @@ export interface ComposeData {
 	draftId?: string;
 	isForward?: boolean;
 	fromIdentityId?: string | null;
+	/** Blobs already on the server: a draft's attachments, or a forward's. */
+	attachments?: ComposeAttachment[];
 }
 
 export interface ComposerState extends ComposeData {
 	mode: ComposerMode;
+	/** Bumped by every openCompose, so the composer can tell a new message
+	 *  (Reply while already writing something) from a mode change. */
+	session: number;
 	signatureId: number | null;
 	signatureManuallyChosen: boolean;
 	fromIdentityId: string | null;
@@ -29,6 +35,7 @@ const defaultState: ComposerState = {
 	subject: '',
 	body: '',
 	mode: 'closed',
+	session: 0,
 	signatureId: null,
 	signatureManuallyChosen: false,
 	fromIdentityId: null
@@ -36,10 +43,13 @@ const defaultState: ComposerState = {
 
 export const composer = writable<ComposerState>(defaultState);
 
+let sessionCounter = 0;
+
 export function openCompose(init: Partial<ComposeData> = {}) {
 	composer.set({
 		...defaultState,
 		...init,
+		session: ++sessionCounter,
 		mode: 'popup',
 		signatureId: null,
 		signatureManuallyChosen: false,

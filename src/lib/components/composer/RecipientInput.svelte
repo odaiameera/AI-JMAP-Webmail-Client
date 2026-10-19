@@ -138,6 +138,7 @@
 				onfocus={() => (focused = true)}
 				onblur={handleBlur}
 				type="text"
+				aria-label={label}
 				placeholder={chips.length === 0 ? placeholder : ''}
 				{autofocus}
 				class="flex-1 min-w-[8ch] bg-transparent text-sm text-text outline-none placeholder-text-tertiary py-0.5"

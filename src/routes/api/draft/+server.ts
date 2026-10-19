@@ -3,31 +3,15 @@ import type { RequestHandler } from './$types';
 import { createClient } from '$lib/jmap/auth';
 import { saveDraft } from '$lib/jmap/email';
 import { getMailboxes } from '$lib/jmap/mailbox';
-import type { ComposeAttachment, EmailAddress } from '$lib/jmap/types';
 import { userEmailFromAuth } from '$lib/server/user';
 import { resolveIdentity } from '$lib/server/identity-resolve';
-
-function parseAddresses(input: string): EmailAddress[] {
-	if (!input.trim()) return [];
-	return input
-		.split(',')
-		.map((s) => s.trim())
-		.filter(Boolean)
-		.map((email) => ({ name: null, email }));
-}
-
-/** Coerce the client-supplied attachment list into trusted blob references. */
-function parseAttachments(input: unknown): ComposeAttachment[] {
-	if (!Array.isArray(input)) return [];
-	return input
-		.filter((a): a is ComposeAttachment => !!a && typeof a.blobId === 'string')
-		.map((a) => ({
-			blobId: a.blobId,
-			name: typeof a.name === 'string' ? a.name : 'attachment',
-			type: typeof a.type === 'string' ? a.type : 'application/octet-stream',
-			size: typeof a.size === 'number' ? a.size : 0
-		}));
-}
+import {
+	parseAddresses,
+	parseAttachments,
+	parseDraftId,
+	parseImportance,
+	parseMessageIds
+} from '$lib/server/compose-input';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.auth) {
@@ -41,6 +25,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		typeof body.fromIdentityId === 'string' ? body.fromIdentityId : null,
 		userEmail
 	);
+	const [inReplyTo] = parseMessageIds(body.inReplyTo);
+	const references = parseMessageIds(body.references).join(' ');
 
 	try {
 		const client = createClient(locals.auth);
@@ -51,17 +37,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Drafts folder not found' }, { status: 500 });
 		}
 
-		const result = await saveDraft(client, locals.auth.accountId, draftsMailbox.id, {
-			from: { name: identity?.name ?? null, email: identity?.email ?? userEmail },
-			to: parseAddresses(body.to ?? ''),
-			cc: parseAddresses(body.cc ?? ''),
-			bcc: parseAddresses(body.bcc ?? ''),
-			subject: body.subject ?? '',
-			body: body.body ?? '',
-			attachments: parseAttachments(body.attachments),
-			...(body.inReplyTo && { inReplyTo: body.inReplyTo }),
-			...(body.references && { references: body.references })
-		});
+		// The previous version of this draft is replaced, not left behind.
+		const result = await saveDraft(
+			client,
+			locals.auth.accountId,
+			draftsMailbox.id,
+			{
+				from: { name: identity?.name ?? null, email: identity?.email ?? userEmail },
+				to: parseAddresses(body.to),
+				cc: parseAddresses(body.cc),
+				bcc: parseAddresses(body.bcc),
+				subject: typeof body.subject === 'string' ? body.subject : '',
+				body: typeof body.body === 'string' ? body.body : '',
+				attachments: parseAttachments(body.attachments),
+				importance: parseImportance(body.importance),
+				...(inReplyTo && { inReplyTo }),
+				...(references && { references })
+			},
+			parseDraftId(body.draftId)
+		);
 
 		if (!result.success) {
 			return json({ error: result.error ?? 'Failed to save draft' }, { status: 500 });

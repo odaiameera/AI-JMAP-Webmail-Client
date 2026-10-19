@@ -5,8 +5,7 @@
 	import Underline from '@tiptap/extension-underline';
 	import TextAlign from '@tiptap/extension-text-align';
 	import Link from '@tiptap/extension-link';
-	import Placeholder from '@tiptap/extension-placeholder';
-	import { TextStyle } from '@tiptap/extension-text-style';
+	import { TextStyle, FontSize } from '@tiptap/extension-text-style';
 	import FontFamily from '@tiptap/extension-font-family';
 	import Color from '@tiptap/extension-color';
 	import Highlight from '@tiptap/extension-highlight';
@@ -39,6 +38,8 @@
 	import SignaturePicker from './SignaturePicker.svelte';
 	import FromPicker from './FromPicker.svelte';
 	import RecipientInput from './RecipientInput.svelte';
+	import { page } from '$app/state';
+	import { shortcutLabel } from '$lib/utils/platform';
 
 	let to = $state('');
 	let cc = $state('');
@@ -57,6 +58,15 @@
 	let error = $state('');
 	let importance = $state<'high' | 'normal' | 'low'>('normal');
 	let showEmojiPicker = $state(false);
+	let confirmingDiscard = $state(false);
+
+	// --- Draft saving ---
+	// What was last written to the server (or loaded from it), as a snapshot
+	// string; the composer is "dirty" when the current snapshot differs.
+	let lastSavedSnapshot = $state('');
+	let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let savedAt = $state<Date | null>(null);
+	let lastSession = 0;
 
 	// --- Attachments ---
 	let attachments = $state<ComposeAttachment[]>([]);
@@ -100,8 +110,10 @@
 				Underline,
 				TextAlign.configure({ types: ['heading', 'paragraph'] }),
 				Link.configure({ openOnClick: false }),
-				Placeholder.configure({ placeholder: 'Write your message...' }),
 				TextStyle,
+				// Registered so the size menu does something: setting a
+				// fontSize mark without it was silently dropped.
+				FontSize,
 				FontFamily,
 				Color,
 				Highlight.configure({ multicolor: false }),
@@ -235,27 +247,126 @@
 
 	const totalAttachmentBytes = $derived(attachments.reduce((sum, a) => sum + (a.size ?? 0), 0));
 
-	async function postApi(endpoint: string): Promise<{ ok: boolean; error?: string; draftId?: string }> {
+	// The account's default composer font, as a CSS font stack.
+	const composerFont = $derived(fontStack(String(page.data.composerFont ?? 'Calibri')));
+	const composerFontSize = $derived(`${Number(page.data.composerFontSize) || 12}pt`);
+
+	function fontStack(name: string): string {
+		const quoted = /\s/.test(name) ? `'${name}'` : name;
+		const generic = /georgia|times|garamond|serif$/i.test(name) && !/sans/i.test(name) ? 'serif' : 'sans-serif';
+		return `${quoted}, ${generic}`;
+	}
+
+	// The body as sent: wrapped in the default font, so recipients see what
+	// the editor showed instead of their own client's default.
+	function outgoingBody(html: string): string {
+		return `<div style="font-family: ${composerFont}; font-size: ${composerFontSize};">${html}</div>`;
+	}
+
+	function buildPayload() {
+		return {
+			to,
+			cc,
+			bcc,
+			subject,
+			body: outgoingBody(body),
+			inReplyTo,
+			references,
+			draftId,
+			fromIdentityId: $composer.fromIdentityId,
+			attachments,
+			importance
+		};
+	}
+
+	function snapshot(): string {
+		return JSON.stringify([to, cc, bcc, subject, body, importance, attachments.map((a) => a.blobId), $composer.fromIdentityId]);
+	}
+
+	const isDirty = $derived(snapshot() !== lastSavedSnapshot);
+
+	// Typed text, not counting the signature: a fresh composer holding only
+	// the auto-inserted signature isn't worth a draft.
+	function bodyHasUserText(): boolean {
+		if (!editor) return body.replace(/<[^>]+>/g, '').trim().length > 0;
+		let found = false;
+		editor.state.doc.descendants((node) => {
+			if (found || node.type.name === 'signature') return false;
+			if (node.isText && node.text?.trim()) found = true;
+			return !found;
+		});
+		return found;
+	}
+
+	function hasContent(): boolean {
+		return !!(to.trim() || cc.trim() || bcc.trim() || subject.trim() || attachments.length > 0 || bodyHasUserText());
+	}
+
+	async function postApi(
+		endpoint: string,
+		payload = buildPayload()
+	): Promise<{ ok: boolean; error?: string; draftId?: string }> {
 		const res = await fetch(endpoint, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				to,
-				cc,
-				bcc,
-				subject,
-				body,
-				inReplyTo,
-				references,
-				draftId,
-				fromIdentityId: $composer.fromIdentityId,
-				attachments
-			})
+			body: JSON.stringify(payload)
 		});
 		const result = await res.json();
 		if (result.success) return { ok: true, draftId: result.draftId };
-		return { ok: false, error: result.error ?? `Server error (${res.status})` };
+		return { ok: false, error: result.error ?? `Server error (${res.status})`, draftId: result.draftId };
 	}
+
+	let saveInFlight: Promise<boolean> | null = null;
+
+	/** Save the open message as a draft without closing. True when saved. */
+	async function saveDraftNow(): Promise<boolean> {
+		if (saveInFlight) return saveInFlight;
+		if (pendingUploads.length > 0) return false;
+		const snap = snapshot();
+		saveStatus = 'saving';
+		saveInFlight = (async () => {
+			try {
+				const result = await postApi('/api/draft');
+				if (!result.ok) {
+					saveStatus = 'error';
+					return false;
+				}
+				draftId = result.draftId;
+				lastSavedSnapshot = snap;
+				saveStatus = 'saved';
+				savedAt = new Date();
+				return true;
+			} catch {
+				saveStatus = 'error';
+				return false;
+			} finally {
+				saveInFlight = null;
+			}
+		})();
+		return saveInFlight;
+	}
+
+	// Auto-save on the interval from Settings > Composer, which used to be
+	// stored and never read.
+	$effect(() => {
+		if ($composer.mode === 'closed') return;
+		const seconds = Math.min(300, Math.max(5, Number(page.data.autoSaveInterval) || 10));
+		const timer = setInterval(() => {
+			if (sending || savingDraft || discarding || !isDirty || !hasContent()) return;
+			void saveDraftNow();
+		}, seconds * 1000);
+		return () => clearInterval(timer);
+	});
+
+	const saveLabel = $derived(
+		saveStatus === 'saving'
+			? 'Saving…'
+			: saveStatus === 'error'
+				? 'Not saved'
+				: saveStatus === 'saved' && savedAt && !isDirty
+					? `Saved ${savedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+					: ''
+	);
 
 	async function handleSend() {
 		if (!to.trim()) {
@@ -277,7 +388,15 @@
 					...bcc.split(',')
 				]);
 				closeCompose();
-			} else error = result.error ?? 'Failed to send';
+				showToast({ message: 'Message sent' });
+			} else {
+				// A failed send is kept as a draft; carry on with that one.
+				if (result.draftId) {
+					draftId = result.draftId;
+					lastSavedSnapshot = snapshot();
+				}
+				error = result.error ?? 'Failed to send';
+			}
 		} catch {
 			error = 'Network error';
 		} finally {
@@ -293,16 +412,39 @@
 		savingDraft = true;
 		error = '';
 		try {
-			const result = await postApi('/api/draft');
-			if (result.ok) {
-				draftId = result.draftId;
-				closeCompose();
-			} else error = result.error ?? 'Failed to save draft';
-		} catch {
-			error = 'Network error';
+			// Saves and stays open; closing is the X (which also saves).
+			if (!(await saveDraftNow())) error = 'Could not save the draft';
 		} finally {
 			savingDraft = false;
 		}
+	}
+
+	/**
+	 * The X. It used to run Discard, which deleted a saved draft and threw
+	 * away anything unsaved. Now it saves first and only closes once the
+	 * draft is safe; if saving fails the composer stays open.
+	 */
+	async function closeComposer() {
+		if (sending || discarding) return;
+		confirmingDiscard = false;
+		if (isDirty && hasContent()) {
+			if (pendingUploads.length > 0) {
+				error = 'Wait for attachments to finish uploading';
+				return;
+			}
+			if (!(await saveDraftNow())) {
+				error = 'Could not save the draft. Try again, or use Discard to throw it away.';
+				return;
+			}
+			showToast({ message: 'Draft saved' });
+		}
+		closeCompose();
+	}
+
+	function requestDiscard() {
+		// Nothing to lose: discard straight away.
+		if (!draftId && !hasContent()) return handleDiscard();
+		confirmingDiscard = true;
 	}
 
 	async function handleDiscard() {
@@ -336,6 +478,10 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && confirmingDiscard) {
+			confirmingDiscard = false;
+			return;
+		}
 		if (e.key === 'Escape' && showLinkPopover) {
 			showLinkPopover = false;
 			return;
@@ -361,27 +507,49 @@
 	// Sync local state from the store on each fresh open.
 	// We detect "open" as a transition from `closed` → anything else and
 	// avoid clobbering local edits on subsequent mode toggles.
+	function loadFromStore() {
+		const s = $composer;
+		to = s.to;
+		cc = s.cc;
+		bcc = s.bcc;
+		subject = s.subject;
+		body = s.body;
+		inReplyTo = s.inReplyTo ?? '';
+		references = s.references ?? '';
+		draftId = s.draftId;
+		isForward = !!s.isForward;
+		showCc = !!s.cc;
+		showBcc = !!s.bcc;
+		error = '';
+		importance = 'normal';
+		attachments = [...(s.attachments ?? [])];
+		pendingUploads = [];
+		showLinkPopover = false;
+		confirmingDiscard = false;
+		saveStatus = 'idle';
+		savedAt = null;
+		lastAppliedSignatureId = 'unset';
+		// What was opened counts as saved: an untouched reply or draft isn't
+		// written back just for being opened.
+		lastSavedSnapshot = snapshot();
+	}
+
 	$effect(() => {
 		const mode = $composer.mode;
+		const session = $composer.session;
 		if (lastMode === 'closed' && mode !== 'closed') {
-			const s = $composer;
-			to = s.to;
-			cc = s.cc;
-			bcc = s.bcc;
-			subject = s.subject;
-			body = s.body;
-			inReplyTo = s.inReplyTo ?? '';
-			references = s.references ?? '';
-			draftId = s.draftId;
-			isForward = !!s.isForward;
-			showCc = !!s.cc;
-			showBcc = !!s.bcc;
-			error = '';
-			importance = 'normal';
-			attachments = [];
-			pendingUploads = [];
-			showLinkPopover = false;
-			lastAppliedSignatureId = 'unset';
+			loadFromStore();
+		} else if (mode !== 'closed' && session !== lastSession && lastSession !== 0) {
+			// Reply (or New message) while already writing one: this used to be
+			// ignored, leaving the old message in place. Keep the old one as a
+			// draft, then switch to the new one.
+			if (isDirty && hasContent() && pendingUploads.length === 0) {
+				void postApi('/api/draft', buildPayload()).then((r) => {
+					if (r.ok) showToast({ message: 'Your other message was saved as a draft' });
+				});
+			}
+			loadFromStore();
+			editor?.commands.setContent(body, { emitUpdate: false });
 		} else if (lastMode !== 'closed' && mode === 'closed') {
 			// Tear down Tiptap when the composer fully closes — its mount node
 			// is unmounted by the {#if}, so leaving the instance alive points
@@ -390,6 +558,7 @@
 			editor = null;
 		}
 		lastMode = mode;
+		lastSession = session;
 	});
 
 	// Spin up Tiptap as soon as the editor mount node exists. Re-fires on
@@ -410,7 +579,10 @@
 		const ids = $userState.identities;
 		if (ids.length === 0) return;
 		const primary = ids.find((i) => i.isPrimary) ?? ids[0];
+		const wasClean = !isDirty;
 		setFromIdentity(primary.jmapId);
+		// Filled in by the app, not chosen: an untouched message stays clean.
+		if (wasClean) lastSavedSnapshot = snapshot();
 	});
 
 	// Auto-resolve signature based on the current From identity. Re-runs
@@ -439,8 +611,11 @@
 		const sig = getSignatureById(sigId);
 		const next = applySignature(body, sig?.html ?? null);
 		if (next !== body) {
+			const wasClean = !isDirty;
 			editor.commands.setContent(next, { emitUpdate: false });
 			body = next;
+			// Inserted by the app, not typed: an untouched message stays clean.
+			if (wasClean) lastSavedSnapshot = snapshot();
 		}
 		lastAppliedSignatureId = sigId;
 	});
@@ -465,7 +640,7 @@
 				<input
 					bind:value={linkUrl}
 					type="text"
-					placeholder="https://example.com"
+					aria-label="Link address"
 					autofocus
 					onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } }}
 					class="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-sm text-text outline-none focus:border-accent placeholder-text-tertiary"
@@ -519,8 +694,8 @@
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
 					</button>
 					<button
-						onclick={(e) => { e.stopPropagation(); handleDiscard(); }}
-						aria-label="Close"
+						onclick={(e) => { e.stopPropagation(); void closeComposer(); }}
+						aria-label="Save draft and close"
 						class="text-text-tertiary hover:text-danger w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-hover"
 					>
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -550,7 +725,7 @@
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
 					{/if}
 				</button>
-				<button onclick={handleDiscard} aria-label="Close" class="header-btn">
+				<button onclick={() => void closeComposer()} aria-label="Save draft and close" title="Save draft and close" class="header-btn">
 					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 				</button>
 			</div>
@@ -560,7 +735,7 @@
 		<div class="shrink-0 border-b border-border" class:hidden={$composer.mode === 'minimized'}>
 			<FromPicker />
 			<div class="relative">
-				<RecipientInput bind:value={to} label="To" placeholder="recipient@example.com" />
+				<RecipientInput bind:value={to} label="To" />
 				{#if !showCc || !showBcc}
 					<div class="absolute right-3 top-1.5 flex items-center gap-2">
 						{#if !showCc}<button type="button" onclick={() => (showCc = true)} class="text-xs text-text-tertiary hover:text-text cursor-pointer">Cc</button>{/if}
@@ -569,14 +744,14 @@
 				{/if}
 			</div>
 			{#if showCc}
-				<RecipientInput bind:value={cc} label="Cc" placeholder="cc@example.com" />
+				<RecipientInput bind:value={cc} label="Cc" />
 			{/if}
 			{#if showBcc}
-				<RecipientInput bind:value={bcc} label="Bcc" placeholder="bcc@example.com" />
+				<RecipientInput bind:value={bcc} label="Bcc" />
 			{/if}
 			<div class="flex items-center px-3 py-1.5">
 				<span class="text-xs text-text-tertiary w-12 shrink-0">Subject</span>
-				<input bind:value={subject} type="text" placeholder="Subject" class="flex-1 bg-transparent text-sm text-text outline-none placeholder-text-tertiary" />
+				<input bind:value={subject} type="text" aria-label="Subject" class="flex-1 bg-transparent text-sm text-text outline-none" />
 			</div>
 		</div>
 
@@ -627,8 +802,8 @@
 					<option value="Georgia, serif">Georgia</option>
 					<option value="Verdana, sans-serif">Verdana</option>
 				</select>
-				<select onchange={(e) => editor?.chain().focus().setMark('textStyle', { fontSize: (e.target as HTMLSelectElement).value + 'pt' }).run()} class="fc-select w-14">
-					{#each [8,9,10,11,12,14,16,18,20,24,28,36,48,72] as size}<option value={size} selected={size === 12}>{size}</option>{/each}
+				<select onchange={(e) => editor?.chain().focus().setFontSize((e.target as HTMLSelectElement).value + 'pt').run()} class="fc-select w-14" aria-label="Font size">
+					{#each [8,9,10,11,12,14,16,18,20,24,28,36,48,72] as size}<option value={size} selected={size === (Number(page.data.composerFontSize) || 12)}>{size}</option>{/each}
 				</select>
 				<div class="fc-sep"></div>
 				<button type="button" onclick={() => editor?.chain().focus().toggleBold().run()} class="fc-btn {isActive('bold') ? 'fc-active' : ''}" title="Bold"><strong>B</strong></button>
@@ -743,7 +918,11 @@
 			ondragleave={() => (dragOver = false)}
 			ondrop={handleDrop}
 		>
-			<div bind:this={editorEl} class="min-h-full full-composer-editor"></div>
+			<div
+				bind:this={editorEl}
+				class="min-h-full full-composer-editor"
+				style="--composer-font: {composerFont}; --composer-size: {composerFontSize};"
+			></div>
 			{#if dragOver}
 				<div class="absolute inset-2 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
 					<span class="text-sm font-medium text-accent-fg">Drop files to attach</span>
@@ -790,26 +969,39 @@
 				<button
 					onclick={handleSend}
 					disabled={sending || savingDraft}
-					title="Send (⌘↵)"
+					title="Send ({shortcutLabel('Enter')})"
 					class="btn btn-primary"
 				>
-					{sending ? 'Sending...' : 'Send'}
+					{sending ? 'Sending…' : 'Send'}
 				</button>
 				<button
 					onclick={handleSaveDraft}
-					disabled={sending || savingDraft}
+					disabled={sending || savingDraft || saveStatus === 'saving'}
 					class="btn btn-ghost"
 				>
-					{savingDraft ? 'Saving...' : 'Save Draft'}
+					Save draft
 				</button>
+				{#if saveLabel}
+					<span class="text-xs {saveStatus === 'error' ? 'text-danger' : 'text-text-tertiary'}" aria-live="polite">{saveLabel}</span>
+				{/if}
 			</div>
-			<button
-				onclick={handleDiscard}
-				disabled={sending || savingDraft || discarding}
-				class="btn btn-ghost text-text-tertiary hover:text-danger"
-			>
-				{discarding ? 'Discarding...' : 'Discard'}
-			</button>
+			{#if confirmingDiscard}
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-text-secondary">Discard this draft?</span>
+					<button onclick={() => (confirmingDiscard = false)} class="btn btn-ghost btn-sm">Keep</button>
+					<button onclick={handleDiscard} disabled={discarding} class="btn btn-danger-solid btn-sm">
+						{discarding ? 'Discarding…' : 'Discard'}
+					</button>
+				</div>
+			{:else}
+				<button
+					onclick={requestDiscard}
+					disabled={sending || savingDraft || discarding}
+					class="btn btn-ghost text-text-tertiary hover:text-danger"
+				>
+					Discard
+				</button>
+			{/if}
 		</div>
 	</div>
 {/if}
