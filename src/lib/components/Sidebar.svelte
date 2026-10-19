@@ -226,7 +226,7 @@
 		</div>
 	{/if}
 
-	<!-- Compose lives in the bottom-right corner, beside the AI mail agent. -->
+	<!-- Compose lives in the bottom-right corner, beside Raven. -->
 	<div class="h-1.5 shrink-0" aria-hidden="true"></div>
 
 	{#if collapsed}

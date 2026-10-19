@@ -16,6 +16,7 @@
 		ariaLabel,
 		icon,
 		triggerClass = '',
+		iconOnly = false,
 		align = 'left',
 		placement = 'down'
 	}: {
@@ -25,6 +26,8 @@
 		ariaLabel: string;
 		icon?: Snippet;
 		triggerClass?: string;
+		/** Show just the icon, like a toolbar button; the choice is in its tooltip. */
+		iconOnly?: boolean;
 		align?: 'left' | 'right';
 		/** Preferred side; the menu flips when that side lacks room. */
 		placement?: 'up' | 'down';
@@ -135,13 +138,16 @@
 		aria-haspopup="listbox"
 		aria-expanded={open}
 		aria-label={ariaLabel}
+		title={iconOnly ? `${ariaLabel}: ${current?.label ?? ''}` : undefined}
 		onclick={() => (open ? (open = false) : openMenu())}
 		class="flex items-center gap-1.5 min-w-0 max-w-full h-7 px-2 rounded-md text-sm text-text hover:bg-surface-hover transition-colors cursor-pointer {open ? 'bg-surface-hover' : ''} {triggerClass}"
 	>
 		{#if icon}{@render icon()}{/if}
-		<span class="truncate">{current?.label}</span>
-		{#if current?.detail}<span class="truncate text-text-tertiary">{current.detail}</span>{/if}
-		<Icon name="dropdown" size={14} class="text-text-tertiary" />
+		{#if !iconOnly}
+			<span class="truncate">{current?.label}</span>
+			{#if current?.detail}<span class="truncate text-text-tertiary">{current.detail}</span>{/if}
+			<Icon name="dropdown" size={14} class="text-text-tertiary" />
+		{/if}
 	</button>
 
 	{#if open}

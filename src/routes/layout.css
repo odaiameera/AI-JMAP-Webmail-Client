@@ -2,6 +2,19 @@
 @import '@fontsource-variable/inter/opsz.css';
 @import '@fontsource-variable/cairo';
 
+/*
+ * The corner windows — the composer popup and the AI mail agent — open in
+ * the same place, above the bottom-right corner buttons (48px circles,
+ * 20px up), at the same size: between the composer's old 540px and the
+ * agent's old 400px, and as tall as fits under the header.
+ */
+:root {
+	--corner-window-right: 68px;
+	--corner-window-bottom: 76px;
+	--corner-window-width: 480px;
+	--corner-window-height: min(640px, calc(100dvh - 148px));
+}
+
 @theme {
 	/*
 	 * Palette: GitHub Primer (@primer/primitives v11.10.0), dark theme.

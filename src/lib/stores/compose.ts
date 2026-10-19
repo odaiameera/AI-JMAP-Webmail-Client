@@ -62,6 +62,17 @@ export function closeCompose() {
 	composer.set(defaultState);
 }
 
+/**
+ * Ask the open composer to close the way its X does: a message with anything
+ * in it is saved as a draft first, an empty one just closes. A counter, so
+ * the composer can tell one request from the next.
+ */
+export const closeRequests = writable(0);
+
+export function requestCloseCompose() {
+	closeRequests.update((n) => n + 1);
+}
+
 export function setMode(mode: ComposerMode) {
 	composer.update((s) => ({ ...s, mode }));
 }

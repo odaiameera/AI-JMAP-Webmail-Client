@@ -11,8 +11,8 @@
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { isPhone } from '$lib/stores/viewport';
-	import { openCompose } from '$lib/stores/compose';
-	import { onMount, setContext, type Snippet } from 'svelte';
+	import { composer, openCompose, setMode } from '$lib/stores/compose';
+	import { onMount, setContext, untrack, type Snippet } from 'svelte';
 	import { APP_PANEL, type AppPanelContext } from '$lib/app-panel';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
@@ -48,8 +48,22 @@
 	let sidebarCollapsed = $state(false);
 	let assistantOpen = $state(page.url.searchParams.get('assistant') === 'open');
 	let currentEmailId = $state<string | null>(null);
+
+	// The composer and the agent open in the same spot above the corner
+	// buttons, so one gives way to the other: opening the agent folds a
+	// message being written down to its bar, and bringing the composer up
+	// (or starting a new message) closes the agent.
+	function openAssistant() {
+		if ($composer.mode === 'popup' || $composer.mode === 'fullscreen') setMode('minimized');
+		assistantOpen = true;
+	}
+	$effect(() => {
+		const mode = $composer.mode;
+		if (mode === 'popup' || mode === 'fullscreen') untrack(() => { assistantOpen = false; });
+	});
+
 	setContext<AIAssistantContext>(AI_ASSISTANT_CONTEXT, {
-		open: () => { assistantOpen = true; },
+		open: openAssistant,
 		setCurrentEmail: (id) => { currentEmailId = id; },
 		clearCurrentEmail: (id) => {
 			if (currentEmailId === id) currentEmailId = null;
@@ -369,12 +383,12 @@
 	<AppRail />
 </div>
 
-<!-- The AI mail agent and, in Mail, Compose: bottom-right, beside the app
+<!-- Raven (the AI mail agent) and, in Mail, Compose: bottom-right, beside the app
      rail on desktop and above the tab bar on phones. The agent opens as a
      card above them. -->
 <CornerActions
 	{assistantOpen}
-	onToggleAssistant={() => { assistantOpen = !assistantOpen; }}
+	onToggleAssistant={() => { if (assistantOpen) assistantOpen = false; else openAssistant(); }}
 	showCompose={inMail}
 	readingOnPhone={inMail && !onMailRoute}
 />

@@ -10,8 +10,9 @@
 	]);
 </script>
 
+<!-- An icon like the footer's other tools; blue while a signature is on. -->
 {#snippet penIcon()}
-	<Icon name="signature" size={14} class="text-text-tertiary" />
+	<Icon name="signature" class={$composer.signatureId === null ? '' : 'text-accent-fg'} />
 {/snippet}
 
 <MenuSelect
@@ -22,5 +23,6 @@
 	icon={penIcon}
 	align="right"
 	placement="up"
-	triggerClass="text-xs"
+	iconOnly
+	triggerClass="fc-btn !w-7 !px-0 justify-center text-text-secondary"
 />
