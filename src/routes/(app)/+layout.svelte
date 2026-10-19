@@ -10,7 +10,8 @@
 	import { page } from '$app/state';
 	import { isPhone } from '$lib/stores/viewport';
 	import { openCompose } from '$lib/stores/compose';
-	import { onMount, setContext } from 'svelte';
+	import { onMount, setContext, type Snippet } from 'svelte';
+	import { APP_PANEL, type AppPanelContext } from '$lib/app-panel';
 	import { createReadingPaneStore } from '$lib/stores/readingPane';
 	import { profilePhoto } from '$lib/stores/profilePhoto';
 	import { realtime } from '$lib/stores/realtime';
@@ -60,10 +61,37 @@
 	const accountColor = $derived(
 		(data.accounts?.length ?? 0) > 1 ? (data.activeAccountColor ?? null) : null
 	);
-	const sidebarWidth = $derived(sidebarCollapsed ? '48px' : '224px');
 
-	// Phone layout: the sidebar becomes a drawer opened from the header, and
-	// it closes itself once you pick somewhere to go.
+	// The left column is the open app's own navigation (see $lib/app-panel):
+	// folders anywhere in Mail, otherwise whatever panel the page hosts, and
+	// nothing but a gutter for a page that hosts none.
+	let appPanel = $state.raw<Snippet | null>(null);
+	// Ownership is checked against a plain variable, not the state. Going
+	// from one panel-hosting page to another (Calendar → Contacts), the new
+	// page registers before the old one's onDestroy runs, and inside that
+	// navigation's update the state can still read as the old panel — so a
+	// check against it cleared the panel that had just been set.
+	let ownPanel: Snippet | null = null;
+	setContext<AppPanelContext>(APP_PANEL, {
+		set: (panel) => { ownPanel = panel; appPanel = panel; },
+		clear: (panel) => {
+			if (ownPanel !== panel) return;
+			ownPanel = null;
+			appPanel = null;
+		},
+		closeDrawer: () => { drawerOpen = false; }
+	});
+	const inMail = $derived(/^\/(inbox|folder|email|search|flagged)(\/|$)/.test(page.url.pathname));
+	const panelKind = $derived<'mail' | 'app' | 'none'>(inMail ? 'mail' : appPanel ? 'app' : 'none');
+	const railCollapsed = $derived(panelKind === 'mail' && sidebarCollapsed);
+	// Only the mail sidebar collapses to an icon strip; app panels are
+	// always full width.
+	const sidebarWidth = $derived(
+		panelKind === 'mail' ? (sidebarCollapsed ? '48px' : '224px') : panelKind === 'app' ? '224px' : '8px'
+	);
+
+	// Phone layout: the left column becomes a drawer opened from the header,
+	// and it closes itself once you pick somewhere to go.
 	let drawerOpen = $state(false);
 	afterNavigate(() => { drawerOpen = false; });
 	// Mail lists, where the phone layout floats a Compose button. Not an open
@@ -222,14 +250,14 @@
 		<button
 			type="button"
 			onclick={() => { drawerOpen = true; }}
-			class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
-			aria-label="Open folders"
+			class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover transition-colors cursor-pointer {panelKind === 'none' ? 'invisible' : ''}"
+			aria-label="Open menu"
 			aria-expanded={drawerOpen}
 		>
 			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
 		</button>
-		<h1 class="max-md:hidden text-lg font-bold text-text tracking-tight leading-none shrink-0 {sidebarCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
-			{sidebarCollapsed ? '' : 'ameera.'}
+		<h1 class="max-md:hidden text-lg font-bold text-text tracking-tight leading-none shrink-0 {railCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
+			{railCollapsed ? '' : 'ameera.'}
 		</h1>
 		<SearchInput bind:value={searchQuery} onSubmit={submitSearch} mailboxes={data.mailboxes} />
 		<!-- On phones the search box takes this space instead. -->
@@ -259,35 +287,6 @@
 		</div>
 	</div>
 
-	<!-- Row 2, Col 1: Sidebar. `md:contents` keeps the <aside> itself as the
-	     grid item on desktop; on phones this wrapper is the drawer. The
-	     collapse button closes the drawer there, since a 48px icon strip
-	     makes no sense as an overlay. -->
-	{#if drawerOpen}
-		<button
-			type="button"
-			class="md:hidden fixed inset-0 z-40 bg-black/50 animate-compose-backdrop-in cursor-default"
-			aria-label="Close folders"
-			onclick={() => { drawerOpen = false; }}
-		></button>
-	{/if}
-	<div
-		class="md:contents max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[280px] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-2xl max-md:transition-[transform,visibility] max-md:duration-200
-			{drawerOpen ? '' : 'max-md:-translate-x-full max-md:invisible'}"
-	>
-		<Sidebar
-			mailboxes={data.mailboxes}
-			labels={data.labels ?? []}
-			folderExpanded={data.folderExpanded ?? {}}
-			hideHeader={!$isPhone}
-			collapsed={sidebarCollapsed && !$isPhone}
-			onToggleCollapse={() => {
-				if ($isPhone) drawerOpen = false;
-				else sidebarCollapsed = !sidebarCollapsed;
-			}}
-		/>
-	</div>
-
 	<!--
 		Row 2, Col 2: Main content — the tray.
 
@@ -308,9 +307,53 @@
 		Only the bottom is inset: left and right already meet the chrome, so the
 		corners alone separate them.
 	-->
-	<main class="md:mb-2 overflow-hidden min-w-0 min-h-0 bg-bg md:rounded-xl">
+	<main class="row-start-2 md:col-start-2 md:mb-2 overflow-hidden min-w-0 min-h-0 bg-bg md:rounded-xl">
 		{@render children()}
 	</main>
+
+	<!-- Row 2, Col 1: the open app's navigation — after <main> in the DOM so
+	     the page has registered its panel (if any) before this renders; grid
+	     placement puts it back on the left. `md:contents` keeps the panel
+	     itself as the grid item on desktop; on phones this wrapper is the
+	     drawer. The mail sidebar's collapse button closes the drawer there,
+	     since a 48px icon strip makes no sense as an overlay. -->
+	{#if drawerOpen}
+		<button
+			type="button"
+			class="md:hidden fixed inset-0 z-40 bg-black/50 animate-compose-backdrop-in cursor-default"
+			aria-label="Close menu"
+			onclick={() => { drawerOpen = false; }}
+		></button>
+	{/if}
+	{#if panelKind !== 'none'}
+		<div
+			class="md:contents max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[280px] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-2xl max-md:transition-[transform,visibility] max-md:duration-200
+				{drawerOpen ? '' : 'max-md:-translate-x-full max-md:invisible'}"
+		>
+			<div class="md:col-start-1 md:row-start-2 h-full min-h-0 overflow-hidden">
+				{#if panelKind === 'mail'}
+					<Sidebar
+						mailboxes={data.mailboxes}
+						labels={data.labels ?? []}
+						folderExpanded={data.folderExpanded ?? {}}
+						hideHeader={!$isPhone}
+						collapsed={sidebarCollapsed && !$isPhone}
+						onToggleCollapse={() => {
+							if ($isPhone) drawerOpen = false;
+							else sidebarCollapsed = !sidebarCollapsed;
+						}}
+					/>
+				{:else if appPanel}
+					<div class="h-full flex flex-col bg-surface">
+						{#if $isPhone}
+							<div class="px-4 py-3"><span class="text-lg font-bold text-text tracking-tight leading-none">ameera.</span></div>
+						{/if}
+						{@render appPanel()}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 
 	<!--
 		Row 2, Col 3: AI agent drawer anchor.
@@ -324,7 +367,7 @@
 	-->
 	<!-- On phones the anchor is pinned to the screen's right edge between
 	     the header and the tab bar, and the drawer goes full-width. -->
-	<div class="relative md:mb-2 max-md:fixed max-md:right-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))]">
+	<div class="relative md:col-start-3 md:row-start-2 md:mb-2 max-md:fixed max-md:right-0 max-md:top-14 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))]">
 		<AIAssistantRail
 			open={assistantOpen}
 			aiEnabled={data.aiEnabled}

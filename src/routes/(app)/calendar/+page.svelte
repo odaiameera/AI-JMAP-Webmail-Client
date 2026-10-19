@@ -18,6 +18,7 @@
 	import { apiCreateEvent, apiDeleteEvent, apiUpdateEvent } from '$lib/calendar/api';
 	import { showToast } from '$lib/stores/toast';
 	import CalendarPanel from '$lib/components/calendar/CalendarPanel.svelte';
+	import { hostAppPanel } from '$lib/app-panel';
 	import MonthView from '$lib/components/calendar/MonthView.svelte';
 	import TimeGrid from '$lib/components/calendar/TimeGrid.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
@@ -248,7 +249,21 @@
 				break;
 		}
 	}
+
+	// New event, the mini-month and the calendar list live in the shell's
+	// left column (the drawer on phones), where Mail keeps its folders.
+	hostAppPanel(calendarPanel);
 </script>
+
+{#snippet calendarPanel()}
+	<CalendarPanel
+		calendars={data.calendars}
+		selected={selectedDate}
+		{weekStart}
+		onSelectDate={(date) => navigate(data.view, date)}
+		onCreateEvent={() => openCreate()}
+	/>
+{/snippet}
 
 <svelte:head>
 	<title>{pageTitle({ page: 'Calendar' })}</title>
@@ -257,18 +272,6 @@
 <svelte:window onkeydown={handleKeydown} onclick={() => (viewMenuOpen = false)} />
 
 <div class="h-full flex min-h-0">
-	<!-- The mini-month and calendar list don't fit beside the grid on a
-	     phone; there the toolbar carries a New event button instead. -->
-	<div class="md:contents max-md:hidden">
-		<CalendarPanel
-			calendars={data.calendars}
-			selected={selectedDate}
-			{weekStart}
-			onSelectDate={(date) => navigate(data.view, date)}
-			onCreateEvent={() => openCreate()}
-		/>
-	</div>
-
 	<div class="flex-1 flex flex-col min-w-0 min-h-0">
 		<!-- Toolbar -->
 		<div class="flex items-center gap-2 px-4 max-md:px-2 h-12 border-b border-border shrink-0">

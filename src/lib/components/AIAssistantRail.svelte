@@ -390,7 +390,7 @@
 		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">
-		<header class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+		<header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-fg">
 				<!-- Same robot head as the app rail's AI item: one feature, one symbol. -->
 				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

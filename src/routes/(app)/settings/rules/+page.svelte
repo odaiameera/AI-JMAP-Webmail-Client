@@ -457,10 +457,10 @@
 <svelte:head><title>{pageTitle({ page: 'Filters & Rules', subtitle: 'Settings' })}</title></svelte:head>
 
 <div class="h-full flex flex-col overflow-hidden">
-	<header class="px-6 py-4 border-b border-border flex items-center gap-3 shrink-0">
-		<a href="/inbox" class="text-sm text-text-tertiary hover:text-text transition-colors">&larr; Inbox</a>
-		<div class="w-px h-5 bg-border"></div>
-		<h1 class="text-lg font-semibold text-text">Rules</h1>
+	<!-- Title flush with the content edge and sized like every other settings
+	     page; the way back to mail is in the settings menu. -->
+	<header class="pb-4 border-b border-border flex items-center gap-3 shrink-0">
+		<h1 class="text-xl font-semibold text-text">Rules</h1>
 		<p class="text-xs text-text-tertiary">{localRules.length} {localRules.length === 1 ? 'rule' : 'rules'}</p>
 		<div class="flex-1"></div>
 		{#if data.jev.mode !== 'off'}
