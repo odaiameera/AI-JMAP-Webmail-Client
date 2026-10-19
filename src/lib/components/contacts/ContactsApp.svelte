@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
+	import { isPhone } from '$lib/stores/viewport';
 	import { pageTitle } from '$lib/utils/title';
 	import { openCompose } from '$lib/stores/compose';
 	import {
@@ -66,7 +68,9 @@
 			if (selectedId && !result.contacts.some((contact) => contact.id === selectedId)) {
 				selectedId = null;
 			}
-			if (!selectedId && result.contacts.length > 0) selectedId = result.contacts[0].id;
+			// Open the first contact so the detail pane isn't empty — except on a
+			// phone, where the detail replaces the list and would hide it on load.
+			if (!selectedId && result.contacts.length > 0 && !get(isPhone)) selectedId = result.contacts[0].id;
 		} catch (caught) {
 			if ((caught as Error).name !== 'AbortError') {
 				error = (caught as Error).message || 'Unable to load contacts';
@@ -243,7 +247,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="flex-1 min-h-0 grid md:grid-cols-[minmax(260px,360px)_1fr]">
+		<div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[minmax(260px,360px)_1fr]">
 			<section class="min-h-0 border-r border-border bg-surface flex flex-col {selected ? 'hidden md:flex' : 'flex'}" aria-label="Contact list">
 				<form class="p-3 border-b border-border" onsubmit={submitSearch}>
 					<label class="relative block">
@@ -286,7 +290,7 @@
 									<span class="w-9 h-9 shrink-0 rounded-full bg-accent/15 text-accent-fg grid place-items-center text-sm font-semibold">
 										{contactDisplayName(contact).slice(0, 1).toUpperCase()}
 									</span>
-									<span class="min-w-0">
+									<span class="flex-1 min-w-0">
 										<span class="block text-sm font-medium text-text truncate">{contactDisplayName(contact)}</span>
 										<span class="block text-xs text-text-tertiary truncate">{contactPrimaryEmail(contact) || contactPhones(contact)[0]?.number || 'No email or phone'}</span>
 									</span>

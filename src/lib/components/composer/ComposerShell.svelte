@@ -844,6 +844,25 @@
 		height: 40px;
 		border-radius: 10px 10px 0 0;
 	}
+	/* Phones: a 540px floating window doesn't fit, so both the popup and the
+	   expanded composer take the whole screen. Same breakpoint as Tailwind's
+	   `md`, which the rest of the phone layout keys off. */
+	@media (max-width: 767.98px) {
+		.composer--popup,
+		.composer--fullscreen {
+			inset: 0;
+			width: 100%;
+			height: 100dvh;
+			max-width: none;
+			max-height: none;
+			transform: none;
+			border-radius: 0;
+		}
+		.composer--minimized {
+			right: 8px;
+			width: calc(100vw - 16px);
+		}
+	}
 
 	.header-btn {
 		display: flex;

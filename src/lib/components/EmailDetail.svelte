@@ -683,7 +683,7 @@
 </script>
 
 <div class="h-full flex flex-col relative">
-	<header class="{compact ? 'px-4 py-3' : 'px-6 py-4'} border-b border-border shrink-0">
+	<header class="{compact ? 'px-4 py-3' : 'px-6 py-4 max-md:px-4'} border-b border-border shrink-0">
 		{#if !compact}
 			<div class="flex items-center justify-between mb-3">
 				<a href="/inbox" class="text-text-tertiary hover:text-text transition-colors text-sm">&larr; Back</a>
@@ -727,12 +727,14 @@
 			{/if}
 		</div>
 
-		<div class="flex items-start justify-between gap-4">
+		<!-- On phones the date and Jev chips drop below the sender instead of
+		     competing with a long address for one line. -->
+		<div class="flex items-start justify-between gap-4 max-md:flex-col max-md:gap-2">
 			<div class="min-w-0">
-				<div class="flex items-baseline gap-2">
+				<div class="flex items-baseline gap-x-2 flex-wrap">
 					<span class="font-medium text-text text-sm">{from?.name || from?.email || 'Unknown'}</span>
 					{#if from?.name && from?.email}
-						<span class="text-xs text-text-tertiary">&lt;{from.email}&gt;</span>
+						<span class="text-xs text-text-tertiary break-all">&lt;{from.email}&gt;</span>
 					{/if}
 					{#if from?.email}
 						<!-- self-center: in this baseline-aligned row, an icon-only
@@ -757,7 +759,7 @@
 					{/if}
 				</div>
 			</div>
-			<div class="flex flex-col items-end gap-1 shrink-0">
+			<div class="flex flex-col items-end gap-1 shrink-0 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-2">
 				<span class="text-xs text-text-tertiary">{formatDate(email.receivedAt)}</span>
 				{#if page.data.jevReads}
 					<JevWhy emailId={email.id} onSpamCheck={(check) => (jevSpam = check)} />
@@ -804,7 +806,7 @@
 	</header>
 
 	<!-- Ribbon -->
-	<div class="ribbon flex items-center justify-between {compact ? 'px-4' : 'px-6'} py-2 border-b border-border shrink-0">
+	<div class="ribbon flex items-center justify-between {compact ? 'px-4' : 'px-6 max-md:px-2'} py-2 border-b border-border shrink-0">
 		<div class="flex items-center gap-1">
 			{#if isDraft}
 				<button onclick={handleEditDraft} class="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg px-3 py-1 transition-colors cursor-pointer">
@@ -1091,7 +1093,7 @@
 	     email's content height — short emails no longer collapse the
 	     pane, and long ones scroll inside the iframe instead of the
 	     wrapper. -->
-	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4'}">
+	<div class="flex-1 overflow-hidden {compact ? 'px-4 py-3' : 'px-6 py-4 max-md:px-2 max-md:py-2'}">
 		<!-- bg-white matches the document's body background so swapping
 		     srcdoc (next/previous message) repaints white-on-white instead
 		     of flashing through the dark page background. -->

@@ -80,7 +80,11 @@
 	const settingsActive = $derived(page.url.pathname.startsWith('/settings'));
 </script>
 
-<div class="w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden">
+<!-- A vertical rail from `md` up; on phones the same items lay out as a
+     bottom tab bar (the layout puts it in the grid's last row), minus what
+     isn't built yet. -->
+<div class="w-[52px] shrink-0 bg-surface flex flex-col items-center py-3 gap-1 overflow-hidden
+	max-md:w-full max-md:h-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:flex-row max-md:justify-around max-md:py-0 max-md:pb-[env(safe-area-inset-bottom)] max-md:border-t max-md:border-border">
 	{#each items as item (item.id)}
 		{#if item.id === 'ai'}
 			<button
@@ -89,7 +93,7 @@
 				aria-label={aiOpen ? 'Close AI mail agent' : 'Open AI mail agent'}
 				aria-pressed={aiOpen}
 				onclick={onToggleAI}
-				class="w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer
+				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-all cursor-pointer
 					{aiOpen
 						? 'text-accent-fg bg-accent/10 shadow-sm'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"
@@ -102,11 +106,11 @@
 				title={item.comingSoon ? `${item.label} (coming soon)` : item.label}
 				aria-label={item.comingSoon ? `${item.label} (coming soon)` : item.label}
 				aria-current={isActive(item.href) ? 'page' : undefined}
-				class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+				class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 					{isActive(item.href)
 						? 'text-accent-fg bg-accent/10'
 						: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}
-					{item.comingSoon && !isActive(item.href) ? 'opacity-50' : ''}"
+					{item.comingSoon && !isActive(item.href) ? 'opacity-50 max-md:hidden' : ''}"
 			>
 				{@html item.icon}
 			</a>
@@ -114,10 +118,10 @@
 	{/each}
 
 	<!-- Spacer pushes Settings to the bottom of the rail -->
-	<div class="flex-1"></div>
+	<div class="flex-1 max-md:hidden"></div>
 
 	<!-- Separator -->
-	<div class="h-px w-6 bg-border/30 my-1"></div>
+	<div class="h-px w-6 bg-border/30 my-1 max-md:hidden"></div>
 
 	<!-- Settings -->
 	<a
@@ -126,7 +130,7 @@
 		title="Settings"
 		aria-label="Settings"
 		aria-current={settingsActive ? 'page' : undefined}
-		class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer
+		class="w-9 h-9 max-md:w-11 max-md:h-11 rounded-lg flex items-center justify-center transition-colors cursor-pointer
 			{settingsActive
 				? 'text-accent-fg bg-accent/10'
 				: 'text-text-tertiary hover:text-text hover:bg-surface-hover'}"

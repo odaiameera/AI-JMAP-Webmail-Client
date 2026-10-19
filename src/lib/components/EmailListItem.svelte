@@ -14,6 +14,7 @@
 	/** emailId → ISO return time for mail parked in Remind Me Later. */
 	const getReminderAt = getContext<(() => Map<string, string>) | undefined>('reminderAt');
 	const getInboxTabs = getContext<(() => InboxTabsState | null) | undefined>('inboxTabs');
+	const getShowRecipients = getContext<(() => boolean) | undefined>('showRecipients');
 
 	let { email, selected = false, onSelect, onClick, onDragStart, active = false }: {
 		email: Email;
@@ -34,10 +35,23 @@
 	const isRead = $derived('$seen' in email.keywords);
 	// Which tab this row is in, when the list is a tabbed Inbox.
 	const category = $derived(getInboxTabs?.() ? categoryOf(email.keywords) : null);
-	const senderName = $derived(
-		email.from?.[0]?.name || email.from?.[0]?.email || 'Unknown'
-	);
-	const senderEmail = $derived(email.from?.[0]?.email ?? '');
+	const showRecipients = $derived(getShowRecipients?.() ?? false);
+	const recipients = $derived([...(email.to ?? []), ...(email.cc ?? [])]);
+	// The person the row is about: the sender, or in Sent/Drafts the first
+	// recipient. Drives the avatar and the bold name.
+	const person = $derived(showRecipients ? recipients[0] : email.from?.[0]);
+	const personName = $derived(person?.name || person?.email || '');
+
+	// "To: Dana Wade, Sam, Lee" — first recipient in full, the rest by first
+	// name so a long list still fits the row.
+	function recipientLine(): string {
+		if (recipients.length === 0) return '(no recipients)';
+		const rest = recipients.slice(1).map((a) => (a.name || a.email).split(/[\s@]/)[0]);
+		return 'To: ' + [personName, ...rest].join(', ');
+	}
+
+	const senderName = $derived(showRecipients ? recipientLine() : personName || 'Unknown');
+	const senderEmail = $derived(person?.email ?? '');
 	const preview = $derived(
 		!email.preview || /^[A-Z_]+$/.test(email.preview.trim()) ? '' : email.preview
 	);
@@ -132,7 +146,7 @@
 			class="absolute inset-0 flex items-center justify-center transition-opacity
 				{selected ? 'opacity-0 pointer-events-none' : 'group-hover:opacity-0 group-hover:pointer-events-none group-focus-within:opacity-0 group-focus-within:pointer-events-none'}"
 		>
-			<SenderAvatar email={senderEmail} name={senderName} size={32} />
+			<SenderAvatar email={senderEmail} name={personName || '?'} size={32} />
 		</div>
 		<!-- Checkbox layer (on top so it catches the click when visible).
 		     Revealed on hover OR keyboard focus so it's never an invisible
@@ -160,16 +174,19 @@
 	</div>
 
 	<div class="flex-1 min-w-0">
-		<div class="flex items-baseline justify-between gap-2">
+		<!-- `relative` anchors the hover actions to this line; the time goes
+		     invisible (not hidden) under them so the name never reflows. -->
+		<div class="relative flex items-baseline justify-between gap-2">
 			<span class="min-w-0 flex items-center gap-2 text-sm {isRead ? 'text-text-secondary font-normal' : 'text-text font-semibold'}">
 				{#if !isRead}
 					<span class="w-2 h-2 rounded-full bg-unread shrink-0" title="Unread"></span>
 				{/if}
 				<span class="truncate">{senderName}</span>
 			</span>
-			<span class="text-xs text-text-tertiary shrink-0" title={new Date(email.receivedAt).toLocaleString()}>
+			<span class="text-xs text-text-tertiary shrink-0 group-hover:invisible" title={new Date(email.receivedAt).toLocaleString()}>
 				{formatTimeOfDay(email.receivedAt)}
 			</span>
+			<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} {category} />
 		</div>
 		<div class="email-subject truncate text-sm {isRead ? 'text-text-secondary' : 'text-text font-medium'} mt-0.5 flex items-center gap-1.5">
 			{#if wasReminded}
@@ -206,6 +223,4 @@
 			{preview}
 		</div>
 	</div>
-
-	<EmailRowActions emailId={email.id} {isUnread} {sourceMailboxId} hasReminder={!!reminderAt} {category} />
 </a>

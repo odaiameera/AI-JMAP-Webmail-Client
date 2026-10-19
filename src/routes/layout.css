@@ -115,10 +115,20 @@ html {
 	font-size: 107.5%;
 	background-color: var(--color-bg);
 	color: var(--color-text);
+	/*
+	 * Tells the browser which palette its own widgets should use. Without it
+	 * every scrollbar, <select> popup and date/time picker rendered in the
+	 * light system style — bright white scrollbar tracks down the mail list,
+	 * reading pane and calendar on the dark theme. html.light flips it back.
+	 * The email iframe sets no scheme of its own, so it keeps painting light,
+	 * which is what its white body expects.
+	 */
+	color-scheme: dark;
 }
 
 html.light {
 	/* GitHub Primer, light theme. Same token-by-token sourcing as @theme. */
+	color-scheme: light;
 	--color-bg: #ffffff;            /* bgColor-default  — content panel */
 	/* Chrome is the grey here, content is the white panel inside it — the
 	   inverse of the dark theme's relationship, which is what keeps the panes

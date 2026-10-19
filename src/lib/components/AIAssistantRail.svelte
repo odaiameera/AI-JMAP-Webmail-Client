@@ -386,7 +386,7 @@
 	aria-label="AI mail agent"
 	aria-hidden={!open}
 	inert={!open}
-	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
+	class="absolute inset-y-0 right-0 z-[35] min-w-[320px] w-[clamp(320px,28vw,400px)] max-md:min-w-0 max-md:w-screen overflow-hidden border-l border-border bg-bg shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-300 ease-out
 		{open ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0 pointer-events-none'}"
 >
 	<div class="flex h-full min-h-0 flex-col">

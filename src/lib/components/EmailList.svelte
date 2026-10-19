@@ -16,6 +16,7 @@
 	import { bucketFor, type DateBucket } from '$lib/utils/date-buckets';
 	import { now } from '$lib/stores/now';
 	import { browser } from '$app/environment';
+	import { isPhone } from '$lib/stores/viewport';
 
 	let {
 		emails,
@@ -59,6 +60,10 @@
 	setContext('listMailboxId', () => mailboxId);
 	// Rows offer "Move to tab" only while the list is a tabbed Inbox.
 	setContext('inboxTabs', () => inboxTabs);
+	// In Sent and Drafts every sender is you, so rows name the recipients
+	// instead — otherwise the whole list reads as your own name repeated.
+	const listRole = $derived(mailboxes.find((m) => m.id === mailboxId)?.role ?? null);
+	setContext('showRecipients', () => listRole === 'sent' || listRole === 'drafts');
 	// Getter so callers always see the current page's marker set even
 	// after invalidateAll() refreshes the load data without remounting.
 	setContext('remindedIds', () => new Set<string>(page.data.remindedIds ?? []));
@@ -79,11 +84,17 @@
 	// Read the store synchronously so the pane renders in its real state
 	// on first paint instead of flashing closed for ~200ms while waiting
 	// for the subscription effect to mount.
-	let paneOpen = $state(get(readingPane));
+	let panePreference = $state(get(readingPane));
 	$effect(() => {
-		const unsub = readingPane.subscribe((v: boolean) => { paneOpen = v; });
+		const unsub = readingPane.subscribe((v: boolean) => { panePreference = v; });
 		return unsub;
 	});
+	// A phone has no room beside the list, so rows open the full message
+	// there whatever the saved preference says. The preference is left alone
+	// for when the same account is next used on a wider screen. (The markup
+	// also hides the pane below `md` in CSS, which covers the first paint
+	// before this store has read the viewport.)
+	const paneOpen = $derived(panePreference && !$isPhone);
 
 	let selectedIds = $state(new Set<string>());
 	let bulkLoading = $state('');
@@ -296,7 +307,7 @@
 
 <div class="h-full flex overflow-hidden">
 	<!-- Email list column -->
-	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden"
+	<div class="flex flex-col shrink-0 min-w-0 overflow-hidden max-md:w-full! max-md:flex-1"
 		style={paneOpen ? `width: ${listWidth}px` : 'flex: 1 1 0%; min-width: 0'}>
 		<header class="@container ribbon px-4 py-2 border-b border-border flex items-center gap-2 shrink-0">
 			{#if selectedIds.size > 0}
@@ -408,7 +419,7 @@
 					<ListFilterBar />
 				{/if}
 				<button onclick={() => readingPane.toggle()} title="Toggle reading pane"
-					class="p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer {paneOpen ? 'text-accent-fg' : 'text-text-secondary hover:text-text'}">
+					class="max-md:hidden p-1.5 rounded-md hover:bg-surface-hover transition-colors cursor-pointer {paneOpen ? 'text-accent-fg' : 'text-text-secondary hover:text-text'}">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="10" y1="3" x2="10" y2="21"/></svg>
 				</button>
 				<button onclick={refresh} title="Refresh" class="p-1.5 rounded-md hover:bg-surface-hover text-text-secondary hover:text-text transition-colors cursor-pointer">
@@ -521,10 +532,10 @@
 
 	{#if paneOpen}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
+		<div class="max-md:hidden w-1 shrink-0 bg-border hover:bg-accent/40 cursor-col-resize transition-colors {dragging ? 'bg-accent/40' : ''}"
 			onmousedown={startDrag}></div>
 
-		<div class="flex-1 overflow-hidden min-w-0 flex flex-col relative">
+		<div class="max-md:hidden flex-1 overflow-hidden min-w-0 flex flex-col relative">
 			{#if loadingPreview}
 				<!-- Thin indeterminate bar — the current message stays visible
 				     underneath while the next one loads. -->

@@ -236,7 +236,7 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 
-<form onsubmit={handleSubmit} onfocusout={handleFocusOut} class="relative flex-1 min-w-[240px] max-w-[520px]">
+<form onsubmit={handleSubmit} onfocusout={handleFocusOut} class="relative flex-1 min-w-0 md:min-w-[240px] max-w-[520px]">
 	<div class="relative">
 		<!-- Leading search glyph -->
 		<span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
