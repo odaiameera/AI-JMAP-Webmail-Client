@@ -1,22 +1,24 @@
-<h1 align="center">ameera.</h1>
+<h1 align="center">zajel.</h1>
 
 <p align="center"><strong>Your mail, calendar and contacts in one fast, self-hosted workspace, with an AI agent that works for you and never behind your back.</strong></p>
 
+<p align="center"><sub>Formerly ameera.</sub></p>
+
 <p align="center">
-  <a href="https://github.com/odaiameera/AI-JMAP-Webmail-Client/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/odaiameera/AI-JMAP-Webmail-Client/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/odaiameera/zajel-mail/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/odaiameera/zajel-mail/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="SvelteKit 2 · Svelte 5" src="https://img.shields.io/badge/SvelteKit%202-Svelte%205-ff3e00">
   <img alt="JMAP + CalDAV" src="https://img.shields.io/badge/JMAP%20%2B%20CalDAV-Stalwart-4c6ef5">
 </p>
 
-![The ameera. inbox: Inbox tabs, folders and labels with their own icons, and a message open in the reading pane](docs/screenshots/inbox.png)
+![The Zajel Mail inbox: Inbox tabs, folders and labels with their own icons, and a message open in the reading pane](docs/screenshots/inbox.png)
 
-ameera. is one SvelteKit application that speaks **JMAP** for mail and contacts and **CalDAV** for calendars. It sits in front of your own [Stalwart](https://stalw.art) server, so every part of the stack stays under your control, including the AI.
+Zajel Mail is one SvelteKit application that speaks **JMAP** for mail and contacts and **CalDAV** for calendars. It sits in front of your own [Stalwart](https://stalw.art) server, so every part of the stack stays under your control, including the AI.
 
 It's built to feel quick and calm:
 - **Inbox tabs** keep mail you need apart from notices, newsletters and offers.
 - A **composer** can send later, even after you close the tab.
-- **Raven**, the AI agent, reads your mailbox and calendar and tells you what needs you today.
+- **Zajel**, the AI agent, reads your mailbox and calendar and tells you what needs you today.
 - **Jev**, an optional decision model, sorts new mail and runs rules you write in plain English.
 
 > Every screenshot in this README is the real app, running against a mock mail server filled with fictional people and companies.
@@ -25,12 +27,12 @@ It's built to feel quick and calm:
 
 ## Contents
 
-- [Why ameera.](#why-ameera)
+- [Why Zajel Mail](#why-zajel-mail)
 - [Highlights](#highlights)
 - [A tour](#a-tour)
   - [Mail](#mail)
   - [The composer](#the-composer)
-  - [Raven, the AI agent](#raven-the-ai-agent)
+  - [Zajel, the AI agent](#zajel-the-ai-agent)
   - [Jev: an Inbox that sorts itself](#jev-an-inbox-that-sorts-itself)
   - [Calendar](#calendar)
   - [Contacts](#contacts)
@@ -41,7 +43,7 @@ It's built to feel quick and calm:
   - [Quick start (development)](#quick-start-development)
   - [Docker (production)](#docker-production)
   - [Installing with Jev](#installing-with-jev)
-  - [Setting up Raven](#setting-up-raven)
+  - [Setting up Zajel](#setting-up-zajel)
 - [Configuration](#configuration)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
@@ -49,15 +51,15 @@ It's built to feel quick and calm:
 
 ---
 
-## Why ameera.
+## Why Zajel Mail
 
-Most webmail gives you a good client with no intelligence, or an intelligent client that reads your mail on someone else's servers. ameera. is the third option. Mail, calendar, contacts and an assistant share one interface and one trust boundary: yours.
+Most webmail gives you a good client with no intelligence, or an intelligent client that reads your mail on someone else's servers. Zajel Mail is the third option. Mail, calendar, contacts and an assistant share one interface and one trust boundary: yours.
 
 Three principles shape it:
 
 **Your server is the source of truth.** Mail, contacts and calendars live in Stalwart, over JMAP and CalDAV. The app keeps no shadow copy that drifts from the rest of your setup, so a change made in Apple Mail or a CardDAV client shows up here, and the other way round.
 
-**The assistant proposes; you decide.** Raven never sends a reply, creates a task or changes your calendar on its own. Drafts wait for your review. Calendar and task changes appear as confirmation cards that name exactly what will happen, and they apply only when you click. A proposed deletion shows the event's title and date, not an opaque id.
+**The assistant proposes; you decide.** Zajel never sends a reply, creates a task or changes your calendar on its own. Drafts wait for your review. Calendar and task changes appear as confirmation cards that name exactly what will happen, and they apply only when you click. A proposed deletion shows the event's title and date, not an opaque id.
 
 **Credentials stay on the server.** Mail passwords are encrypted at rest. AI, Jev and task-app tokens are read only in server-side modules and never reach the browser.
 
@@ -67,7 +69,7 @@ Three principles shape it:
 
 - 📬 **Several mail accounts under one sign-in.** Each account has its own colour, photo and unread badges.
 - 🗂️ **Inbox tabs** (Important, Updates, Newsletters, Promotions). Sort by hand, by dragging, or with Jev.
-- 🪶 **Raven, the AI agent.** It searches your whole mailbox and calendar, summarises your day, drafts replies and proposes events and tasks. It runs on **OpenAI GPT-5.6** or on any **Ollama** model, including one on your own machine.
+- 🪶 **Zajel, the AI agent.** It searches your whole mailbox and calendar, summarises your day, drafts replies and proposes events and tasks. It runs on **OpenAI GPT-5.6** or on any **Ollama** model, including one on your own machine.
 - 🧠 **Jev rules in plain English**, such as *"it's an invoice or a request for payment"*, with a strictness you choose and a test run on recent mail.
 - ⏰ **Send later and Undo send, handled by the server.** A scheduled message goes out on time even with every tab closed.
 - 🔑 **Sign-in codes detected**, with a one-click **Copy code** that can also send the email to Trash.
@@ -141,35 +143,35 @@ The **+** button is one place to start anything: a message, an event or a contac
 
 <p align="center"><img src="docs/screenshots/plus-menu.png" alt="The + menu open, offering Message, Event and Contact" width="330"></p>
 
-### Raven, the AI agent
+### Zajel, the AI agent
 
-![Raven summarising today's mail: three things need a reply, plus what's good to know](docs/screenshots/raven.png)
+![Zajel summarising today's mail: three things need a reply, plus what's good to know](docs/screenshots/agent.png)
 
-Raven lives in the corner next to **+**. Ask it anything about your mail or calendar.
+Zajel lives in the corner next to **+**. Ask it anything about your mail or calendar.
 
-- **"Summarize today's mail."** Raven reads what came in and tells you what needs a reply, what's good to know and what can wait.
-- **"What's on tomorrow?"** Raven walks your calendar and helps you prepare for each meeting.
+- **"Summarize today's mail."** Zajel reads what came in and tells you what needs a reply, what's good to know and what can wait.
+- **"What's on tomorrow?"** Zajel walks your calendar and helps you prepare for each meeting.
 - **"Summarize this email."** Bullet points, with what's asked of you and by when.
-- **"Did the accountant ever send the Q3 figures?"** Raven doesn't do one fixed search. Each round it picks a tool:
+- **"Did the accountant ever send the Q3 figures?"** Zajel doesn't do one fixed search. Each round it picks a tool:
   - search the mail, across every folder, including archived mail
   - open a message to read it in full
   - look at the calendar
 
   It stops as soon as it can answer.
 - **Draft replies** for you to review and send.
-- **Calendar proposals.** Raven proposes events, and even deletions, as cards that name the event and date. Nothing changes until you confirm.
+- **Calendar proposals.** Zajel proposes events, and even deletions, as cards that name the event and date. Nothing changes until you confirm.
 - **Task proposals** go to **Todoist**, **Linear**, **Notion**, a generic **webhook**, or an **MCP-to-HTTP bridge**, again only after you confirm.
 - **Persistent conversations** with history. Answers are rendered in Markdown.
 
-Raven runs on **OpenAI's GPT-5.6** when `OPENAI_API_KEY` is set:
+Zajel runs on **OpenAI's GPT-5.6** when `OPENAI_API_KEY` is set:
 - `gpt-5.6-terra` by default, the balanced tier
 - `gpt-5.6-luna` for speed and price
 
-Otherwise it runs on **any Ollama-compatible endpoint**: Ollama Cloud, or a model on your own hardware. Requests to OpenAI are sent with `store: false`, so OpenAI keeps no copy of the mail Raven was shown.
+Otherwise it runs on **any Ollama-compatible endpoint**: Ollama Cloud, or a model on your own hardware. Requests to OpenAI are sent with `store: false`, so OpenAI keeps no copy of the mail Zajel was shown.
 
 ### Jev: an Inbox that sorts itself
 
-[Jev](https://docs.typesafe.ai) is TypeSafe's decision model. It doesn't write text; it answers typed questions about each email, with probabilities. ameera. uses those answers in three places.
+[Jev](https://docs.typesafe.ai) is TypeSafe's decision model. It doesn't write text; it answers typed questions about each email, with probabilities. Zajel Mail uses those answers in three places.
 
 ![Settings → Jev: the four Inbox tabs and the switch that turns them on for an account](docs/screenshots/jev-tabs.png)
 
@@ -276,7 +278,7 @@ The same app, laid out for a small screen:
 - a bottom tab bar for Mail, Calendar, Contacts and Settings
 - folders in a drawer
 - full-screen reading
-- the **+** and Raven buttons where your thumb is
+- the **+** and Zajel buttons where your thumb is
 
 It installs as a **Progressive Web App** with its own icon, and shows a friendly offline page when the connection drops.
 
@@ -284,7 +286,7 @@ It installs as a **Progressive Web App** with its own icon, and shows a friendly
 
 ## Security and privacy
 
-ameera. holds the keys to your mail, so security comes first.
+Zajel Mail holds the keys to your mail, so security comes first.
 
 **Signing in**
 - **One master login** for the app, separate from your mail accounts' passwords. It's hashed with **scrypt** (N=2¹⁷, r=8, p=1).
@@ -303,7 +305,7 @@ ameera. holds the keys to your mail, so security comes first.
 - **Spam and authentication signals** are visible: the spam score, authentication results and sender trust are shown, not hidden.
 
 **AI that asks first**
-- **Raven only proposes.** Replies, events, deletions and tasks wait for your click. The confirmation card names exactly what will happen.
+- **Zajel only proposes.** Replies, events, deletions and tasks wait for your click. The confirmation card names exactly what will happen.
 
 ### Where your data goes
 
@@ -338,15 +340,15 @@ A task app API, an automation tool or an MCP-to-HTTP bridge can handle this cont
 
 ## Installation
 
-You need a **JMAP mail server**. ameera. is developed and tested against **[Stalwart](https://stalw.art)**, which also serves CalDAV for calendars and JMAP for contacts.
+You need a **JMAP mail server**. Zajel Mail is developed and tested against **[Stalwart](https://stalw.art)**, which also serves CalDAV for calendars and JMAP for contacts.
 
 ### Quick start (development)
 
 Requires **Node.js 22+**.
 
 ```sh
-git clone https://github.com/odaiameera/AI-JMAP-Webmail-Client.git
-cd AI-JMAP-Webmail-Client
+git clone https://github.com/odaiameera/zajel-mail.git
+cd zajel-mail
 npm ci
 cp .env.example .env.local
 openssl rand -base64 32
@@ -413,9 +415,9 @@ environment:
 
 > **No key yet?** Set `JEV_MOCK=1` to try the whole flow. Answers are worked out on your server from the same facts, nothing is sent to TypeSafe, and every answer is labelled as a mock.
 
-### Setting up Raven
+### Setting up Zajel
 
-Raven is optional too, and hidden until an AI service is configured. Pick one of these.
+Zajel is optional too, and hidden until an AI service is configured. Pick one of these.
 
 **OpenAI (GPT-5.6):**
 
@@ -447,7 +449,7 @@ It prints every tag, marks the one `OLLAMA_MODEL` is set to, and exits non-zero 
 
 If a model request fails, the server log has an `[ai]` line with the provider's own explanation. That detail is kept out of the browser on purpose.
 
-To let Raven create tasks, configure any combination of Todoist, Linear, Notion or a generic task adapter (see [Configuration](#configuration)). When more than one is connected, the confirmation card lets you choose.
+To let Zajel create tasks, configure any combination of Todoist, Linear, Notion or a generic task adapter (see [Configuration](#configuration)). When more than one is connected, the confirmation card lets you choose.
 
 ---
 
@@ -459,7 +461,7 @@ To let Raven create tasks, configure any combination of Todoist, Linear, Notion 
 | `JMAP_BASE_URL` | Recommended | Default mail-server URL offered when linking an account. |
 | `ORIGIN` | Production | Public URL used by SvelteKit's request-origin checks. |
 | `DATABASE_PATH` | No | SQLite path. Defaults to a local development database, or `/data/ameera.db` in production. |
-| `OPENAI_API_KEY` | AI only | Runs Raven and event extraction on OpenAI instead of Ollama. |
+| `OPENAI_API_KEY` | AI only | Runs Zajel and event extraction on OpenAI instead of Ollama. |
 | `OPENAI_MODEL` | No | OpenAI model. Defaults to `gpt-5.6-terra`; `gpt-5.6-luna` is faster and cheaper. |
 | `OLLAMA_URL` | AI only | Ollama-compatible endpoint. |
 | `OLLAMA_API_KEY` | AI only | Bearer token, when the endpoint requires one. |
@@ -515,8 +517,8 @@ There are two more checks against real protocol output:
 | Path | What's there |
 | --- | --- |
 | `src/lib/jmap/` | The typed JMAP client: mail, mailboxes, labels, contacts and identities. |
-| `src/lib/server/` | Server-only code: auth and crypto, calendar (CalDAV, ICS, iMIP), Raven (`ai/`), Jev (`jev/`), rules and Sieve, scheduled send, reminders, avatars, SQLite (`db/`). |
-| `src/lib/components/` | Svelte 5 components: the mail list and reader, composer, calendar, contacts, Raven's panel and settings. |
+| `src/lib/server/` | Server-only code: auth and crypto, calendar (CalDAV, ICS, iMIP), Zajel (`ai/`), Jev (`jev/`), rules and Sieve, scheduled send, reminders, avatars, SQLite (`db/`). |
+| `src/lib/components/` | Svelte 5 components: the mail list and reader, composer, calendar, contacts, Zajel's panel and settings. |
 | `src/lib/icons.ts` | The icon registry. Every icon is named by the job it does. |
 | `src/routes/(app)/` | The app's pages: inbox, folders, search, calendar, contacts and settings. |
 | `src/routes/api/` | JSON endpoints the pages call. |
@@ -531,7 +533,7 @@ There are two more checks against real protocol output:
 - **Use icons from the registry.** Go through `<Icon name="…" />` and `$lib/icons`, so a job never gets a second drawing and a drawing never takes on a second meaning.
 - **Keep UI copy short.** Use labels and short titles. Don't add hint sentences, example placeholders or tags like "(default)". People know how to use mail.
 - **Keep secrets on the server.** Anything that reads a token belongs in `src/lib/server/`.
-- **Make the assistant propose, never act.** New Raven abilities that change data must surface as a confirmation card.
+- **Make the assistant propose, never act.** New Zajel abilities that change data must surface as a confirmation card.
 
 ### Reporting problems
 
@@ -544,14 +546,14 @@ Open an issue with steps to reproduce, what you expected and what happened. For 
 This started as a mail client and is growing into a full personal workspace: a small set of well-integrated apps that share context, rather than a large set of shallow ones.
 
 **Next: Tasks and Notes.** Tasks is already stubbed in the app rail. Tasks and Notes will both be backed by a **dedicated local SQLite store, independent of Stalwart**. Mail, calendar and contacts belong to the mail server; personal notes and tasks don't, and forcing them through a mail protocol would constrain the data model for no benefit.
-- **Tasks** becomes a first-class app, so Raven's task proposals can land in the product. External adapters stay for people who live in Todoist or Linear.
+- **Tasks** becomes a first-class app, so Zajel's task proposals can land in the product. External adapters stay for people who live in Todoist or Linear.
 - **Notes** are durable and searchable, and can be linked to mail threads, events and contacts.
 
 **Then: broader server support.** JMAP is the right protocol, but most mail still lives behind IMAP.
-- **IMAP**, and **POP3** for accounts that only offer it, would let ameera. front Dovecot, Cyrus or a provider with no JMAP endpoint.
+- **IMAP**, and **POP3** for accounts that only offer it, would let Zajel Mail front Dovecot, Cyrus or a provider with no JMAP endpoint.
 - The mail layer already sits behind a typed client boundary, so this means adding a backend, not a rewrite.
 
-**Then: a shared canvas.** With Notes and Tasks in place, Raven can work across all five apps:
+**Then: a shared canvas.** With Notes and Tasks in place, Zajel can work across all five apps:
 - turn a thread into a task with the message attached
 - pull meeting notes into an event
 - answer questions that span mail and notes

@@ -8,7 +8,7 @@
 
 	/**
 	 * The two things you can start from anywhere, in the bottom-right corner:
-	 * + (a new message, event or contact) and Raven, the AI mail agent. Their
+	 * + (a new message, event or contact) and Zajel, the AI mail agent. Their
 	 * windows open above them. While a message is being written, + is × and
 	 * closes it (saved as a draft if it has anything in it).
 	 */
@@ -109,9 +109,9 @@
 	<button
 		type="button"
 		onclick={onToggleAssistant}
-		aria-label={assistantOpen ? 'Close Raven' : 'Open Raven'}
+		aria-label={assistantOpen ? 'Close Zajel' : 'Open Zajel'}
 		aria-pressed={assistantOpen}
-		title="Raven"
+		title="Zajel"
 		class="agent h-12 w-12 grid place-items-center rounded-full text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] cursor-pointer transition-[filter] hover:brightness-110"
 	>
 		<Icon name="assistant" size={20} />

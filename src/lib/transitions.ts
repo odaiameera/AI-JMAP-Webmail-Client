@@ -1,7 +1,7 @@
 import { cubicOut } from 'svelte/easing';
 
 /**
- * How the corner windows (the composer popup and Raven) come and
+ * How the corner windows (the composer popup and Zajel) come and
  * go: a fade with a slight grow from the corner they're anchored to. The
  * agent's card does the same with CSS transitions, at the same timings.
  *

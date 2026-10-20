@@ -16,7 +16,7 @@
 
 	const SETTINGS_HREF = '/settings/account';
 
-	// The three built surfaces in the order they get used (Raven, the AI mail
+	// The three built surfaces in the order they get used (Zajel, the AI mail
 	// agent, lives in the bottom-right corner, beside Compose). Unbuilt apps (Tasks)
 	// stay off the rail until they exist — a dimmed icon that leads to a
 	// "coming soon" page promises a screen and then doesn't deliver it.

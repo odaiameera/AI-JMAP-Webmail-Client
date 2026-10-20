@@ -7,6 +7,6 @@
 
 <SettingsPlaceholder
 	title="Keyboard shortcuts"
-	description="A reference for Ameera's keyboard shortcuts."
+	description="A reference for Zajel Mail's keyboard shortcuts."
 	comingIn="Full reference coming in a later phase. Shortcuts can be toggled on or off from the Messages page (Keyboard shortcuts setting)."
 />

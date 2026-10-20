@@ -1,10 +1,10 @@
-const APP_NAME = 'ameera. Mail';
+const APP_NAME = 'Zajel Mail';
 
 export interface PageTitleParts {
 	page: string;
 	/** Unread count — only appended when > 0. */
 	count?: number;
-	/** Optional middle segment, e.g. "Settings" for `Account · Settings — ameera. Mail`. */
+	/** Optional middle segment, e.g. "Settings" for `Account · Settings — Zajel Mail`. */
 	subtitle?: string;
 }
 

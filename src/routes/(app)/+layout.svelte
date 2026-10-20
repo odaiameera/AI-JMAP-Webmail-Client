@@ -281,7 +281,7 @@
 			<Icon name="menu" size={20} />
 		</button>
 		<h1 class="max-md:hidden text-lg font-bold text-text tracking-tight leading-none shrink-0 {railCollapsed ? 'w-4' : 'w-[192px]'} transition-all duration-200 overflow-hidden whitespace-nowrap">
-			{railCollapsed ? '' : 'ameera.'}
+			{railCollapsed ? '' : 'zajel.'}
 		</h1>
 		<SearchInput bind:value={searchQuery} onSubmit={submitSearch} mailboxes={data.mailboxes} />
 		<!-- On phones the search box takes this space instead. -->
@@ -370,7 +370,7 @@
 				{:else if appPanel}
 					<div class="h-full flex flex-col bg-surface">
 						{#if $isPhone}
-							<div class="px-4 py-3"><span class="text-lg font-bold text-text tracking-tight leading-none">ameera.</span></div>
+							<div class="px-4 py-3"><span class="text-lg font-bold text-text tracking-tight leading-none">zajel.</span></div>
 						{/if}
 						{@render appPanel()}
 					</div>
@@ -383,7 +383,7 @@
 	<AppRail />
 </div>
 
-<!-- + (new message, event or contact) and Raven, the AI mail agent: bottom-right, beside the app
+<!-- + (new message, event or contact) and Zajel, the AI mail agent: bottom-right, beside the app
      rail on desktop and above the tab bar on phones. The agent opens as a
      card above them. -->
 <CornerActions

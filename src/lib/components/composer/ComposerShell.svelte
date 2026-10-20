@@ -1211,7 +1211,7 @@
 		overflow: hidden;
 		transition: width 0.18s ease, height 0.18s ease, top 0.18s ease, left 0.18s ease, bottom 0.18s ease, right 0.18s ease, border-radius 0.18s ease;
 	}
-	/* Above the corner buttons, the same size as Raven's card. */
+	/* Above the corner buttons, the same size as Zajel's card. */
 	.composer--popup {
 		bottom: var(--corner-window-bottom);
 		right: var(--corner-window-right);

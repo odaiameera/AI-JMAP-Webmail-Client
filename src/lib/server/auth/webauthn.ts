@@ -25,7 +25,7 @@ import {
  * login usernameless — the authenticator tells us who is signing in.
  */
 
-const RP_NAME = 'ameera Mail';
+const RP_NAME = 'Zajel Mail';
 
 function rpId(url: URL): string {
 	return url.hostname;
