@@ -75,7 +75,7 @@
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Notifications</h1>
 	<p class="text-sm text-text-tertiary mt-1">
-		Browser notifications for new mail and calendar activity. Notifications work while Ameera is open in a browser tab.
+		Browser notifications for new mail and calendar activity. Notifications work while Zajel Mail is open in a browser tab.
 	</p>
 </header>
 

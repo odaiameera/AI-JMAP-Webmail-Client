@@ -21,7 +21,7 @@
 <div class="min-h-screen flex items-center justify-center px-4">
 	<div class="w-full max-w-sm">
 		<div class="text-center mb-8">
-			<h1 class="text-2xl font-bold text-text">ameera. <span class="text-text-tertiary font-normal">Mail</span></h1>
+			<h1 class="text-2xl font-bold text-text">zajel. <span class="text-text-tertiary font-normal">Mail</span></h1>
 			{#if data.step === 'create'}
 				<p class="text-text-tertiary mt-1 text-sm">Welcome — create your webmail login</p>
 			{:else}

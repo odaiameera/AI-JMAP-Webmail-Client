@@ -378,7 +378,7 @@
 	and focus reach whatever it covers.
 -->
 <aside
-	aria-label="Raven"
+	aria-label="Zajel"
 	aria-hidden={!open}
 	inert={!open}
 	class="fixed z-[35] overflow-hidden bg-bg origin-bottom-right transition-[opacity,transform] will-change-[opacity,transform]
@@ -395,7 +395,7 @@
 				<Icon name="assistant" size={20} />
 				<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-surface {aiEnabled ? 'bg-success' : 'bg-text-tertiary'}"></span>
 			</div>
-			<h2 class="min-w-0 flex-1 truncate text-sm font-semibold text-text">Raven</h2>
+			<h2 class="min-w-0 flex-1 truncate text-sm font-semibold text-text">Zajel</h2>
 			<!--
 				Separates the panel's identity from its controls. The drawer now
 				shares the reading pane's background, so grouping inside the
@@ -421,7 +421,7 @@
 			>
 				<Icon name="history" size={16} />
 			</button>
-			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close Raven">
+			<button type="button" onclick={onClose} class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text" aria-label="Close Zajel">
 				<Icon name="close" size={16} />
 			</button>
 		</header>
@@ -591,7 +591,7 @@
 
 			{#if busy}
 				<div class="flex justify-start">
-					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3" aria-label="Raven is thinking">
+					<div class="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3" aria-label="Zajel is thinking">
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]"></span>
 						<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]"></span>
@@ -606,7 +606,7 @@
 				<p class="mb-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>
 			{/if}
 			<form class="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 transition-colors focus-within:border-accent/60" onsubmit={(event) => { event.preventDefault(); ask('chat'); }}>
-				<textarea bind:value={input} rows="1" maxlength="1500" aria-label="Message Raven" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
+				<textarea bind:value={input} rows="1" maxlength="1500" aria-label="Message Zajel" disabled={busy || !aiEnabled} onkeydown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask('chat'); } }} class="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-text outline-none placeholder:text-text-tertiary disabled:opacity-50"></textarea>
 				<button type="submit" disabled={busy || !aiEnabled || !input.trim()} aria-label="Send message" class="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent text-white transition-all hover:bg-accent-hover disabled:cursor-default disabled:opacity-40">
 					<Icon name="send" size={16} />
 				</button>

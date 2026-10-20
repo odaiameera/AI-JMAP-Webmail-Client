@@ -153,7 +153,7 @@ type AIChatInput = {
 function chatBody(input: AIChatInput): Record<string, unknown> {
 	if (aiProvider() === 'openai') {
 		// The Responses API. GPT-5.6 reasons before answering and takes no
-		// temperature; low effort keeps each of Raven's tool rounds quick.
+		// temperature; low effort keeps each of Zajel's tool rounds quick.
 		// store: false so OpenAI keeps no copy of the mail it was shown.
 		return {
 			model: aiModel(),

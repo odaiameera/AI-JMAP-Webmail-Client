@@ -62,7 +62,7 @@
 	<h1 class="text-xl font-semibold text-text">Auto-reply</h1>
 	<p class="text-sm text-text-tertiary mt-1">
 		Send an automatic response to incoming mail while you're away. The response is sent
-		server-side via Sieve, so it runs even if Ameera isn't open.
+		server-side via Sieve, so it runs even if Zajel Mail isn't open.
 	</p>
 </header>
 

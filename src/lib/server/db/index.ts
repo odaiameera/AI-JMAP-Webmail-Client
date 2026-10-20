@@ -18,6 +18,7 @@ let cached: DbType | null = null;
 
 function resolveDbPath(): string {
 	if (process.env.DATABASE_PATH) return process.env.DATABASE_PATH;
+	// The file keeps the app's earlier name, so existing installs find it.
 	if (process.env.NODE_ENV === 'production') return '/data/ameera.db';
 	return resolve(process.cwd(), 'local-data/ameera.db');
 }

@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "ameera. Mail",
-  "short_name": "ameera.",
+  "name": "Zajel Mail",
+  "short_name": "Zajel Mail",
   "description": "Self-hosted webmail",
   "start_url": "/inbox?source=pwa",
   "scope": "/",

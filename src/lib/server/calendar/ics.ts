@@ -739,7 +739,7 @@ export function buildIcs(master: VEventData, overrides: VEventData[] = []): stri
 	const lines: string[] = [
 		'BEGIN:VCALENDAR',
 		'VERSION:2.0',
-		'PRODID:-//ameera//webmail calendar//EN',
+		'PRODID:-//Zajel Mail//webmail calendar//EN',
 		'CALSCALE:GREGORIAN'
 	];
 	lines.push(...buildVEvent(master, dtstamp));

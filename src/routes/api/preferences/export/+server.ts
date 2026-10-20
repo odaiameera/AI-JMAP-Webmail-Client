@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	};
 	return json(payload, {
 		headers: {
-			'Content-Disposition': 'attachment; filename="ameera-preferences.json"'
+			'Content-Disposition': 'attachment; filename="zajel-mail-preferences.json"'
 		}
 	});
 };

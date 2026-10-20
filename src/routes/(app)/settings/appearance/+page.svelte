@@ -60,7 +60,7 @@
 
 <header class="mb-6">
 	<h1 class="text-xl font-semibold text-text">Appearance</h1>
-	<p class="text-sm text-text-tertiary mt-1">How Ameera looks and feels.</p>
+	<p class="text-sm text-text-tertiary mt-1">How Zajel Mail looks and feels.</p>
 </header>
 
 <section>

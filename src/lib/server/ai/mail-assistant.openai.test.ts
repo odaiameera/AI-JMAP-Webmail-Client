@@ -40,7 +40,7 @@ describe('runAIChat with OpenAI', () => {
 
 		await expect(
 			runAIChat({
-				system: 'You are Raven.',
+				system: 'You are Zajel.',
 				messages: [
 					{ role: 'user', content: 'Anything new?' },
 					{ role: 'assistant', content: 'Let me look.' },
@@ -56,7 +56,7 @@ describe('runAIChat with OpenAI', () => {
 		const body = JSON.parse(String(init.body));
 		expect(body).toMatchObject({
 			model: 'gpt-5.6-terra',
-			instructions: 'You are Raven.',
+			instructions: 'You are Zajel.',
 			store: false,
 			reasoning: { effort: 'low' }
 		});

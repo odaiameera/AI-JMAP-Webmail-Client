@@ -224,11 +224,11 @@
 <aside class="w-full h-full bg-surface flex flex-col overflow-hidden">
 	{#if !hideHeader && !collapsed}
 		<div class="px-4 py-3">
-			<h1 class="text-lg font-bold text-text tracking-tight leading-none">ameera.</h1>
+			<h1 class="text-lg font-bold text-text tracking-tight leading-none">zajel.</h1>
 		</div>
 	{/if}
 
-	<!-- Compose lives in the bottom-right corner, beside Raven. -->
+	<!-- Compose lives in the bottom-right corner, beside Zajel. -->
 	<div class="h-1.5 shrink-0" aria-hidden="true"></div>
 
 	{#if collapsed}

@@ -20,6 +20,8 @@ function key(): Buffer {
 			'WEBMAIL_SECRET env var is required (32+ chars). Generate one with: openssl rand -base64 32'
 		);
 	}
+	// 'ameera-webmail' is from the app's earlier name and must stay: a new salt
+	// would derive a different key, and no stored mail password would decrypt.
 	cachedKey = Buffer.from(hkdfSync('sha256', secret, 'ameera-webmail', 'mail-account-secrets', 32));
 	return cachedKey;
 }
