@@ -124,7 +124,7 @@ export const JUNK_AT = 0.9;
 export const FLAG_AT = 0.6;
 /** Out of Junk only when Jev is this sure it is neither spam… */
 export const RESCUE_SPAM_BELOW = 0.1;
-/** …nor phishing, and DMARC didn't fail. */
+/** …nor phishing, and the sender's domain passed DMARC. */
 export const RESCUE_PHISHING_BELOW = 0.05;
 
 export type SpamAction = 'junk' | 'rescue' | 'flag';
@@ -136,18 +136,20 @@ export type SpamAction = 'junk' | 'rescue' | 'flag';
  *   (contacts can be spoofed, or their accounts taken over);
  * - anything ≥ 0.6 stays, with a "looks suspicious" warning;
  * - in Junk, mail comes back only when Jev is very sure it is fine and the
- *   sender's domain didn't fail DMARC.
+ *   sender's domain passed DMARC. "Didn't fail" is not enough: a forged
+ *   sender often has no DMARC result at all (no record, or the check never
+ *   ran), and that is exactly the mail Junk is for.
  */
 export function decideSpam(input: {
 	spam: number;
 	phishing: number;
 	inJunk: boolean;
 	trusted: boolean;
-	dmarcFailed: boolean;
+	dmarcPassed: boolean;
 }): SpamAction | null {
-	const { spam, phishing, inJunk, trusted, dmarcFailed } = input;
+	const { spam, phishing, inJunk, trusted, dmarcPassed } = input;
 	if (inJunk) {
-		return spam < RESCUE_SPAM_BELOW && phishing < RESCUE_PHISHING_BELOW && !dmarcFailed ? 'rescue' : null;
+		return spam < RESCUE_SPAM_BELOW && phishing < RESCUE_PHISHING_BELOW && dmarcPassed ? 'rescue' : null;
 	}
 	if (!trusted && (phishing >= JUNK_AT || spam >= JUNK_AT)) return 'junk';
 	if (phishing >= FLAG_AT || spam >= FLAG_AT) return 'flag';

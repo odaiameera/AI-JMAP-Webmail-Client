@@ -96,10 +96,18 @@ export async function safeFetch(
 		timeoutMs?: number;
 		/** Also accept plain-http URLs (mail images still use them). */
 		allowHttp?: boolean;
+		/** Defaults to GET. A POST keeps its body across 307/308 and becomes a GET on any other redirect, as browsers do. */
+		method?: 'GET' | 'POST';
+		body?: string;
+		contentType?: string;
+		/** Treat an empty body (a 204, say) as an answer rather than a failure. */
+		allowEmpty?: boolean;
 	} = {}
 ): Promise<FetchedBlob | null> {
 	const max = opts.maxBytes ?? DEFAULT_MAX_BYTES;
 	let target = rawUrl;
+	let method = opts.method ?? 'GET';
+	let body = method === 'POST' ? opts.body : undefined;
 
 	// Follow redirects manually so EVERY hop's host is vetted before we connect
 	// to it. With `redirect: 'follow'`, undici would resolve and connect to an
@@ -128,11 +136,14 @@ export async function safeFetch(
 			let res: Response;
 			try {
 				res = await fetch(url, {
+					method,
+					body,
 					signal: controller.signal,
 					redirect: 'manual',
 					headers: {
 						'User-Agent': BROWSER_UA,
-						...(opts.accept ? { Accept: opts.accept } : {})
+						...(opts.accept ? { Accept: opts.accept } : {}),
+						...(body !== undefined && opts.contentType ? { 'Content-Type': opts.contentType } : {})
 					}
 				});
 			} catch {
@@ -147,13 +158,17 @@ export async function safeFetch(
 				} catch {
 					return null;
 				}
+				if (res.status !== 307 && res.status !== 308) {
+					method = 'GET';
+					body = undefined;
+				}
 				continue;
 			}
 
 			const declared = Number(res.headers.get('content-length') ?? '');
 			if (Number.isFinite(declared) && declared > max) return null;
 			const bytes = await readCapped(res, max).catch(() => null);
-			if (!bytes) return null;
+			if (!bytes || (bytes.length === 0 && !opts.allowEmpty)) return null;
 			return { bytes, contentType: res.headers.get('content-type'), status: res.status };
 		} finally {
 			clearTimeout(timer);
@@ -186,5 +201,5 @@ async function readCapped(res: Response, max: number): Promise<Buffer | null> {
 			chunks.push(Buffer.from(value));
 		}
 	}
-	return chunks.length ? Buffer.concat(chunks) : null;
+	return Buffer.concat(chunks);
 }

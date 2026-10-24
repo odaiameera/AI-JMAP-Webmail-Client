@@ -475,7 +475,8 @@ async function judgeAndApply(
 					inJunk: junked,
 					// Contacts and people you've written to are never sent to Junk.
 					trusted: !!(j.facts?.sender_in_contacts || j.facts?.you_have_written_to_sender),
-					dmarcFailed: j.facts?.security?.dmarc === 'fail'
+					// Out of Junk needs a DMARC pass, not just "no fail".
+					dmarcPassed: j.facts?.security?.dmarc === 'pass'
 				})
 			: null;
 		const spam: SpamRecord | null = verdict

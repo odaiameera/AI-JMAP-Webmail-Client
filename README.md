@@ -102,7 +102,7 @@ The inbox is built for getting through mail, not just reading it.
 - Conversations are threaded.
 - The reading pane can be toggled, and it stays put when a filter has no results.
 - Attachments show as cards. Inline `cid:` images render.
-- Remote images load through a **server-side proxy**, so the sender's image host sees your server's address, not yours. You can choose to never load them, load them for contacts only, or always.
+- Remote images load through a **server-side proxy**, so the sender's image host sees your server's address, not yours. You choose whether they load: never, for contacts only (the default), or always. When they're held back, a bar above the message offers to load them for that one message.
 - **Sender trust** comes from your address book and the message's authentication results. Stalwart's spam score sits beside every message, and flagged mail says why it was flagged.
 - **One-click unsubscribe** appears for mailing lists that support it.
 - **Add to calendar** turns an email about a dinner or a meeting into an event.
@@ -167,7 +167,7 @@ Zajel runs on **OpenAI's GPT-5.6** when `OPENAI_API_KEY` is set:
 - `gpt-5.6-terra` by default, the balanced tier
 - `gpt-5.6-luna` for speed and price
 
-Otherwise it runs on **any Ollama-compatible endpoint**: Ollama Cloud, or a model on your own hardware. Requests to OpenAI are sent with `store: false`, so OpenAI keeps no copy of the mail Zajel was shown.
+Otherwise it runs on **any Ollama-compatible endpoint**: Ollama Cloud, or a model on your own hardware. Requests to OpenAI are sent with `store: false`, so they aren't stored for later retrieval. OpenAI still keeps API content in its abuse-monitoring logs for up to 30 days by default, unless your organisation has [Zero Data Retention](https://developers.openai.com/api/docs/guides/your-data). If mail must never leave your hardware, use a local Ollama model.
 
 ### Jev: an Inbox that sorts itself
 
@@ -201,7 +201,7 @@ Mix these conditions freely with exact matches like *From contains…*, and test
 
 **3. A second opinion on spam and phishing.** Jev runs beside Stalwart's filter, which keeps running.
 - **Watch only** records Jev's verdict next to Stalwart's, with a report of where the two disagree. Nothing moves.
-- **Active** moves mail Jev is at least 90% sure is spam or phishing to Junk. It warns from 60%, and never moves mail from your contacts or people you've written to. It also brings mail back out of Junk when Jev is very sure it's fine and the sender passed DMARC.
+- **Active** moves mail Jev is at least 90% sure is spam or phishing to Junk. It warns from 60%, and never moves mail from your contacts or people you've written to. It also brings mail back out of Junk when Jev is very sure it's fine and the sender passed DMARC. A missing or errored DMARC result doesn't count as a pass.
 
 Jev is **off until you turn it on, account by account.** For a demo or development without a key, `JEV_MOCK=1` answers on the server and labels every answer as a mock, so a demo can never be mistaken for Jev. [JEV_PLAN.md](JEV_PLAN.md) has the full design.
 
@@ -301,7 +301,11 @@ Zajel Mail holds the keys to your mail, so security comes first.
 
 **Reading mail safely**
 - **Messages render in a sandboxed iframe** with scripts disabled.
-- **Remote images go through the server**, so trackers see your server, not your device. You choose when they load at all.
+- **A Content-Security-Policy on every page.** Only the app's own scripts run (inline ones need a per-request nonce), and pages load nothing from other origins. Nothing can frame the app.
+- **The message frame has a stricter policy of its own.** Images may come only from the message's attachments and, when you allow remote images, the image proxy. Remote stylesheets, fonts, media, frames and form posts are refused, and `<link>` prefetches and meta refreshes are removed.
+- **Remote images go through the server**, so trackers see your server, not your device. You choose when they load at all. While they're held back, the frame's policy refuses the proxy too, so a crafted message can't load them by another route.
+- **Word attachments are sanitised** with DOMPurify before the preview shows them: no scripts or `javascript:` links, and only images embedded in the document.
+- **One-click unsubscribe** only posts to the address in the message's own `List-Unsubscribe` header, and never to a private or local network address.
 - **Spam and authentication signals** are visible: the spam score, authentication results and sender trust are shown, not hidden.
 
 **AI that asks first**
@@ -309,13 +313,13 @@ Zajel Mail holds the keys to your mail, so security comes first.
 
 ### Where your data goes
 
-- **AI.** Email content goes only to the AI service you configure: OpenAI (sent with `store: false`) or your own Ollama endpoint.
+- **AI.** Email content goes only to the AI service you configure: OpenAI or your own Ollama endpoint. OpenAI requests are sent with `store: false`, but OpenAI's abuse-monitoring logs keep API content for up to 30 days unless you have Zero Data Retention.
 - **Jev.** Mail goes to TypeSafe only for accounts where you switch Jev on.
   - Each new email is sent **once**: sender, recipients, subject, the first 2,000 characters of the body with quoted replies removed, and the facts the app works out about it.
   - Jev returns probabilities. The app keeps those and the facts; it **never stores the email text**.
   - "Try Jev" sends your newest 200 Inbox emails the same way, once, when you press it.
   - TypeSafe states it doesn't train on customer data. Its documentation doesn't state a retention period, and zero data retention is an enterprise option.
-- **Remote images.** They're fetched by the server, so the sender's image host sees the server's address rather than yours. It can still tell the message was opened.
+- **Remote images.** When they load, the server fetches them, so the sender's image host sees the server's address rather than yours. It can still tell the message was opened. Stylesheets and fonts a message links to are never loaded.
 - **Tasks.** A task's title, description and due date go to the task app you chose, **only after you confirm**.
 - **Calendar changes** go to your own CalDAV server, also only after you confirm.
 

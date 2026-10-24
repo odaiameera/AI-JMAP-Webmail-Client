@@ -143,6 +143,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			composerFont: prefs.composer_font ?? 'Calibri',
 			composerFontSize: prefs.composer_font_size ?? '12',
 			autoSaveInterval: Number(prefs.autosave_interval) || 10,
+			// Settings → Messages → "Auto-load remote images": the reading view
+			// proxies or blocks a message's remote images by it.
+			autoLoadImages: prefs.auto_load_images ?? 'contacts_only',
 			// Whether Jev reads this account's mail — the message view then
 			// offers its "Why is this here?" chip.
 			jevReads: activeAccount ? getJevSettings(activeAccount.id).jevEnabled : false,
