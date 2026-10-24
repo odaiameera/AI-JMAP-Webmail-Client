@@ -23,16 +23,29 @@ import { attachmentUrl } from '$lib/attachments/fetch';
 
 export const IMAGE_PROXY_PATH = '/api/image-proxy';
 
+/** What a blocked or unloadable image reference becomes: a URL that fetches nothing. */
+export const BLOCKED_URL = 'about:invalid';
+
 export interface EmailImageContext {
 	emailId: string;
 	/** The email's attachments; inline parts carry the `cid` images refer to. */
 	attachments: EmailAttachment[];
+	/**
+	 * `proxy` (the default) loads remote images through the image proxy;
+	 * `block` replaces them with {@link BLOCKED_URL} — the reader's
+	 * "don't load remote images" choice. Inline `cid:` and `data:` images
+	 * are never remote and always show.
+	 */
+	remote?: 'proxy' | 'block';
 }
 
 interface RewriteCtx {
 	cids: Map<string, EmailAttachment>;
 	emailId: string;
 	base: string | null;
+	remote: 'proxy' | 'block';
+	/** Remote image references replaced because `remote` is `block`. */
+	blocked: number;
 }
 
 /**
@@ -87,14 +100,26 @@ function rewriteUrl(raw: string, ctx: RewriteCtx): string | null {
 	let absolute: string;
 	if (/^https?:\/\//i.test(value)) absolute = value;
 	else if (value.startsWith('//')) absolute = `https:${value}`;
-	else if (ctx.base && !/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+	else if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return null; // data:, blob: or some other scheme
+	else if (ctx.base) {
 		try {
 			absolute = new URL(value, ctx.base).toString();
 		} catch {
-			return null;
+			return BLOCKED_URL;
 		}
-	} else return null; // data:, relative with no base, or some other scheme
+	} else {
+		// Relative with no <base> to resolve it against. The reading view is
+		// on this origin, so this would be a request to the webmail itself —
+		// `/api/…` with the reader's cookies, or `/api/image-proxy?url=` to
+		// sneak a tracker past the remote-image setting. Nothing legitimate
+		// lives there, so it loads nothing.
+		return BLOCKED_URL;
+	}
 
+	if (ctx.remote === 'block') {
+		ctx.blocked++;
+		return BLOCKED_URL;
+	}
 	return proxiedImageUrl(absolute);
 }
 
@@ -128,6 +153,7 @@ function rewriteSrcset(value: string, ctx: RewriteCtx): string {
 
 // @import pulls in a stylesheet and @font-face a font — neither is an image,
 // and the proxy only serves images, so both are matched first and left alone.
+// The reading view's CSP (emailFrameCsp) is what stops them loading.
 const CSS_URL =
 	/(@import[^;]*;?|@font-face\s*\{[^}]*\})|url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi;
 
@@ -171,6 +197,9 @@ function rewriteTag(tag: string, name: string, attrs: string, ctx: RewriteCtx): 
 			next = rewritten === value ? null : rewritten;
 		} else if (key === 'background' || (key === 'poster' && lowerName === 'video')) {
 			next = rewriteUrl(value, ctx);
+		} else if ((key === 'href' || key === 'xlink:href') && (lowerName === 'image' || lowerName === 'feimage')) {
+			// SVG's way of drawing a picture: the same request as an <img>.
+			next = rewriteUrl(value, ctx);
 		} else if (key === 'style') {
 			const rewritten = rewriteCss(value, ctx);
 			next = rewritten === value ? null : rewritten;
@@ -184,7 +213,11 @@ function rewriteTag(tag: string, name: string, attrs: string, ctx: RewriteCtx): 
 }
 
 export function rewriteEmailImages(html: string, context: EmailImageContext): string {
-	if (!html) return html;
+	return rewrite(html, context).html;
+}
+
+function rewrite(html: string, context: EmailImageContext): { html: string; blocked: number } {
+	if (!html) return { html, blocked: 0 };
 
 	const cids = new Map<string, EmailAttachment>();
 	for (const part of context.attachments) {
@@ -193,7 +226,13 @@ export function rewriteEmailImages(html: string, context: EmailImageContext): st
 		const lower = part.cid.toLowerCase();
 		if (!cids.has(lower)) cids.set(lower, part);
 	}
-	const ctx: RewriteCtx = { cids, emailId: context.emailId, base: null };
+	const ctx: RewriteCtx = {
+		cids,
+		emailId: context.emailId,
+		base: null,
+		remote: context.remote ?? 'proxy',
+		blocked: 0
+	};
 
 	// A sender's <base href> would re-root our /api/image-proxy URLs onto the
 	// sender's own host. Keep its href to resolve relative image paths the
@@ -212,5 +251,69 @@ export function rewriteEmailImages(html: string, context: EmailImageContext): st
 		(_, open: string, css: string, close: string) => `${open}${rewriteCss(css, ctx)}${close}`
 	);
 
-	return out.replace(TAG, (tag, name: string, attrs: string) => rewriteTag(tag, name, attrs, ctx));
+	out = out.replace(TAG, (tag, name: string, attrs: string) => rewriteTag(tag, name, attrs, ctx));
+	return { html: out, blocked: ctx.blocked };
+}
+
+// <link> covers stylesheets but also dns-prefetch, preconnect and prefetch,
+// which reach the sender's host without any CSP directive applying.
+const LINK_TAG = /<link\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+const META_TAG = /<meta\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+// A meta refresh navigates the frame itself — to a tracker, or a phishing page.
+const REFRESH = /\shttp-equiv\s*=\s*(?:"\s*refresh\s*"|'\s*refresh\s*'|refresh\b)/i;
+
+/**
+ * The body exactly as the reading view shows it: images rewritten per
+ * {@link rewriteEmailImages}, plus the elements that load or navigate
+ * outside what an image rule can stop removed. `blockedRemote` counts the
+ * remote images left out, so the view can offer to load them.
+ */
+export function prepareEmailForReading(
+	html: string,
+	context: EmailImageContext
+): { html: string; blockedRemote: number } {
+	const { html: rewritten, blocked } = rewrite(html, context);
+	const out = rewritten
+		.replace(LINK_TAG, '')
+		.replace(META_TAG, (tag) => (REFRESH.test(tag) ? '' : tag));
+	return { html: out, blockedRemote: blocked };
+}
+
+/**
+ * Content-Security-Policy for the reading view's iframe, delivered as a
+ * `<meta>` at the top of its srcdoc.
+ *
+ * The rewrite above is the first line; this is the one that holds when a
+ * construct slips past a string rewrite. The email cannot script (the frame
+ * is sandboxed without `allow-scripts`), so the policy is about what it may
+ * fetch: images only from this server's attachment routes, from the image
+ * proxy when remote images are allowed, and inline `data:`/`blob:`. No
+ * stylesheets, fonts, media, frames or form posts reach the sender.
+ *
+ * `origin` is spelled out rather than `'self'` because a path-restricted
+ * source needs a host, and path restriction is what keeps the proxy out of
+ * the policy entirely while remote images are blocked.
+ */
+export function emailFrameCsp(origin: string, allowRemote: boolean): string {
+	let parsed: URL;
+	try {
+		parsed = new URL(origin);
+	} catch {
+		throw new Error('emailFrameCsp: invalid origin');
+	}
+	if ((parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || parsed.origin !== origin) {
+		throw new Error('emailFrameCsp: invalid origin');
+	}
+	const img = [`${origin}/api/email/`, ...(allowRemote ? [`${origin}${IMAGE_PROXY_PATH}`] : []), 'data:', 'blob:'];
+	return [
+		"default-src 'none'",
+		`img-src ${img.join(' ')}`,
+		"style-src 'unsafe-inline'",
+		'font-src data:',
+		"media-src 'none'",
+		"frame-src 'none'",
+		"object-src 'none'",
+		"form-action 'none'",
+		"base-uri 'none'"
+	].join('; ');
 }

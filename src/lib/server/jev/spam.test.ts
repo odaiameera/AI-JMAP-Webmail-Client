@@ -97,7 +97,7 @@ describe('evidence', () => {
 });
 
 describe('decideSpam', () => {
-	const base = { spam: 0.02, phishing: 0.01, inJunk: false, trusted: false, dmarcFailed: false };
+	const base = { spam: 0.02, phishing: 0.01, inJunk: false, trusted: false, dmarcPassed: true };
 
 	it('sends confident spam or phishing from strangers to Junk', () => {
 		expect(decideSpam({ ...base, spam: 0.93 })).toBe('junk');
@@ -115,11 +115,20 @@ describe('decideSpam', () => {
 		expect(decideSpam({ ...base, spam: 0.59 })).toBeNull();
 	});
 
-	it('rescues from Junk only when very sure and DMARC didn’t fail', () => {
+	it('rescues from Junk only when very sure and DMARC passed', () => {
 		expect(decideSpam({ ...base, inJunk: true })).toBe('rescue');
-		expect(decideSpam({ ...base, inJunk: true, dmarcFailed: true })).toBeNull();
 		expect(decideSpam({ ...base, inJunk: true, spam: 0.1 })).toBeNull();
 		expect(decideSpam({ ...base, inJunk: true, phishing: 0.05 })).toBeNull();
+	});
+
+	it('leaves Junk alone when DMARC failed, never ran, or errored', () => {
+		// A spoofed sender passes no DMARC at all, so "didn't fail" is not enough.
+		expect(decideSpam({ ...base, inJunk: true, dmarcPassed: false })).toBeNull();
+	});
+
+	it('does not need DMARC to move mail into Junk or warn about it', () => {
+		expect(decideSpam({ ...base, spam: 0.95, dmarcPassed: false })).toBe('junk');
+		expect(decideSpam({ ...base, spam: 0.7, dmarcPassed: false })).toBe('flag');
 	});
 });
 

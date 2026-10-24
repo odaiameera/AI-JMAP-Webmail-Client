@@ -48,6 +48,30 @@ export function cardHasAddress(emails: unknown, email: string): boolean {
 }
 
 /**
+ * Is `address` in the address book? The same exact-address test trusting a
+ * sender uses. `null` when it can't be told — no contacts on this server, or
+ * nothing that looks like an address — so callers can treat "unknown" as
+ * "not a contact" without mistaking it for a definite no.
+ */
+export async function senderInContacts(
+	client: JMAPClient,
+	session: JMAPSession,
+	address: string
+): Promise<boolean | null> {
+	const email = normalizeAddress(address);
+	if (!email || !email.includes('@')) return null;
+	let contactsAccountId: string;
+	try {
+		contactsAccountId = resolveContactsAccount(session).accountId;
+	} catch (err) {
+		if (err instanceof ContactsUnsupportedError) return null;
+		throw err;
+	}
+	const found = await queryContacts(client, contactsAccountId, email, 20);
+	return found.contacts.some((card) => cardHasAddress(card.emails, email));
+}
+
+/**
  * Add `address` to the address book unless it is already there.
  *
  * Idempotent on purpose: the button that calls this sits on any message, and

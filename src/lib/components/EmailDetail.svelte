@@ -5,9 +5,11 @@
 	import { openCompose } from '$lib/stores/compose';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
 	import { renderEmailBodyHtml } from '$lib/utils/email-body';
-	import { rewriteEmailImages } from '$lib/utils/email-images';
+	import { emailFrameCsp, prepareEmailForReading } from '$lib/utils/email-images';
+	import { parseListUnsubscribe, type UnsubInfo } from '$lib/utils/list-unsubscribe';
 	import { detectEmailVerificationCode } from '$lib/utils/otp';
 	import FolderPicker from './FolderPicker.svelte';
 	import AttachmentBar from './AttachmentBar.svelte';
@@ -141,38 +143,14 @@
 		}
 	}
 
-	/**
-	 * Classify the email's `List-Unsubscribe` support:
-	 *  - `one-click`: RFC 8058 — both List-Unsubscribe-Post: One-Click AND
-	 *    an HTTPS URL. We POST to it server-side.
-	 *  - `mailto`: only a mailto URI — we send an empty message.
-	 *  - `url`: only an HTTP(S) URL without the POST header — open in a
-	 *    new tab (human interaction required on the sender's site).
-	 *  - `none`: no unsubscribe support at all.
-	 */
-	type UnsubMode = 'one-click' | 'mailto' | 'url' | 'none';
-	interface UnsubInfo {
-		mode: UnsubMode;
-		url?: string;
-		mailto?: string;
-	}
-
-	const unsubInfo = $derived.by<UnsubInfo>(() => {
-		const header = email['header:list-unsubscribe:asText'];
-		const postHeader = email['header:list-unsubscribe-post:asText'];
-		if (!header) return { mode: 'none' };
-
-		const httpsMatch = header.match(/<(https:\/\/[^>]+)>/i);
-		const anyUrlMatch = header.match(/<(https?:\/\/[^>]+)>/i);
-		const mailtoMatch = header.match(/<(mailto:[^>]+)>/i);
-
-		if (postHeader?.toLowerCase().includes('one-click') && httpsMatch) {
-			return { mode: 'one-click', url: httpsMatch[1] };
-		}
-		if (mailtoMatch) return { mode: 'mailto', mailto: mailtoMatch[1] };
-		if (anyUrlMatch) return { mode: 'url', url: anyUrlMatch[1] };
-		return { mode: 'none' };
-	});
+	// What the email's List-Unsubscribe header offers: one-click (RFC 8058),
+	// a mailto, a page to open, or nothing. See $lib/utils/list-unsubscribe.
+	const unsubInfo = $derived<UnsubInfo>(
+		parseListUnsubscribe(
+			email['header:list-unsubscribe:asText'],
+			email['header:list-unsubscribe-post:asText']
+		)
+	);
 	// Label ids are also mailbox ids now; skip them when picking a source
 	// mailbox for move-style actions (archive/trash/spam) so we don't
 	// accidentally treat a label as the email's home folder.
@@ -292,7 +270,77 @@
 		showLabelMenu = false;
 	}
 
+	// --- Remote images: Settings → Messages → "Auto-load remote images" ---
+	// never | contacts_only | always; anything else is the default, contacts only.
+	const imagePolicy = $derived.by(() => {
+		const value = page.data.autoLoadImages;
+		return value === 'never' || value === 'always' ? value : 'contacts_only';
+	});
+	const senderAddress = $derived(from?.email?.trim().toLowerCase() ?? '');
+	// Whether the sender is a contact, for contacts_only. Keyed by address so an
+	// answer that arrives after you've moved on is never applied to the next
+	// message. Until it arrives, and if it can't be had, images stay blocked.
+	let senderKnown = $state<{ address: string; known: boolean | null } | null>(null);
+	$effect(() => {
+		const address = senderAddress;
+		if (imagePolicy !== 'contacts_only' || !address) return;
+		let stale = false;
+		void fetch(`/api/contacts/known?email=${encodeURIComponent(address)}`)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((d: { known?: boolean | null } | null) => {
+				if (!stale) senderKnown = { address, known: d?.known ?? null };
+			})
+			.catch(() => {
+				if (!stale) senderKnown = { address, known: null };
+			});
+		return () => {
+			stale = true;
+		};
+	});
+	// "Load images" on the banner: this message only, never remembered.
+	let imagesShownFor = $state<string | null>(null);
+	const remoteAllowed = $derived(
+		imagePolicy === 'always' ||
+		imagesShownFor === email.id ||
+		(imagePolicy === 'contacts_only' &&
+			senderKnown?.address === senderAddress &&
+			senderKnown.known === true)
+	);
+
+	/**
+	 * The body as shown in the reading view: remote images through the image
+	 * proxy, or blocked, per the setting; `cid:` images from their inline
+	 * parts. Replies and forwards quote {@link getBodyHtml} instead, so
+	 * recipients get the sender's original image URLs rather than links into
+	 * this webmail.
+	 */
+	const display = $derived(
+		prepareEmailForReading(getBodyHtml(), {
+			emailId: email.id,
+			attachments: email.attachments ?? [],
+			remote: remoteAllowed ? 'proxy' : 'block'
+		})
+	);
+
+	// The frame's CSP names this origin (a path-restricted source needs a host).
+	// The browser's own origin once hydrated; the server's view of it before.
+	const frameOrigin = $derived(browser ? window.location.origin : page.url.origin);
+	// emailFrameCsp refuses anything that isn't a plain http(s) origin. Should
+	// that ever happen, fall back to a policy that allows no network at all.
+	const frameCsp = $derived.by(() => {
+		try {
+			return emailFrameCsp(frameOrigin, remoteAllowed);
+		} catch {
+			return "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'";
+		}
+	});
+
+	// The CSP <meta> comes first, so it governs everything the email loads; an
+	// email's own CSP <meta> can only tighten it. no-referrer keeps the address
+	// of this webmail out of any link you follow from the message.
 	const iframeContent = $derived(`<!DOCTYPE html><html><head>
+		<meta http-equiv="Content-Security-Policy" content="${frameCsp}">
+		<meta name="referrer" content="no-referrer">
 		<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 		<base target="_blank">
 		<style>
@@ -302,7 +350,7 @@
 			pre { white-space: pre-wrap; }
 			blockquote { border-left: 3px solid #0969da; padding-left: 1em; margin-left: 0; color: #59636e; }
 		</style>
-	</head><body>${getDisplayHtml()}</body></html>`);
+	</head><body>${display.html}</body></html>`);
 
 
 	// The message's own attachments, as the composer's blob references.
@@ -358,19 +406,6 @@
 
 	function getBodyHtml(): string {
 		return renderEmailBodyHtml(email) || '<p style="color: #59636e;">No content</p>';
-	}
-
-	/**
-	 * The body as shown in the reading view: remote images load through our
-	 * image proxy and `cid:` images from their inline parts. Replies and
-	 * forwards quote {@link getBodyHtml} instead, so recipients get the
-	 * sender's original image URLs rather than links into this webmail.
-	 */
-	function getDisplayHtml(): string {
-		return rewriteEmailImages(getBodyHtml(), {
-			emailId: email.id,
-			attachments: email.attachments ?? []
-		});
 	}
 
 	function getHtmlQuotedBlock(): string {
@@ -1160,6 +1195,16 @@
 				</div>
 			{/if}
 		</section>
+	{/if}
+
+	{#if display.blockedRemote > 0 && !remoteAllowed}
+		<!-- Remote images blocked by the setting (or while a contact lookup is
+		     pending). Loading them is a per-message choice. -->
+		<div class="flex items-center gap-2 shrink-0 border-b border-border text-xs text-text-secondary {compact ? 'px-4 py-1.5' : 'px-6 py-2 max-md:px-2'}">
+			<Icon name="file-image" size={14} />
+			<span class="flex-1 min-w-0">Remote images are hidden, so the sender can't tell you opened this.</span>
+			<button onclick={() => (imagesShownFor = email.id)} class="btn btn-ghost btn-sm">Load images</button>
+		</div>
 	{/if}
 
 	<!-- Email body in sandboxed iframe. The iframe always fills the

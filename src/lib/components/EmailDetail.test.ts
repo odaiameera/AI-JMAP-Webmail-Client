@@ -1,0 +1,110 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { Email } from '$lib/jmap/types';
+
+const mocks = vi.hoisted(() => ({
+	page: {
+		data: { autoLoadImages: 'contacts_only' as string, mailboxes: [], userEmail: 'me@example.test' },
+		url: new URL('http://localhost:3000/inbox')
+	}
+}));
+
+vi.mock('$app/state', () => ({ page: mocks.page }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+vi.mock('$app/environment', () => ({ browser: true, dev: false, building: false }));
+
+import EmailDetail from './EmailDetail.svelte';
+
+const PIXEL = 'https://tracker.example/open.gif?u=42';
+
+function email(): Email {
+	return {
+		id: 'M1',
+		threadId: 'T1',
+		mailboxIds: { inbox: true },
+		keywords: { $seen: true },
+		from: [{ name: 'Newsletter', email: 'news@shop.example' }],
+		to: [{ name: null, email: 'me@example.test' }],
+		cc: null,
+		subject: 'Hello',
+		receivedAt: '2026-10-20T10:00:00Z',
+		preview: '',
+		attachments: [],
+		htmlBody: [{ partId: '1', type: 'text/html' }],
+		bodyValues: { '1': { value: `<p>Hi</p><img src="${PIXEL}">` } }
+	} as unknown as Email;
+}
+
+let known: boolean | null = null;
+const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+	const url = String(input);
+	if (url.startsWith('/api/contacts/known')) return new Response(JSON.stringify({ known }), { status: 200 });
+	return new Response('{}', { status: 200 });
+});
+
+function srcdoc(): string {
+	return screen.getByTitle('Email content').getAttribute('srcdoc') ?? '';
+}
+const contactLookups = () => fetchMock.mock.calls.filter(([u]) => String(u).startsWith('/api/contacts/known'));
+
+beforeEach(() => {
+	vi.stubGlobal('fetch', fetchMock);
+	known = null;
+});
+
+afterEach(() => {
+	cleanup();
+	fetchMock.mockClear();
+	vi.unstubAllGlobals();
+});
+
+describe('EmailDetail remote images', () => {
+	it('"Never" blocks the tracker, says so, and loads it only when asked', async () => {
+		mocks.page.data.autoLoadImages = 'never';
+		render(EmailDetail, { email: email() });
+
+		expect(srcdoc()).not.toContain('tracker.example');
+		expect(srcdoc()).toContain('Content-Security-Policy');
+		expect(srcdoc()).not.toContain('/api/image-proxy');
+		expect(contactLookups()).toHaveLength(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Load images' }));
+		await waitFor(() => expect(srcdoc()).toContain(`/api/image-proxy?url=${encodeURIComponent(PIXEL)}`));
+		// The frame policy now lets the proxy through, and the banner is gone.
+		expect(srcdoc()).toMatch(/img-src [^;]*\/api\/image-proxy/);
+		expect(screen.queryByRole('button', { name: 'Load images' })).toBeNull();
+	});
+
+	it('"Contacts only" loads images for a known sender', async () => {
+		mocks.page.data.autoLoadImages = 'contacts_only';
+		known = true;
+		render(EmailDetail, { email: email() });
+
+		await waitFor(() => expect(srcdoc()).toContain('/api/image-proxy?url='));
+		expect(contactLookups()[0][0]).toBe('/api/contacts/known?email=news%40shop.example');
+	});
+
+	it('"Contacts only" keeps them blocked for a stranger, or when the lookup fails', async () => {
+		mocks.page.data.autoLoadImages = 'contacts_only';
+		known = false;
+		render(EmailDetail, { email: email() });
+		await waitFor(() => expect(contactLookups()).toHaveLength(1));
+		expect(srcdoc()).not.toContain('tracker.example');
+		expect(screen.getByRole('button', { name: 'Load images' })).toBeTruthy();
+		cleanup();
+
+		known = null; // no contacts on the server
+		render(EmailDetail, { email: email() });
+		await waitFor(() => expect(contactLookups()).toHaveLength(2));
+		expect(srcdoc()).not.toContain('tracker.example');
+	});
+
+	it('"Always" proxies without asking about contacts', () => {
+		mocks.page.data.autoLoadImages = 'always';
+		render(EmailDetail, { email: email() });
+		expect(srcdoc()).toContain('/api/image-proxy?url=');
+		expect(srcdoc()).not.toMatch(/src="https:\/\/tracker/);
+		expect(contactLookups()).toHaveLength(0);
+	});
+});

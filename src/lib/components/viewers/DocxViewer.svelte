@@ -17,15 +17,18 @@
 
 		(async () => {
 			try {
-				const [mammothModule, buffer] = await Promise.all([
+				const [mammothModule, { sanitizeDocxHtml }, buffer] = await Promise.all([
 					import('mammoth'),
+					import('$lib/utils/docx-html'),
 					fetchArrayBuffer(attachment.emailId, attachment.blobId, attachment.name)
 				]);
 
 				// `mammoth` only exposes its API on the default export under ESM.
 				const mammoth = mammothModule.default ?? mammothModule;
 				const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
-				html = result.value;
+				// mammoth passes link targets through as written, `javascript:`
+				// included, and this renders in the app's own DOM: clean it first.
+				html = sanitizeDocxHtml(result.value);
 				warnings = result.messages.slice(0, 3).map((m) => m.message);
 				loading = false;
 			} catch (err) {

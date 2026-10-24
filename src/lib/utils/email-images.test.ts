@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EmailAttachment } from '$lib/jmap/types';
-import { proxiedImageUrl, rewriteEmailImages } from './email-images';
+import { emailFrameCsp, prepareEmailForReading, proxiedImageUrl, rewriteEmailImages } from './email-images';
 
 const ctx = (attachments: Partial<EmailAttachment>[] = []) => ({
 	emailId: 'M1',
@@ -73,11 +73,35 @@ describe('rewriteEmailImages', () => {
 		expect(out).toContain('src="cid:missing"');
 	});
 
-	it('leaves data: URLs, relative paths, links and lookalike attributes untouched', () => {
+	it('leaves data: URLs, links and lookalike attributes untouched', () => {
 		const html =
-			'<img src="data:image/png;base64,AAAA"><img src="/local.png" data-src="https://a.test/x.png">' +
+			'<img src="data:image/png;base64,AAAA"><img alt="x" data-src="https://a.test/x.png">' +
 			'<a href="https://a.test/page">link</a>';
 		expect(rewriteEmailImages(html, ctx())).toBe(html);
+	});
+
+	it('neutralises relative images with no <base>, which would hit this server', () => {
+		// The reading view renders on this origin, so `/api/...` is a request to
+		// the webmail itself, cookies and all — and `/api/image-proxy?url=` would
+		// smuggle a tracker past the remote-image setting.
+		const out = rewriteEmailImages(
+			'<img src="/api/image-proxy?url=https%3A%2F%2Ft.test%2Fp.gif"><img src="logo.png">' +
+				'<div style="background:url(/api/x)">x</div>',
+			ctx()
+		);
+		expect(out).not.toContain('/api/image-proxy?url=https%3A%2F%2Ft.test');
+		expect(out).not.toContain('/api/x');
+		expect(out).not.toContain('logo.png');
+		expect(out).toContain('src="about:invalid"');
+	});
+
+	it('routes SVG <image> references through the same rules', () => {
+		const out = rewriteEmailImages(
+			'<svg><image href="https://a.test/1.png"/><image xlink:href="/api/x"/></svg>',
+			ctx()
+		);
+		expect(out).toContain(`href="${proxied('https://a.test/1.png')}"`);
+		expect(out).toContain('xlink:href="about:invalid"');
 	});
 
 	it('does not stop at a ">" inside a quoted attribute', () => {
@@ -92,5 +116,77 @@ describe('rewriteEmailImages', () => {
 		);
 		expect(out).not.toContain('<base');
 		expect(out).toContain(`src="${proxied('https://news.test/mail/img/1.png')}"`);
+	});
+});
+
+describe('prepareEmailForReading', () => {
+	const TRACKERS =
+		'<img src="https://t.test/open.gif"><img srcset="https://t.test/a.png 1x, https://t.test/b.png 2x">' +
+		'<td background="//t.test/bg.png" style="background-image:url(https://t.test/s.png)">x</td>' +
+		'<style>.h{background:url("https://t.test/h.jpg")}</style>' +
+		'<video poster="https://t.test/p.jpg"></video><input type="image" src="https://t.test/i.png">' +
+		'<svg><image href="https://t.test/svg.png"/></svg>';
+
+	it('proxies remote images when they are allowed', () => {
+		const { html, blockedRemote } = prepareEmailForReading(TRACKERS, { ...ctx(), remote: 'proxy' });
+		expect(blockedRemote).toBe(0);
+		expect(html).toContain(`src="${proxied('https://t.test/open.gif')}"`);
+		expect(html).not.toMatch(/(src|srcset|background|poster|href)="(https?:)?\/\/t\.test/);
+	});
+
+	it('blocks every remote image when they are not, and counts them', () => {
+		const { html, blockedRemote } = prepareEmailForReading(TRACKERS, { ...ctx(), remote: 'block' });
+		expect(html).not.toContain('t.test');
+		expect(html).not.toContain('/api/image-proxy');
+		expect(blockedRemote).toBe(9);
+	});
+
+	it('still shows inline cid: images and data: images when remote ones are blocked', () => {
+		const { html, blockedRemote } = prepareEmailForReading(
+			'<img src="cid:logo@x"><img src="data:image/png;base64,AAAA">',
+			{ ...ctx([{ cid: 'logo@x', blobId: 'B1', name: 'logo.png', type: 'image/png' }]), remote: 'block' }
+		);
+		expect(blockedRemote).toBe(0);
+		expect(html).toContain('/api/email/M1/attachment/B1');
+		expect(html).toContain('data:image/png;base64,AAAA');
+	});
+
+	it('removes <link> tags and meta refreshes, which load or navigate outside CSP image rules', () => {
+		const { html } = prepareEmailForReading(
+			'<link rel="stylesheet" href="https://t.test/s.css"><link rel=dns-prefetch href=//t.test>' +
+				'<LINK REL="preconnect" HREF="https://t.test"/>' +
+				'<meta http-equiv="refresh" content="0;url=https://t.test/opened">' +
+				"<meta http-equiv='Refresh' content='5'><meta charset=\"utf-8\"><p>Hello</p>",
+			{ ...ctx(), remote: 'proxy' }
+		);
+		expect(html).not.toMatch(/<link|refresh|t\.test/i);
+		expect(html).toContain('<meta charset="utf-8">');
+		expect(html).toContain('<p>Hello</p>');
+	});
+});
+
+describe('emailFrameCsp', () => {
+	const ORIGIN = 'https://mail.example.test';
+
+	it('only lets images load from attachments, the proxy (when allowed) and inline data', () => {
+		const csp = emailFrameCsp(ORIGIN, true);
+		expect(csp).toContain("default-src 'none'");
+		expect(csp).toContain(`img-src ${ORIGIN}/api/email/ ${ORIGIN}/api/image-proxy data: blob:`);
+		expect(csp).toContain("style-src 'unsafe-inline'");
+		expect(csp).toContain("font-src data:");
+		expect(csp).toContain("media-src 'none'");
+		expect(csp).toContain("frame-src 'none'");
+		expect(csp).toContain("form-action 'none'");
+	});
+
+	it('leaves the image proxy out entirely when remote images are blocked', () => {
+		const csp = emailFrameCsp(ORIGIN, false);
+		expect(csp).not.toContain('image-proxy');
+		expect(csp).toContain(`img-src ${ORIGIN}/api/email/ data: blob:`);
+	});
+
+	it('refuses an origin that could break out of the policy', () => {
+		expect(() => emailFrameCsp("https://x.test; script-src 'unsafe-inline'", true)).toThrow();
+		expect(() => emailFrameCsp('javascript:alert(1)', true)).toThrow();
 	});
 });

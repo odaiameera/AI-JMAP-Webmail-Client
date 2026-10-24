@@ -45,6 +45,7 @@ interface FakeEmail {
 	preview: string;
 	'header:list-unsubscribe:asText'?: string;
 	'header:x-spam-status:asText'?: string;
+	'header:authentication-results:asText:all'?: string[];
 }
 
 /** Just enough JMAP for a sorting pass, over an in-memory mailbox. */
@@ -450,8 +451,14 @@ describe('sortNewMail', () => {
 
 		it('in active mode, brings clean mail back from Junk and leaves real spam there', async () => {
 			updateJevSettings(ACCT, { spamMode: 'active' });
-			fake.add('wronglyJunked', 1, { mailboxIds: { junk: true }, subject: 'Your receipt' });
-			fake.add('realSpam', 2, { mailboxIds: { junk: true }, ...flagged });
+			const dmarc = (result: string) => ({
+				'header:authentication-results:asText:all': [`mx.example.test; spf=pass; dkim=pass; dmarc=${result}`]
+			});
+			fake.add('wronglyJunked', 1, { mailboxIds: { junk: true }, subject: 'Your receipt', ...dmarc('pass') });
+			fake.add('realSpam', 2, { mailboxIds: { junk: true }, ...flagged, ...dmarc('pass') });
+			// Looks clean to Jev, but nothing vouches for the sender's domain.
+			fake.add('noDmarc', 3, { mailboxIds: { junk: true }, subject: 'Your receipt' });
+			fake.add('dmarcError', 4, { mailboxIds: { junk: true }, subject: 'Your receipt', ...dmarc('temperror') });
 
 			await sortNewMail(ACCT, ME, auth, at(10));
 
@@ -459,6 +466,8 @@ describe('sortNewMail', () => {
 			expect(getDecision(ACCT, 'wronglyJunked')).toMatchObject({ stalwartSpam: true, spamAction: 'rescued' });
 			expect(fake.emails.get('realSpam')!.mailboxIds).toEqual({ junk: true });
 			expect(getDecision(ACCT, 'realSpam')?.spamAction).toBeNull();
+			expect(fake.emails.get('noDmarc')!.mailboxIds).toEqual({ junk: true });
+			expect(fake.emails.get('dmarcError')!.mailboxIds).toEqual({ junk: true });
 		});
 
 		it('leaves Junk alone while spam checks are off', async () => {
